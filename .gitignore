@@ -1,5 +1,12 @@
-node_modules
-node_modules
-node_modules
-.env
+# Dependências
+node_modules/
 
+# Variáveis de Ambiente (Segurança)
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# Builds e Cache
+dist/
+.cache/
