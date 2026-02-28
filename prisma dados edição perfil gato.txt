@@ -1,0 +1,29 @@
+// --- GATOS (MODELO MESTRE) ---
+model Pet {
+  id              String   @id @default(uuid())
+  ownerId         String
+  
+IDENTIFICAÇÃO 
+  name            String
+  nicknames       String?
+  breed           String?
+  photoUrl        String?
+  gender          Gender   @default(UNKNOWN)
+  pedigreeUrl     String? 
+  city            String?
+  microchip       String?
+  
+DADOS VITAIS & TEMPO
+  birthDate       DateTime?
+  deathDate       DateTime? // Para o Memorial
+  isDateEstimated Boolean  @default(false)
+  ageYears        Int?
+  ageMonths       Int?
+  traumaHistory   String?  @db.Text
+  
+STATUS
+  isArchived      Boolean  @default(false)
+  isMemorial      Boolean  @default(false)
+  memorial        MemorialTribute?
+ themeColor      String?  // Ex: bg-[#FFF5E6]
+  

@@ -1,0 +1,22 @@
+{
+  "short_name": "Gatedo",
+  "name": "Gatedo - Gestão Felina",
+  "icons": [
+    {
+      "src": "pwa-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "pwa-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#7865DA",
+  "background_color": "#F7F7FF"
+}

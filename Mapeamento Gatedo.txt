@@ -1,0 +1,25 @@
+1. Mapeamento de Campos (Prisma → Front-end)
+Use estes nomes de variáveis para garantir que o perfil exiba dados reais vindos do banco:
+
+
+Identificação: cat.id, cat.name, cat.breed , cat.gender (MALE/FEMALE).
++1
+
+
+Estética: cat.photoUrl , cat.gallery (Array de fotos) , cat.themeColor.
++2
+
+
+Saúde & Peso: cat.weight (Float) , cat.neutered (Boolean) , cat.pedigreeUrl.
++2
+
+
+Idade & Local: cat.ageYears, cat.ageMonths , cat.city.
++1
+
+
+RPG / Skills: skillSocial, skillDocile, skillCuriosity, skillIndep, skillEnergy, skillAgility.
+
+
+Nutrição: foodBrand , foodFreq, foodAmount.
++1

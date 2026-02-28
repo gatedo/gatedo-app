@@ -1,0 +1,40 @@
+/* Importando a fonte do Design */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Configuração Global */
+html, body, #root{
+
+  font-family: 'Nunito', sans-serif;
+  -webkit-font-smoothing: antialiased;
+min-height: 100vh;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #F4F3FF; /* Garante que a cor base cubra tudo */
+}
+
+/* Remove a barra de rolagem feia no mobile/desktop mas mantém o scroll */
+::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #F4F3FF;
+  border-radius: 10px;
+}
+
+.igent-hero-bg {
+  background: linear-gradient(160deg, #5B4FD6 0%, #7B6EF5 40%, #9D8FFF 70%, #C5BCFF 100%) !important;
+  background-attachment: fixed; /* Trava o fundo para não aparecer branco no scroll */
+  background-size: cover;
+  min-height: 100vh;
+}
+
+/* TESTE DE DEBUG: Pinta tudo de vermelho para ver quem está sobrando 
+* {
+  outline: 1px solid rgba(255, 0, 0, 0.336);
+}*/

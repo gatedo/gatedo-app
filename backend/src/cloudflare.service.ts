@@ -1,0 +1,52 @@
+import { Injectable } from '@nestjs/common';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
+import { Express } from 'express';
+import 'multer';
+import sharp from 'sharp'; // Importação corrigida para evitar TS2349
+
+@Injectable()
+export class CloudflareService {
+  private s3Client: S3Client;
+  private bucketName = process.env.R2_BUCKET_NAME || 'gatedo-assets';
+  private publicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+
+  constructor() {
+    this.s3Client = new S3Client({
+      region: 'auto',
+      endpoint: process.env.R2_ENDPOINT,
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+      },
+    });
+  }
+
+  async uploadImage(file: Express.Multer.File): Promise<string> {
+    try {
+      // 1. Otimização com Sharp - Agora a expressão será chamável corretamente
+      const optimizedBuffer = await sharp(file.buffer)
+        .resize(1080, 1080, { fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+
+      const fileName = `${uuidv4()}.webp`;
+
+      // 2. Envio para o R2
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: fileName,
+          Body: optimizedBuffer,
+          ContentType: 'image/webp',
+        }),
+      );
+
+      return `${this.publicUrl}/${fileName}`;
+    } catch (error) {
+      console.error('❌ Erro no upload:', error);
+      throw new Error('Falha ao processar imagem');
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "gatedo-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build && node -e \"if (!require('fs').existsSync('../client')) { console.warn('⚠️ ATENÇÃO: Pasta ../client não encontrada. O frontend pode não carregar.'); }\"",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+    "prisma:generate": "npx prisma generate"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.500.0",
+    "@aws-sdk/s3-request-presigner": "^3.500.0",
+    "@neondatabase/serverless": "^1.0.2",
+    "@nestjs/common": "^11.1.13",
+    "@nestjs/core": "^11.1.13",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/mapped-types": "*",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.1.13",
+    "@nestjs/serve-static": "^5.0.4",
+    "@prisma/adapter-neon": "5.22.0",
+    "@prisma/client": "5.22.0",
+    "bcrypt": "^6.0.0",
+    "openai": "^4.26.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "^0.2.2",
+    "resend": "^6.9.3",
+    "rxjs": "^7.8.2",
+    "sharp": "^0.34.5",
+    "uuid": "9.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.0.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/express": "^5.0.6",
+    "@types/multer": "1.4.11",
+    "@types/node": "^20.0.0",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/uuid": "^9.0.0",
+    "@types/ws": "^8.18.1",
+    "prisma": "5.22.0",
+    "typescript": "^5.0.0"
+  }
+}

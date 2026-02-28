@@ -1,0 +1,19 @@
+Use this token for authenticating against the Cloudflare API:
+Token value
+V3KZ_tWRfO_2osfB7HYOLYIv-jzkdRngTlT9gEBE
+
+Use the following credentials for S3 clients:
+Access Key ID
+6d4fb86c3a8f71061d21cf87f6a922cb
+
+Secret Access Key
+84be9812b93cbcafa95c87b8ba6a784d30af1ecb0f888cca4aac393b6be751cb
+
+
+Use jurisdiction-specific endpoints for S3 clients:
+Default
+https://8b79645f98a961e2ba045001dd4d8ab1.r2.cloudflarestorage.com
+
+
+S3
+https://8b79645f98a961e2ba045001dd4d8ab1.r2.cloudflarestorage.com/gatedo-media

@@ -1,0 +1,25 @@
+/* Importando a fonte do Design */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Configuração Global */
+body {
+  background-color:#F8F9FE; /* Cor de fundo Gatedo */
+  font-family: 'Nunito', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove a barra de rolagem feia no mobile/desktop mas mantém o scroll */
+::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #F8F9FE;
+  border-radius: 10px;
+}
