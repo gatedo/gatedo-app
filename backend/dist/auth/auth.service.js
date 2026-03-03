@@ -41,6 +41,7 @@ var __importStar = (this && this.__importStar) || (function () {
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
@@ -49,11 +50,12 @@ const prisma_service_1 = require("../prisma.service");
 const bcrypt = __importStar(require("bcrypt"));
 const crypto = __importStar(require("crypto"));
 const email_service_1 = require("../email/email.service");
-let AuthService = class AuthService {
+let AuthService = AuthService_1 = class AuthService {
     constructor(prisma, jwtService, emailService) {
         this.prisma = prisma;
         this.jwtService = jwtService;
         this.emailService = emailService;
+        this.logger = new common_1.Logger(AuthService_1.name);
     }
     async register(data) {
         const userExists = await this.prisma.user.findUnique({
@@ -86,17 +88,21 @@ let AuthService = class AuthService {
                 plan: userPlan,
                 badges: userBadges,
                 xp: initialXP,
-                emailVerified: false,
             },
         });
         const token = this.generateToken(user);
-        const verifyToken = crypto.randomBytes(32).toString('hex');
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: { emailVerifyToken: verifyToken },
+        setImmediate(async () => {
+            try {
+                const verifyToken = crypto.randomBytes(32).toString('hex');
+                await this.prisma.$executeRawUnsafe(`UPDATE "User" SET "emailVerifyToken" = $1 WHERE id = $2`, verifyToken, user.id);
+                await this.emailService.sendWelcome(user.email, user.name || 'Tutor', userPlan);
+                await this.emailService.sendEmailVerification(user.email, user.name || 'Tutor', verifyToken);
+                this.logger.log(`Fluxo de onboarding completo para ${user.email}`);
+            }
+            catch (e) {
+                this.logger.warn(`Falha no processo de e-mail: ${e.message}`);
+            }
         });
-        this.emailService.sendWelcome(user.email, user.name || 'Tutor', userPlan);
-        this.emailService.sendEmailVerification(user.email, user.name || 'Tutor', verifyToken);
         return token;
     }
     async login(data) {
@@ -109,53 +115,29 @@ let AuthService = class AuthService {
         return this.generateToken(user);
     }
     async verifyEmail(token) {
-        const user = await this.prisma.user.findUnique({
-            where: { emailVerifyToken: token },
-        });
-        if (!user)
-            throw new common_1.BadRequestException('Token de verificação inválido ou já utilizado.');
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: {
-                emailVerified: true,
-                emailVerifyToken: null,
-                xp: { increment: 50 },
-            },
-        });
-        return { success: true, message: 'Email verificado com sucesso! +50 XP' };
+        const users = await this.prisma.$queryRawUnsafe(`SELECT id FROM "User" WHERE "emailVerifyToken" = $1 LIMIT 1`, token);
+        if (!users || users.length === 0)
+            throw new common_1.BadRequestException('Token inválido.');
+        await this.prisma.$executeRawUnsafe(`UPDATE "User" SET "emailVerified" = true, "emailVerifyToken" = null, xp = xp + 50 WHERE id = $1`, users[0].id);
+        return { success: true, message: 'Email verificado!' };
     }
     async forgotPassword(email) {
         const user = await this.prisma.user.findUnique({ where: { email } });
         if (!user)
-            return { success: true, message: 'Se este email estiver cadastrado, você receberá as instruções.' };
+            return { success: true, message: 'Instruções enviadas se o e-mail existir.' };
         const token = crypto.randomBytes(32).toString('hex');
         const expires = new Date(Date.now() + 3600000);
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: { resetPasswordToken: token, resetPasswordExpires: expires },
-        });
+        await this.prisma.$executeRawUnsafe(`UPDATE "User" SET "resetPasswordToken" = $1, "resetPasswordExpires" = $2 WHERE id = $3`, token, expires, user.id);
         await this.emailService.sendPasswordReset(user.email, user.name || 'Tutor', token);
-        return { success: true, message: 'Se este email estiver cadastrado, você receberá as instruções.' };
+        return { success: true, message: 'Instruções enviadas.' };
     }
     async resetPassword(token, newPassword) {
-        const user = await this.prisma.user.findFirst({
-            where: {
-                resetPasswordToken: token,
-                resetPasswordExpires: { gt: new Date() },
-            },
-        });
-        if (!user)
-            throw new common_1.BadRequestException('Token inválido ou expirado. Solicite um novo link.');
+        const users = await this.prisma.$queryRawUnsafe(`SELECT id FROM "User" WHERE "resetPasswordToken" = $1 AND "resetPasswordExpires" > NOW() LIMIT 1`, token);
+        if (!users || users.length === 0)
+            throw new common_1.BadRequestException('Token expirado ou inválido.');
         const hashed = await bcrypt.hash(newPassword, 10);
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: {
-                password: hashed,
-                resetPasswordToken: null,
-                resetPasswordExpires: null,
-            },
-        });
-        return { success: true, message: 'Senha redefinida com sucesso!' };
+        await this.prisma.$executeRawUnsafe(`UPDATE "User" SET password = $1, "resetPasswordToken" = null, "resetPasswordExpires" = null WHERE id = $2`, hashed, users[0].id);
+        return { success: true, message: 'Senha redefinida!' };
     }
     generateToken(user) {
         const payload = { sub: user.id, email: user.email, plan: user.plan };
@@ -168,13 +150,13 @@ let AuthService = class AuthService {
                 plan: user.plan,
                 badges: user.badges,
                 xp: user.xp || 0,
-                emailVerified: user.emailVerified || false,
+                emailVerified: user.emailVerified ?? false,
             }
         };
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         jwt_1.JwtService,

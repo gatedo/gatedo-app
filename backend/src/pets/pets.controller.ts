@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors, Req } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma.service'; 
 import { CloudflareService } from '../cloudflare.service'; 
+import { JwtService } from '@nestjs/jwt';
 import { Express } from 'express'; 
 import 'multer'; 
 
@@ -10,12 +11,30 @@ export class PetsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudflare: CloudflareService,
+    private readonly jwtService: JwtService,
   ) {}
 
+  // Extrai userId do Bearer token — retorna null se não houver token
+  private getUserId(req: any): string | null {
+    try {
+      const auth = req.headers?.authorization || '';
+      if (!auth.startsWith('Bearer ')) return null;
+      const token = auth.split(' ')[1];
+      const payload: any = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET || 'CHAVE_SUPER_SECRETA_GATEDO',
+      });
+      return payload.sub || null;
+    } catch { return null; }
+  }
+
   @Get()
-  async findAll() {
+  async findAll(@Req() req: any) {
+    const ownerId = this.getUserId(req);
+    // Filtra por dono — cada usuário vê apenas seus próprios gatos
     return this.prisma.pet.findMany({
-      include: { owner: true }
+      where: ownerId ? { ownerId, isArchived: false } : { id: 'none' },
+      include: { owner: true },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -25,94 +44,6 @@ export class PetsController {
       where: { id },
       include: { documents: true, healthRecords: true } 
     });
-  }
-
-  /**
-   * GET /pets/:id/social-profile
-   * Agrega todos os dados para o CatSocialProfile numa unica chamada.
-   */
-  @Get(':id/social-profile')
-  async getSocialProfile(@Param('id') id: string) {
-    const pet = await this.prisma.pet.findUnique({
-      where: { id },
-      include: {
-        owner: {
-          select: {
-            id: true, name: true, photoUrl: true, xp: true, badges: true,
-            studioCreations: { select: { id: true } },
-          },
-        },
-        healthRecords: {
-          orderBy: { date: 'desc' }, take: 6,
-          select: { id: true, type: true, title: true, date: true, veterinarian: true, clinic: true },
-        },
-        igentSessions: {
-          orderBy: { date: 'desc' }, take: 3,
-          select: { id: true, symptomLabel: true, date: true, severity: true, resolvedAt: true },
-        },
-      },
-    });
-
-    if (!pet) return null;
-
-    const HEALTH_ICON: Record<string, string> = {
-      VACCINE: '💉', VERMIFUGE: '💊', PARASITE: '🛡️', MEDICATION: '💊',
-      MEDICINE: '💊', EXAM: '🔬', SURGERY: '🏥', CONSULTATION: '🩺', IACONSULT: '🧠',
-    };
-    const HEALTH_COLOR: Record<string, string> = {
-      VACCINE: '#10B981', VERMIFUGE: '#F59E0B', PARASITE: '#F97316', MEDICATION: '#60A5FA',
-      MEDICINE: '#60A5FA', EXAM: '#8B5CF6', SURGERY: '#0EA5E9', CONSULTATION: '#34D399', IACONSULT: '#6158ca',
-    };
-
-    const healthTimeline = [
-      ...pet.healthRecords.map(r => ({
-        date: r.date, event: r.title, type: r.type.toLowerCase(),
-        icon: HEALTH_ICON[r.type] ?? '📋', color: HEALTH_COLOR[r.type] ?? '#9CA3AF',
-        detail: [r.veterinarian, r.clinic].filter(Boolean).join(' · '),
-      })),
-      ...pet.igentSessions.map(s => ({
-        date: s.date, event: `iGentVet: ${s.symptomLabel}`, type: 'igent',
-        icon: '🧠', color: '#6158ca',
-        detail: s.resolvedAt ? 'Resolvido' : 'Em acompanhamento',
-      })),
-    ]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 8)
-      .map(item => ({
-        ...item,
-        date: new Date(item.date).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
-      }));
-
-    return {
-      id: pet.id,
-      slug: pet.name.toLowerCase().replace(/\s+/g, '-'),
-      name: pet.name,
-      breed: pet.breed,
-      themeColor: pet.themeColor,
-      photo: pet.photoUrl,
-      gallery: pet.gallery ?? [],
-      gender: pet.gender,
-      neutered: pet.neutered,
-      bio: pet.bio,
-      personality: pet.personality ?? [],
-      birthDate: pet.birthDate,
-      tutor: {
-        name: pet.owner.name,
-        firstName: pet.owner.name?.split(' ')[0] ?? 'Tutor',
-        avatar: pet.owner.photoUrl,
-        xp: pet.owner.xp,
-        badges: pet.owner.badges,
-      },
-      stats: {
-        followers: 0,
-        posts: 0,
-        healthDays: pet.healthRecords.length,
-        consultCount: pet.igentSessions.length,
-        studioCreations: pet.owner.studioCreations.length,
-      },
-      healthTimeline,
-      achievements: pet.owner.badges,
-    };
   }
 
   @Delete(':id')

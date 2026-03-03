@@ -36,6 +36,12 @@ model User {
   xp        Int      @default(0)
   coins     Int      @default(0)
 
+  // Email & Autenticação
+  emailVerified          Boolean   @default(false)
+  emailVerifyToken       String?   @unique
+  resetPasswordToken     String?   @unique
+  resetPasswordExpires   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -105,7 +111,7 @@ skillEnergy     String   @default("75")
   neutered        Boolean  @default(false)
   neuterIntention String?
   healthSummary   String?  @db.Text
-  treatmentSchedules  TreatmentSchedule[]
+  pedigreeUrl     String?  // NOVO: Necessário para o "Pedigree Flip" funcionar no Escritório
   
   // 5. NUTRIÇÃO & COMPORTAMENTO
   foodBrand       String?
@@ -127,8 +133,6 @@ skillEnergy     String   @default("75")
   adoptionStory   String?  @db.Text
   hasAwards       Boolean  @default(false)
   awardsDetail    String?
-  pedigreeUrl     String?  // NOVO: Necessário para o "Pedigree Flip" funcionar no Escritório
-  
   
   // 7. STATUS & GAMIFICAÇÃO
   isArchived      Boolean  @default(false)
@@ -149,6 +153,7 @@ skillEnergy     String   @default("75")
   igentSessions   IgentSession[]
   documents       Document[]     // Relaciona com a tabela de documentos (Exames, Contratos)
   memorial        MemorialTribute?
+  treatments    TreatmentSchedule[]
 }
 
 enum Gender {
@@ -350,30 +355,23 @@ enum OrderStatus {
 }
 
 model Product {
-  id           String      @id @default(uuid())
+  id           String   @id @default(uuid())
   categoryId   String
   name         String
-  description  String      @db.Text
-  price        Decimal     @db.Decimal(10, 2)
-  promoPrice   Decimal?    @db.Decimal(10, 2)
+  description  String
+  price        Decimal  @db.Decimal(10, 2)
+  promoPrice   Decimal? @db.Decimal(10, 2)
   images       String[] 
-  isDigital    Boolean     @default(false) 
-  externalLink String?     // Link de Afiliado (Amazon, Shopee, etc)
-  stock        Int         @default(0)
-  
-  // Campo corrigido para evitar erro TS2353
-  platform     String?     // "SHOPEE", "AMAZON", "MERCADO LIVRE", "PETZ"
-  
-  // Campos extras para suporte ao Dashboard e Store
-  badge        String?     // Ex: "Top 1", "Oferta"
-  videoReview  String?     // URL do YouTube Embed
-  
-  // Relacionamentos
-  category     Category    @relation(fields: [categoryId], references: [id])
+  videoReview  String?  
+  isDigital    Boolean  @default(false) 
+  externalLink String?
+  stock        Int      @default(0)
+  platform     String?  
+  badge        String?  
+  createdAt    DateTime @default(now()) 
+  updatedAt    DateTime @updatedAt       
+  category     Category @relation(fields: [categoryId], references: [id])
   orderItems   OrderItem[]
-
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
 }
 
 model Category {
@@ -466,36 +464,32 @@ model TutorPoints {
   @@index([userId])
 }
 
+// --- TRATAMENTOS ---
 model TreatmentSchedule {
-  id            String    @id @default(uuid())
+  id            String          @id @default(uuid())
   petId         String
-  pet           Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  userId        String    // tutor owner (para push notification)
-  title         String    // ex: "Amoxicilina 250mg"
-  notes         String?   // ex: "Dar com comida, diluído em água"
-  intervalHours Int       // 8 = a cada 8h | 12 | 24 | 48
+  userId        String
+  title         String
+  notes         String?
+  intervalHours Int
   startDate     DateTime
-  endDate       DateTime? // null = tratamento contínuo sem prazo
-  active        Boolean   @default(true)
-  doses         TreatmentDose[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  endDate       DateTime?
+  active        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  @@index([petId])
-  @@index([userId])
-  @@index([active])
+  pet           Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
+  doses         TreatmentDose[]
 }
 
 model TreatmentDose {
-  id           String            @id @default(uuid())
-  scheduleId   String
-  schedule     TreatmentSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  scheduledAt  DateTime          // quando deveria ser administrada
-  takenAt      DateTime?         // quando foi administrada (null = pendente ou perdida)
-  skipped      Boolean           @default(false) // tutor marcou como pulada
-  notes        String?           // observação da dose (reação, etc)
-  createdAt    DateTime          @default(now())
+  id          String            @id @default(uuid())
+  scheduleId  String
+  scheduledAt DateTime
+  takenAt     DateTime?
+  skipped     Boolean           @default(false)
+  notes       String?
+  createdAt   DateTime          @default(now())
 
-  @@index([scheduleId])
-  @@index([scheduledAt])
+  schedule    TreatmentSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 }

@@ -126,4 +126,4 @@ exports.GamificationController = GamificationController = __decorate([
     (0, common_1.Controller)('gamification'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], GamificationController);
-//# sourceMappingURL=gamification.controller.js.map
+//# sourceMappingURL=Gamification.controller.js.map
