@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "npm install --include=optional sharp",
     "build": "prisma generate && nest build && node -e \"if (!require('fs').existsSync('../client')) { console.warn('⚠️ ATENÇÃO: Pasta ../client não encontrada. O frontend pode não carregar.'); }\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
