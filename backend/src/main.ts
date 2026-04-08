@@ -1,50 +1,51 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { neonConfig } from '@neondatabase/serverless';
-import { PrismaClient } from '@prisma/client'; // Importamos para o check de saúde
-import ws from 'ws';
+import { PrismaService } from './prisma/prisma.service';
 
 async function bootstrap() {
-  // Configuração global para o Neon Database
-  neonConfig.webSocketConstructor = ws;
-
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
-  
+
   app.enableCors({
-    origin: '*', 
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://app.gatedo.com',
+      'https://gatedo.com',
+      'https://api.gatedo.com',
+    ],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
 
-  // --- ROTA DE MONITORAMENTO (HEALTH CHECK) ---
-  // Criamos aqui para ser uma rota rápida e direta sem passar por Guards complexos
-  const prisma = new PrismaClient();
+  const prisma = app.get(PrismaService);
   const httpAdapter = app.getHttpAdapter();
 
-  httpAdapter.get('/api/health', async (req, res) => {
+  httpAdapter.get('/api/health', async (_req, res) => {
     try {
-      // Tenta uma query simples no banco Neon
       await prisma.$queryRaw`SELECT 1`;
-      
-      res.status(200).json({ 
-        status: 'online', 
+
+      res.status(200).json({
+        status: 'online',
         database: 'connected',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-    } catch (error) {
-      // Se o banco falhar mas a API estiver viva (evita erro 503 total)
-      res.status(200).json({ 
-        status: 'online', 
+    } catch (_error) {
+      res.status(200).json({
+        status: 'online',
         database: 'disconnected',
-        error: 'Falha na conexão com o Banco Neon' 
+        error: 'Falha na conexão com o Banco Neon',
+        timestamp: new Date().toISOString(),
       });
     }
   });
-  // --------------------------------------------
 
-  const port = process.env.PORT || 3000;
+  const port = Number(process.env.PORT) || 3001;
   await app.listen(port);
+
   console.log(`🚀 Backend rodando em: http://localhost:${port}/api`);
 }
+
 bootstrap();

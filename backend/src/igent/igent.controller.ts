@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body, Query } from '@nestjs/common';
 import { IgentService } from './igent.service';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { GamificationIntegration } from '../notifications/gamification.integration';
 
 @Controller('igent')
@@ -20,7 +20,12 @@ export class IgentController {
       clinicalContext?: any;
     },
   ) {
-    return this.igentService.analyzeSymptom(body.petId, body.symptom, body.symptomId, body.clinicalContext);
+    return this.igentService.analyzeSymptom(
+      body.petId,
+      body.symptom,
+      body.symptomId,
+      body.clinicalContext,
+    );
   }
 
   @Post('chat')
@@ -33,7 +38,14 @@ export class IgentController {
       clinicalContext?: any;
     },
   ) {
-    return this.igentService.chatWithVet(body.petId, body.message, body.symptom, body.symptomId, body.clinicalContext);
+    // Usa chatWithVet — endpoint correto com contexto de chat
+    return this.igentService.chatWithVet(
+      body.petId,
+      body.message,
+      body.symptom,
+      body.symptomId,
+      body.clinicalContext,
+    );
   }
 
   @Post('report')
@@ -47,31 +59,31 @@ export class IgentController {
       ownerResponse?: string;
     },
   ) {
-    return this.igentService.generateReport(body.petId, body.symptomLabel, body.analysisText, body.care, body.isUrgent, body.ownerResponse || '');
+    return this.igentService.generateReport(
+      body.petId,
+      body.symptomLabel,
+      body.analysisText,
+      body.care,
+      body.isUrgent,
+      body.ownerResponse || '',
+    );
   }
 
   @Post('sessions')
   async createSession(@Body() body: any) {
     const session = await this.igentService.createSession(body);
-
-    // Verifica se é a primeira consulta do pet (bonus one-time)
     const totalSessions = await this.prisma.igentSession.count({
       where: { petId: body.petId },
     });
-
-    // Busca ownerId do pet
     const pet = await this.prisma.pet.findUnique({
       where: { id: body.petId },
       select: { ownerId: true },
     });
-
-    // Credita pontos do tutor + XP do gato (fire-and-forget)
     if (pet?.ownerId) {
       this.gamif
         .onIgentConsult(pet.ownerId, body.petId, totalSessions === 1)
         .catch(() => {});
     }
-
     return session;
   }
 
@@ -79,11 +91,9 @@ export class IgentController {
   async getSessions(@Query('petId') petId: string) {
     return this.igentService.getSessions(petId);
   }
-  // POST /igent/record-update
-  // Chamado pelo HealthForm ao salvar vacina/medicação — IA aprende imediatamente
+
   @Post('record-update')
   async recordUpdate(@Body() body: any) {
     return this.igentService.recordUpdate(body);
   }
-
 }

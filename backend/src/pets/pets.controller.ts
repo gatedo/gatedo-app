@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors, Req } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { PrismaService } from '../prisma.service'; 
-import { CloudflareService } from '../cloudflare.service'; 
+import { PrismaService } from '../prisma/prisma.service'; 
+import { CloudflareService } from '../cloudflare/cloudflare.service'; 
 import { JwtService } from '@nestjs/jwt';
 import { Express } from 'express'; 
 import 'multer'; 
@@ -14,7 +14,6 @@ export class PetsController {
     private readonly jwtService: JwtService,
   ) {}
 
-  // Extrai userId do Bearer token — retorna null se não houver token
   private getUserId(req: any): string | null {
     try {
       const auth = req.headers?.authorization || '';
@@ -30,21 +29,24 @@ export class PetsController {
   @Get()
   async findAll(@Req() req: any) {
     const ownerId = this.getUserId(req);
-    // Filtra por dono — cada usuário vê apenas seus próprios gatos
     return this.prisma.pet.findMany({
-      where: ownerId ? { ownerId, isArchived: false } : { id: 'none' },
+      where: ownerId ? { ownerId } : { id: 'none' },
       include: { owner: true },
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.prisma.pet.findUnique({ 
-      where: { id },
-      include: { documents: true, healthRecords: true } 
-    });
-  }
+ @Get(':id')
+findOne(@Param('id') id: string) {
+  return this.prisma.pet.findUnique({
+    where: { id },
+    include: {
+      owner: true,
+      healthRecords: { orderBy: { date: 'desc' } },
+      diaryEntries:  { orderBy: { date: 'desc' } },
+    },
+  });
+}
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
@@ -53,48 +55,73 @@ export class PetsController {
 
   @Patch(':id')
   @UseInterceptors(FileFieldsInterceptor([
-    { name: 'file', maxCount: 1 },
-    { name: 'gallery', maxCount: 6 },
-    { name: 'pedigree', maxCount: 1 },
+    { name: 'file',         maxCount: 1 },
+    { name: 'gallery',      maxCount: 6 },
+    { name: 'pedigree',     maxCount: 1 },  // frente
+    { name: 'pedigreeBack', maxCount: 1 },  // verso — NOVO
   ]))
   async update(
     @Param('id') id: string, 
     @UploadedFiles() files: { 
-      file?: Express.Multer.File[], 
-      gallery?: Express.Multer.File[],
-      pedigree?: Express.Multer.File[] 
+      file?:         Express.Multer.File[],
+      gallery?:      Express.Multer.File[],
+      pedigree?:     Express.Multer.File[],
+      pedigreeBack?: Express.Multer.File[],  // NOVO
     }, 
     @Body() body: any
   ) {
     const dataToUpdate: any = { ...body };
 
-    // Conversão de Booleanos
+    // Booleanos
     const booleanFields = ['isMemorial', 'neutered', 'isArchived', 'showInHome', 'streetAccess', 'hasAwards', 'isDateEstimated', 'riskAreaAccess'];
     booleanFields.forEach(field => {
-      if (dataToUpdate[field] === 'true') dataToUpdate[field] = true;
+      if (dataToUpdate[field] === 'true')  dataToUpdate[field] = true;
       if (dataToUpdate[field] === 'false') dataToUpdate[field] = false;
     });
 
-    // Conversão de Números Vitais
-    if (dataToUpdate.weight) dataToUpdate.weight = parseFloat(dataToUpdate.weight);
-    if (dataToUpdate.ageYears) dataToUpdate.ageYears = parseInt(dataToUpdate.ageYears);
-    if (dataToUpdate.ageMonths) dataToUpdate.ageMonths = parseInt(dataToUpdate.ageMonths);
+    // Helpers de sanitização
+    const toNullInt  = (v: any) => (v === '' || v === 'null' || v == null) ? null : (parseInt(v, 10) || null);
+    const toNullDate = (v: any) => (v === '' || v === 'null' || v == null) ? null : new Date(v);
+    const toNullStr  = (v: any) => (v === '' || v === 'null' || v == null) ? null : String(v);
 
-    // Tratamento de Arrays
+    // Números — trata string vazia e "null" como null
+    dataToUpdate.weight    = dataToUpdate.weight    != null ? (parseFloat(dataToUpdate.weight) || null) : undefined;
+    dataToUpdate.ageYears  = toNullInt(dataToUpdate.ageYears);
+    dataToUpdate.ageMonths = toNullInt(dataToUpdate.ageMonths);
+
+    // Datas — trata string vazia e "null" como null
+    if ('birthDate' in dataToUpdate) dataToUpdate.birthDate = toNullDate(dataToUpdate.birthDate);
+    if ('deathDate' in dataToUpdate) dataToUpdate.deathDate = toNullDate(dataToUpdate.deathDate);
+
+    // Strings opcionais vazias → null
+    ['microchip', 'nicknames', 'traumaHistory', 'healthSummary', 'deathCause', 'bio'].forEach(f => {
+      if (f in dataToUpdate) dataToUpdate[f] = toNullStr(dataToUpdate[f]);
+    });
+
+    // Arrays
     if (typeof body.personality === 'string') {
-      try { dataToUpdate.personality = JSON.parse(body.personality); } catch(e) { dataToUpdate.personality = []; }
+      try { dataToUpdate.personality = JSON.parse(body.personality); } catch { dataToUpdate.personality = []; }
     }
     if (typeof body.foodType === 'string') {
-      try { dataToUpdate.foodType = JSON.parse(body.foodType); } catch(e) { dataToUpdate.foodType = []; }
+      try { dataToUpdate.foodType = JSON.parse(body.foodType); } catch { dataToUpdate.foodType = []; }
     }
 
-    // Uploads
+    // Upload foto principal
     if (files?.file?.[0]) {
       dataToUpdate.photoUrl = await this.cloudflare.uploadImage(files.file[0]);
     }
+
+    // Upload pedigree FRENTE → pedigreeUrl
     if (files?.pedigree?.[0]) {
       dataToUpdate.pedigreeUrl = await this.cloudflare.uploadImage(files.pedigree[0]);
     }
+
+    // Upload pedigree VERSO → pedigreeBackUrl (NOVO)
+    if (files?.pedigreeBack?.[0]) {
+      dataToUpdate.pedigreeBackUrl = await this.cloudflare.uploadImage(files.pedigreeBack[0]);
+    }
+
+    // Upload galeria
     if (files?.gallery && files.gallery.length > 0) {
       const newPhotos = await Promise.all(
         files.gallery.map(f => this.cloudflare.uploadImage(f))
@@ -106,6 +133,7 @@ export class PetsController {
 
     delete dataToUpdate.file;
     delete dataToUpdate.pedigree;
+    delete dataToUpdate.pedigreeBack;
 
     return this.prisma.pet.update({
       where: { id },
@@ -114,19 +142,40 @@ export class PetsController {
   }
 
   @Post()
-  @UseInterceptors(FileFieldsInterceptor([{ name: 'file', maxCount: 1 }]))
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'photo',        maxCount: 1 },
+    { name: 'file',         maxCount: 1 },  // compatibilidade
+    { name: 'pedigree',     maxCount: 1 },  // frente no cadastro
+    { name: 'pedigreeBack', maxCount: 1 },  // verso no cadastro (futuro)
+  ]))
   async create(
-    @UploadedFiles() files: { file?: Express.Multer.File[] }, 
+    @UploadedFiles() files: {
+      photo?:        Express.Multer.File[],
+      file?:         Express.Multer.File[],
+      pedigree?:     Express.Multer.File[],
+      pedigreeBack?: Express.Multer.File[],
+    }, 
     @Body() body: any
   ) {
-    let photoUrl = null;
-    if (files?.file?.[0]) {
-      photoUrl = await this.cloudflare.uploadImage(files.file[0]);
+    const petData: any = { ...body };
+
+    // Foto principal — aceita 'photo' ou 'file'
+    const photoFile = files?.photo?.[0] || files?.file?.[0];
+    if (photoFile) {
+      petData.photoUrl = await this.cloudflare.uploadImage(photoFile);
     }
 
-    const petData: any = { ...body, photoUrl };
+    // Pedigree frente no cadastro
+    if (files?.pedigree?.[0]) {
+      petData.pedigreeUrl = await this.cloudflare.uploadImage(files.pedigree[0]);
+    }
 
-    // ── Booleanos (mesma lista do update) ──────────────────────────────────
+    // Pedigree verso no cadastro
+    if (files?.pedigreeBack?.[0]) {
+      petData.pedigreeBackUrl = await this.cloudflare.uploadImage(files.pedigreeBack[0]);
+    }
+
+    // Booleanos
     const booleanFields = [
       'neutered', 'isDateEstimated', 'streetAccess',
       'riskAreaAccess', 'hasAwards', 'isMemorial', 'isArchived', 'showInHome',
@@ -136,25 +185,29 @@ export class PetsController {
       if (petData[field] === 'false') petData[field] = false;
     });
 
-    // ── Números ────────────────────────────────────────────────────────────
-    // weight: '0' ou '' vira null; valor real vira Float
+    // Helpers (mesmo padrão do update)
+    const _toNullInt  = (v: any) => (v === '' || v === 'null' || v == null) ? null : (parseInt(v, 10) || null);
+    const _toNullDate = (v: any) => {
+      if (v === '' || v === 'null' || v == null) return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    // Números
     petData.weight    = (petData.weight && parseFloat(petData.weight) !== 0) ? parseFloat(petData.weight) : null;
-    petData.ageYears  = petData.ageYears  ? parseInt(petData.ageYears)  : null;
-    petData.ageMonths = petData.ageMonths ? parseInt(petData.ageMonths) : null;
+    petData.ageYears  = _toNullInt(petData.ageYears);
+    petData.ageMonths = _toNullInt(petData.ageMonths);
 
-    // ── Data de Nascimento: string 'YYYY-MM-DD' → DateTime ISO ────────────
-    if (petData.birthDate && petData.birthDate !== '') {
-      petData.birthDate = new Date(petData.birthDate + 'T00:00:00.000Z');
-    } else {
-      petData.birthDate = null;
-    }
+    // Datas
+    petData.birthDate = _toNullDate(petData.birthDate);
+    petData.deathDate = _toNullDate(petData.deathDate);
 
-    // ── Skills (padrão String) ─────────────────────────────────────────────
+    // Skills padrão
     petData.skillSocial    = body.skillSocial    || "80";
     petData.skillCuriosity = body.skillCuriosity || "90";
     petData.skillEnergy    = body.skillEnergy    || "75";
 
-    // ── Arrays: suporta tanto item-por-item (FormData) quanto JSON.parse ──
+    // Arrays
     if (Array.isArray(body.personality)) {
       petData.personality = body.personality;
     } else if (typeof body.personality === 'string') {
@@ -171,16 +224,16 @@ export class PetsController {
       petData.foodType = [];
     }
 
-    // ── Remover campos que NÃO existem no schema (vindos do FormData/UI) ──
-    const unknownFields = ['catType', 'avatarPreview', 'avatarFile', 'file'];
+    // Remove campos que não existem no schema
+    const unknownFields = ['catType', 'avatarPreview', 'avatarFile', 'file', 'photo', 'pedigree', 'pedigreeBack'];
     unknownFields.forEach(f => delete petData[f]);
 
-    // ── Converter strings vazias em null para campos opcionais ─────────────
+    // Strings opcionais vazias → null
     const optionalStrings = [
       'nicknames', 'microchip', 'neuterIntention', 'healthSummary',
       'foodBrand', 'foodFreq', 'activityLevel', 'socialOtherPets',
       'behaviorIssues', 'traumaHistory', 'habitat', 'housingType',
-      'adoptionStory', 'awardsDetail', 'deathCause','themeColor',
+      'adoptionStory', 'awardsDetail', 'deathCause', 'themeColor',
     ];
     optionalStrings.forEach(f => {
       if (petData[f] === '') petData[f] = null;

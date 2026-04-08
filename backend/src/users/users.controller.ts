@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
-import { CloudflareService } from '../cloudflare.service';
-import { PrismaService } from '../prisma.service';
+import { CloudflareService } from '../cloudflare/cloudflare.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { Express } from 'express';
 import 'multer';
@@ -35,7 +35,20 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
-  // Retorna o perfil do usuário com contagem de pets
+  // Endpoint usado pelo Store.jsx para buscar pontos
+ @Get(':id/points')
+async getPoints(@Param('id') id: string) {
+  const wallet = await this.prisma.userCredits.findUnique({
+    where: { userId: id },
+  });
+
+  return {
+    points: wallet?.balance ?? 0,
+    totalBought: wallet?.totalBought ?? 0,
+    totalUsed: wallet?.totalUsed ?? 0,
+  };
+}
+
   @Get(':id/profile')
   async getProfile(@Param('id') id: string) {
     const user = await this.prisma.user.findUnique({
@@ -47,10 +60,21 @@ export class UsersController {
         photoUrl: true,
         email: true,
         plan: true,
-        level: true,
-        xp: true,
         badges: true,
         createdAt: true,
+       tutorPoints: {
+  select: {
+    points: true,
+    totalEarned: true,
+  },
+},
+credits: {
+  select: {
+    balance: true,
+    totalBought: true,
+    totalUsed: true,
+  },
+},
         _count: {
           select: { pets: true },
         },
@@ -68,12 +92,10 @@ export class UsersController {
   ) {
     const dataToUpdate: any = {};
 
-    // Campos permitidos para atualização
     if (body.name  !== undefined) dataToUpdate.name  = body.name  || null;
     if (body.city  !== undefined) dataToUpdate.city  = body.city  || null;
     if (body.phone !== undefined) dataToUpdate.phone = body.phone || null;
 
-    // Upload da foto de perfil
     if (files?.file?.[0]) {
       dataToUpdate.photoUrl = await this.cloudflare.uploadImage(files.file[0]);
     }
@@ -88,9 +110,20 @@ export class UsersController {
         photoUrl: true,
         email: true,
         plan: true,
-        level: true,
-        xp: true,
         badges: true,
+       tutorPoints: {
+  select: {
+    points: true,
+    totalEarned: true,
+  },
+},
+credits: {
+  select: {
+    balance: true,
+    totalBought: true,
+    totalUsed: true,
+  },
+},
       },
     });
   }

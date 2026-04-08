@@ -1,6 +1,6 @@
 import { Controller, Post, UploadedFile, UseInterceptors, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { CloudflareService } from '../cloudflare.service';
+import { CloudflareService } from '../cloudflare/cloudflare.service';
 import { Express } from 'express'; 
 import 'multer'; // <--- Corrige a tipagem
 

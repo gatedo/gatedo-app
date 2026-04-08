@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Query, HttpException, HttpStatus } from '@nestjs/common';
-import { PrismaService } from '../prisma.service'; // Ajuste o caminho
+import { PrismaService } from '../prisma/prisma.service'; // Ajuste o caminho
 
 @Controller('diary-entries')
 export class DiaryController {

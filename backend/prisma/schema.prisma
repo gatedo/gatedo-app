@@ -1,254 +1,216 @@
-// prisma/schema.prisma
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// --- USUÁRIO ---
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  phone     String?  // String opcional
-  password  String   
-  name      String?
-  city      String?  // Pode ser nulo
-  photoUrl  String?
-  
-  // Controle de Acesso
-  role      Role     @default(USER) // Pode ser "ADMIN", "USER" ou "VET"
-  status    String   @default("ACTIVE") // ACTIVE, SUSPENDED, BANNED
- 
-  // Gestão do Plano
-  plan        String    @default("FREE") // FREE, FOUNDER, PREMIUM
-  planExpires DateTime?
-  
-  // Gamificação / Selos
-  badges    String[] @default([]) // Ex: ["FOUNDER", "EARLY_ADOPTER", "VET_FRIEND"]
-
-  // Gamificação (Níveis)
-  level     Int      @default(1)
-  xp        Int      @default(0)
-  coins     Int      @default(0)
-
-  // Email & Autenticação
-  emailVerified          Boolean   @default(false)
-  emailVerifyToken       String?   @unique
-  resetPasswordToken     String?   @unique
-  resetPasswordExpires   DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relacionamentos
-  pets               Pet[]
-  posts              Post[]
-  comments           Comment[]
-  achievements       UserAchievement[]
-  memorialTributes   MemorialTribute[]
-  studioCreations    StudioCreation[]
-  vetRecommendations VetRecommendation[]
-  orders             Order[]
-  notifications      Notification[]
-  tutorPoints        TutorPoints?
-  
-  // Relacionamento com o perfil de Veterinário (Se o usuário for um Vet)
-  vetProfile         VetPartner?
+  id                   String                 @id @default(uuid())
+  email                String                 @unique
+  phone                String?
+  password             String
+  name                 String?
+  photoUrl             String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  status               String                 @default("ACTIVE")
+  badges               String[]               @default([])
+  city                 String?
+  plan                 String                 @default("FREE")
+  planExpires          DateTime?
+  role                 Role                   @default(USER)
+  emailVerified        Boolean                @default(false)
+  emailVerifyToken     String?                @unique
+  resetPasswordExpires DateTime?
+  resetPasswordToken   String?                @unique
+  level                Int                    @default(1)
+  xp                   Int                    @default(0)
+  balanceActionsMade   BalanceAdjustmentLog[] @relation("BalanceActor")
+  balanceLogs          BalanceAdjustmentLog[] @relation("BalanceTarget")
+  comments             Comment[]
+  targetCoupons        Coupon[]               @relation("CouponTarget")
+  couponRedemptions    CouponRedemption[]
+  memorialTributes     MemorialTribute[]
+  notifications        Notification[]
+  orders               Order[]
+  pets                 Pet[]
+  posts                Post[]
+  postLikes            PostLike[]
+  postSaves            PostSave[]
+  productShares        ProductShare[]
+  socialFollows        SocialFollow[]         @relation("SocialFollowFollower")
+  petFollowers         SocialFollow[]         @relation("SocialFollowPetOwner")
+  studioCreations      StudioCreation[]
+  subscription         Subscription?
+  tutorPoints          TutorPoints?
+  achievements         UserAchievement[]
+  credits              UserCredits?
+  vetProfile           VetPartner?
+  vetRecommendations   VetRecommendation[]
+  noticeReads          NoticeRead[]
 }
 
-enum Role {
-  USER
-  ADMIN
-  VET
-}
-
-// --- GATOS (MODELO MESTRE) ---
 model Pet {
-  id              String   @id @default(uuid())
+  id              String              @id @default(uuid())
   ownerId         String
-  
-  // 1. IDENTIFICAÇÃO & ESTÉTICA
   name            String
   nicknames       String?
   breed           String?
-  themeColor      String?  // Ex: bg-[#FFF5E6]
+  themeColor      String?
   photoUrl        String?
-  gallery         String[] // Lista de URLs para as fotos extras
-  gender          Gender   @default(UNKNOWN)
-  
-  // 2. DADOS VITAIS & TEMPO
+  gallery         String[]
+  gender          Gender              @default(UNKNOWN)
   birthDate       DateTime?
-  deathDate       DateTime? // Para o Memorial
-  deathCause      String?  
-  isDateEstimated Boolean  @default(false)
+  deathDate       DateTime?
+  isDateEstimated Boolean             @default(false)
   ageYears        Int?
   ageMonths       Int?
   weight          Float?
-  
-  // 3. BIO & SKILLS (RPG SYSTEM)
-  bio             String?  @db.Text
-  
-  // Skills Comportamentais
-skillSocial     String   @default("80")
-  skillDocile     String   @default("95")
-  
-  // Skills de Personalidade
-skillCuriosity  String   @default("90")
-  skillIndep      String   @default("60")
-  
-  // Skills de Atividade
-skillEnergy     String   @default("75")
-  skillAgility    String   @default("85")
-  
-  // 4. SAÚDE & SEGURANÇA
   city            String?
   microchip       String?
-  neutered        Boolean  @default(false)
+  neutered        Boolean             @default(false)
   neuterIntention String?
-  healthSummary   String?  @db.Text
-  pedigreeUrl     String?  // NOVO: Necessário para o "Pedigree Flip" funcionar no Escritório
-  
-  // 5. NUTRIÇÃO & COMPORTAMENTO
+  healthSummary   String?
   foodBrand       String?
   foodFreq        String?
-  foodAmount      String?  // NOVO: Usado no NutritionModule (ex: "60g/dia")
-  foodType        String[] 
-  personality     String[] 
-  
+  foodType        String[]
+  personality     String[]
   activityLevel   String?
   socialOtherPets String?
   behaviorIssues  String?
-  traumaHistory   String?  @db.Text
-  
-  // 6. AMBIENTE & ORIGEM
+  traumaHistory   String?
   housingType     String?
-  streetAccess    Boolean  @default(false)
-  habitat         String?  // Ex: "Interno", "Externo", "Misto"
-  riskAreaAccess  Boolean  @default(false)
-  adoptionStory   String?  @db.Text
-  hasAwards       Boolean  @default(false)
+  streetAccess    Boolean             @default(false)
+  adoptionStory   String?
+  hasAwards       Boolean             @default(false)
   awardsDetail    String?
-  
-  // 7. STATUS & GAMIFICAÇÃO
-  isArchived      Boolean  @default(false)
-  isMemorial      Boolean  @default(false)
-  showInHome      Boolean  @default(true)
-  level           Int      @default(1)
-  xp              Int      @default(0)
-
-
-  // 8. INFRAESTRUTURA
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // RELACIONAMENTOS
-  owner           User           @relation(fields: [ownerId], references: [id])
+  isArchived      Boolean             @default(false)
+  isMemorial      Boolean             @default(false)
+  showInHome      Boolean             @default(true)
+  level           Int                 @default(1)
+  xp              Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  bio             String?
+  foodAmount      String?
+  pedigreeUrl     String?
+  skillAgility    String              @default("85")
+  skillCuriosity  String              @default("90")
+  skillDocile     String              @default("95")
+  skillEnergy     String              @default("75")
+  skillIndep      String              @default("60")
+  skillSocial     String              @default("80")
+  habitat         String?
+  riskAreaAccess  Boolean             @default(false)
+  deathCause      String?
+  pedigreeBackUrl String?
   diaryEntries    DiaryEntry[]
+  documents       Document[]
   healthRecords   HealthRecord[]
   igentSessions   IgentSession[]
-  documents       Document[]     // Relaciona com a tabela de documentos (Exames, Contratos)
   memorial        MemorialTribute?
-  treatments    TreatmentSchedule[]
+  owner           User                @relation(fields: [ownerId], references: [id])
+  posts           Post[]
+  followers       SocialFollow[]
+  studioCreations StudioCreation[]
+  treatments      TreatmentSchedule[]
 }
 
-enum Gender {
-  MALE
-  FEMALE
-  UNKNOWN
-}
-
-// --- SAÚDE ---
 model HealthRecord {
-  id          String    @id @default(uuid())
-  petId       String
-  type        HealthType 
-  title       String      
-  date        DateTime    
-  nextDueDate DateTime?
-  batchNumber String?     
-  veterinarian String?
-  clinic      String?
-  notes       String?
+  id            String     @id @default(uuid())
+  petId         String
+  type          HealthType
+  title         String
+  date          DateTime
+  nextDueDate   DateTime?
+  batchNumber   String?
+  veterinarian  String?
+  clinic        String?
+  notes         String?
   attachmentUrl String?
-  pet         Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-}
-
-enum HealthType {
-  VACCINE
-  VERMIFUGE
-  PARASITE
-  MEDICATION
-  MEDICINE
-  EXAM
-  SURGERY
-  CONSULTATION
-  IACONSULT
-
+  pet           Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
 model IgentSession {
-  id            String   @id @default(uuid())
-  petId         String
-  pet           Pet      @relation(fields: [petId], references: [id])
-  date          DateTime @default(now())
-  symptomId     String   // 'digestion', 'urinary', etc.
-  symptomLabel  String
-  isUrgent      Boolean
-  analysisText  String   @db.Text
-  recommendations Json   // string[]
-  clinicalSnapshot Json  // foto do perfil no momento (peso, raça, idade, meds...)
-  ownerResponse String?  // o que o tutor respondeu no chat
-  resolvedAt    DateTime?
-  severity      String?  // 'LOW' | 'MEDIUM' | 'HIGH'
-  createdAt DateTime @default(now()) 
-  updatedAt DateTime @updatedAt       
-  @@index([petId])                    
+  id               String    @id @default(uuid())
+  petId            String
+  date             DateTime  @default(now())
+  symptomId        String
+  symptomLabel     String
+  isUrgent         Boolean
+  analysisText     String
+  recommendations  Json
+  clinicalSnapshot Json
+  ownerResponse    String?
+  resolvedAt       DateTime?
+  severity         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  pet              Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
 }
 
-// --- DOCUMENTOS ---
 model Document {
-  id        String   @id @default(uuid())
-  petId     String
-  name      String   // Ex: "Pedigree", "Exame de Sangue"
-  url       String   // Link do arquivo/imagem
-  type      String?  // "PDF", "IMAGE"
-  date      DateTime @default(now())
-  
-  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  id    String   @id @default(uuid())
+  petId String
+  name  String
+  url   String
+  type  String?
+  date  DateTime @default(now())
+  pet   Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
-// --- MEMORIAL ---
 model MemorialTribute {
   id          String   @id @default(uuid())
-  userId      String   
+  userId      String
   petId       String?  @unique
-  name        String   
+  name        String
   birthYear   String?
   deathYear   String?
-  message     String   @db.Text
+  message     String
   photoUrl    String?
-  candleCount Int      @default(0) 
+  candleCount Int      @default(0)
   createdAt   DateTime @default(now())
-
-  user        User     @relation(fields: [userId], references: [id])
   pet         Pet?     @relation(fields: [petId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
 }
 
-// --- REDE SOCIAL / COMUNIDADE ---
 model Post {
-  id        String   @id @default(uuid())
-  userId    String
-  content   String
-  imageUrl  String?
-  likes     Int      @default(0)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  comments  Comment[]
+  id               String          @id @default(uuid())
+  userId           String
+  content          String
+  imageUrl         String?
+  likes            Int             @default(0)
+  createdAt        DateTime        @default(now())
+  allowComments    Boolean         @default(true)
+  allowShare       Boolean         @default(true)
+  commentsCount    Int             @default(0)
+  featured         Boolean         @default(false)
+  petId            String
+  savesCount       Int             @default(0)
+  sharesCount      Int             @default(0)
+  source           String          @default("manual")
+  type             String          @default("PHOTO")
+  updatedAt        DateTime        @updatedAt
+  visibility       PostVisibility  @default(PUBLIC)
+  studioCreationId String?
+  comments         Comment[]
+  pet              Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
+  studioCreation   StudioCreation? @relation(fields: [studioCreationId], references: [id])
+  user             User            @relation(fields: [userId], references: [id])
+  likedBy          PostLike[]
+  savedBy          PostSave[]
+
+  @@index([petId, visibility, createdAt])
+  @@index([studioCreationId])
+  @@index([userId, createdAt])
+  @@index([visibility, createdAt])
 }
 
 model Comment {
@@ -259,16 +221,56 @@ model Comment {
   createdAt DateTime @default(now())
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([postId, createdAt])
 }
 
-// --- GAMIFICAÇÃO ---
+model SocialFollow {
+  id         String   @id @default(uuid())
+  followerId String
+  ownerId    String
+  petId      String
+  createdAt  DateTime @default(now())
+  follower   User     @relation("SocialFollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  owner      User     @relation("SocialFollowPetOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, petId])
+  @@index([petId])
+  @@index([ownerId])
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+}
+
+model PostSave {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+}
+
 model Achievement {
-  id          String   @id @default(uuid())
-  title       String   
-  description String   
-  iconUrl     String   
-  xpReward    Int      @default(100)
-  condition   String   
+  id          String            @id @default(uuid())
+  title       String
+  description String
+  iconUrl     String
+  xpReward    Int               @default(100)
+  condition   String
   users       UserAchievement[]
 }
 
@@ -277,63 +279,58 @@ model UserAchievement {
   userId        String
   achievementId String
   unlockedAt    DateTime    @default(now())
-  user          User        @relation(fields: [userId], references: [id])
   achievement   Achievement @relation(fields: [achievementId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
 }
 
-// --- DIÁRIO ---
 model DiaryEntry {
-  id        String   @id @default(uuid())
-  petId     String
-  title     String
-  content   String?
-  date      DateTime @default(now())
-  type      String   
-  photos    String[] 
-  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  id      String   @id @default(uuid())
+  petId   String
+  title   String
+  content String?
+  date    DateTime @default(now())
+  type    String
+  photos  String[]
+  pet     Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
-// --- STUDIO ---
 model StudioCreation {
-  id               String      @id @default(uuid())
+  id               String     @id @default(uuid())
   userId           String
-  type             StudioType  
+  type             StudioType
   originalPhotoUrl String?
-  resultUrl        String      
-  createdAt        DateTime    @default(now())
-  user             User        @relation(fields: [userId], references: [id])
+  resultUrl        String
+  createdAt        DateTime   @default(now())
+  petId            String?
+  socialPosts      Post[]
+  pet              Pet?       @relation(fields: [petId], references: [id])
+  user             User       @relation(fields: [userId], references: [id])
+
+  @@index([userId, petId, createdAt])
 }
 
-enum StudioType {
-  PORTRAIT
-  ID_CARD
-  MAGAZINE
-}
-
-// --- VETERINÁRIOS DO BEM ---
 model VetRecommendation {
-  id          String   @id @default(uuid())
-  userId      String   
-  name        String
-  clinicName  String?
-  address     String?
-  city        String?
-  phone       String?
-  rating      Float    @default(5.0)
-  tags        String[] 
-  isVerified  Boolean  @default(false) 
-  user        User     @relation(fields: [userId], references: [id])
+  id         String   @id @default(uuid())
+  userId     String
+  name       String
+  clinicName String?
+  address    String?
+  city       String?
+  phone      String?
+  rating     Float    @default(5.0)
+  tags       String[]
+  isVerified Boolean  @default(false)
+  user       User     @relation(fields: [userId], references: [id])
 }
 
-// --- LOJA / ASSINATURA ---
 model Order {
   id        String      @id @default(uuid())
   userId    String
   total     Decimal     @db.Decimal(10, 2)
   status    OrderStatus @default(PENDING)
   createdAt DateTime    @default(now())
-  items     OrderItem[]
   user      User        @relation(fields: [userId], references: [id])
+  items     OrderItem[]
 }
 
 model OrderItem {
@@ -346,96 +343,76 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
 }
 
-enum OrderStatus {
-  PENDING
-  PAID
-  SHIPPED
-  DELIVERED
-  CANCELED
-}
-
 model Product {
-  id           String   @id @default(uuid())
-  categoryId   String
-  name         String
-  description  String
-  price        Decimal  @db.Decimal(10, 2)
-  promoPrice   Decimal? @db.Decimal(10, 2)
-  images       String[] 
-  videoReview  String?  
-  isDigital    Boolean  @default(false) 
-  externalLink String?
-  stock        Int      @default(0)
-  platform     String?  
-  badge        String?  
-  createdAt    DateTime @default(now()) 
-  updatedAt    DateTime @updatedAt       
-  category     Category @relation(fields: [categoryId], references: [id])
-  orderItems   OrderItem[]
+  id            String         @id @default(uuid())
+  categoryId    String
+  name          String
+  description   String
+  price         Decimal        @db.Decimal(10, 2)
+  promoPrice    Decimal?       @db.Decimal(10, 2)
+  images        String[]
+  isDigital     Boolean        @default(false)
+  externalLink  String?
+  stock         Int            @default(0)
+  platform      String?
+  badge         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  videoReview   String?
+  orderItems    OrderItem[]
+  category      Category       @relation(fields: [categoryId], references: [id])
+  productShares ProductShare[]
 }
 
 model Category {
   id       String    @id @default(uuid())
-  name     String    
+  name     String
   products Product[]
 }
 
-// Conteúdo da Wiki (GatedoPédia)
 model Article {
   id        String   @id @default(uuid())
   title     String
-  category  String   // Ex: "Saúde", "Comportamento", "Raças"
+  category  String
   imageUrl  String?
-  content   String   // O texto do artigo (pode ser longo)
+  content   String
   author    String   @default("Equipe Gatedo")
   createdAt DateTime @default(now())
 }
 
-// Assets do Studio
 model StudioAsset {
   id        String   @id @default(uuid())
   title     String
-  type      String   // Ex: "Sticker", "Background", "Frame"
-  url       String   // Link da imagem
-  isPro     Boolean  @default(false) // Se é só para assinantes
+  type      String
+  url       String
+  isPro     Boolean  @default(false)
   createdAt DateTime @default(now())
 }
 
-// --- PARCEIROS VET ---
 model VetPartner {
-  id          String   @id @default(uuid())
-  name        String
-  clinicName  String
-  address     String
-  phone       String?
-  whatsapp    String?
-  photoUrl    String?
-  
-  // Inteligência de Localização
-  latitude    Float?
-  longitude   Float?
-
-  // Link com o Login do sistema
-  ownerId     String?  @unique // O Vet também é um usuário logado
-  owner       User?    @relation(fields: [ownerId], references: [id])
-  
-  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  
-  // Gamificação e Status
-  isVerified  Boolean  @default(false) // Se o Vet confirmou o cadastro
-  isPremium   Boolean  @default(false) // Se paga mensalidade (destaque)
-  tags        String[] // Ex: ["24h", "Raio-X", "Especialista em Felinos"]
-  
-  rating      Float    @default(0.0)
-  reviews     Int      @default(0)
-
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  name       String
+  clinicName String
+  address    String
+  phone      String?
+  whatsapp   String?
+  photoUrl   String?
+  latitude   Float?
+  longitude  Float?
+  isVerified Boolean  @default(false)
+  isPremium  Boolean  @default(false)
+  tags       String[]
+  rating     Float    @default(0.0)
+  reviews    Int      @default(0)
+  createdAt  DateTime @default(now())
+  ownerId    String?  @unique
+  status     String   @default("PENDING")
+  owner      User?    @relation(fields: [ownerId], references: [id])
 }
 
 model Notification {
   id          String   @id @default(uuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   type        String
   message     String
   read        Boolean  @default(false)
@@ -446,25 +423,40 @@ model Notification {
   cta         String?
   metadata    Json     @default("{}")
   createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, read])
 }
 
+model BalanceAdjustmentLog {
+  id          String   @id @default(uuid())
+  userId      String
+  actorId     String?
+  walletDelta Int      @default(0)
+  xpDelta     Int      @default(0)
+  reason      String?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation("BalanceActor", fields: [actorId], references: [id])
+  user        User     @relation("BalanceTarget", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([actorId, createdAt])
+}
+
 model TutorPoints {
   id           String   @id @default(uuid())
   userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   points       Int      @default(0)
   totalEarned  Int      @default(0)
   lastActionAt DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
-// --- TRATAMENTOS ---
 model TreatmentSchedule {
   id            String          @id @default(uuid())
   petId         String
@@ -477,9 +469,8 @@ model TreatmentSchedule {
   active        Boolean         @default(true)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
-
-  pet           Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
   doses         TreatmentDose[]
+  pet           Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
 model TreatmentDose {
@@ -490,6 +481,189 @@ model TreatmentDose {
   skipped     Boolean           @default(false)
   notes       String?
   createdAt   DateTime          @default(now())
-
   schedule    TreatmentSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+}
+
+model AppSettings {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model ProductShare {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  token     String   @unique @default(cuid())
+  clicks    Int      @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Kit {
+  id         String   @id @default(uuid())
+  title      String
+  subtitle   String   @default("")
+  iconName   String   @default("Gift")
+  gradient   String   @default("from-yellow-400 to-orange-500")
+  productIds String[]
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Coupon {
+  id           String             @id @default(uuid())
+  code         String             @unique
+  description  String
+  discountType String             @default("POINTS")
+  value        Int
+  maxUses      Int                @default(1)
+  usedCount    Int                @default(0)
+  active       Boolean            @default(true)
+  expiresAt    DateTime?
+  targetUserId String?
+  createdAt    DateTime           @default(now())
+  targetUser   User?              @relation("CouponTarget", fields: [targetUserId], references: [id])
+  redemptions  CouponRedemption[]
+}
+
+model CouponRedemption {
+  id         String   @id @default(uuid())
+  couponId   String
+  userId     String
+  redeemedAt DateTime @default(now())
+  coupon     Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId])
+}
+
+model UserCredits {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  balance     Int      @default(0)
+  totalBought Int      @default(0)
+  totalUsed   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model FounderInvite {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  email     String
+  name      String?
+  phase     Int
+  orderId   String?
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+}
+
+model Subscription {
+  id         String    @id @default(uuid())
+  userId     String    @unique
+  provider   String    @default("KIWIFY")
+  externalId String?
+  planType   String
+  status     String
+  startedAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FounderPhaseConfig {
+  phase     Int      @id
+  price     Decimal  @db.Decimal(10, 2)
+  maxSlots  Int
+  soldSlots Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notice {
+  id        String       @id @default(uuid())
+  title     String
+  xpReward  Int          @default(3)
+  expiresAt DateTime?
+  createdAt DateTime     @default(now())
+  content   String
+  imageUrl  String?
+  isActive  Boolean      @default(true)
+  type      String       @default("INFO")
+  updatedAt DateTime     @updatedAt
+  reads     NoticeRead[]
+}
+
+model NoticeRead {
+  id          String    @id @default(uuid())
+  userId      String
+  noticeId    String
+  readAt      DateTime  @default(now())
+  xpGranted   Boolean   @default(false)
+  xpGrantedAt DateTime?
+  notice      Notice    @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, noticeId])
+  @@index([userId])
+  @@index([noticeId])
+  @@map("notice_reads")
+}
+
+enum Role {
+  USER
+  ADMIN
+  VET
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum HealthType {
+  VACCINE
+  VERMIFUGE
+  PARASITE
+  MEDICATION
+  EXAM
+  SURGERY
+  CONSULTATION
+  IACONSULT
+  MEDICINE
+}
+
+enum PostVisibility {
+  PRIVATE
+  FOLLOWERS
+  PUBLIC
+}
+
+enum StudioType {
+  PORTRAIT
+  ID_CARD
+  MAGAZINE
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELED
 }

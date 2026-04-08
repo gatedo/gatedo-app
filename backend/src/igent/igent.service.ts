@@ -1,13 +1,100 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
+
+// Retorno normalizado de qualquer provider
+interface AITextResult { text: string; provider: 'openai' | 'gemini'; }
+interface AIJsonResult { json: any;  provider: 'openai' | 'gemini'; }
 
 @Injectable()
 export class IgentService {
+  private readonly logger = new Logger(IgentService.name);
   private openai: OpenAI;
 
   constructor(private prisma: PrismaService) {
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  // DEBUG TEMPORÁRIO — remover depois
+  this.logger.warn(`GEMINI_API_KEY carregada: ${process.env.GEMINI_API_KEY ? '✅ ' + process.env.GEMINI_API_KEY.slice(0,8) + '...' : '❌ VAZIA'}`);
+}
+
+  // ─── WRAPPER DUAL-AI ──────────────────────────────────────────────────────────
+  // Tenta OpenAI → fallback Gemini. Retorna { text, provider }.
+  // mode='json': garante JSON válido via response_format (OpenAI) ou instrução (Gemini)
+  private async callAI(
+    prompt: string,
+    options: { mode?: 'text' | 'json'; temperature?: number } = {},
+  ): Promise<AITextResult> {
+    const { mode = 'text', temperature = 0.35 } = options;
+
+    // ── Tentativa 1: OpenAI ────────────────────────────────────────────────────
+    try {
+      const res = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'system', content: prompt }],
+        temperature,
+        ...(mode === 'json' ? { response_format: { type: 'json_object' } } : {}),
+      });
+      const text = res.choices[0].message.content || '';
+      this.logger.debug('iGentVet → OpenAI OK');
+      return { text, provider: 'openai' };
+    } catch (openaiErr: any) {
+      this.logger.warn(
+        `iGentVet → OpenAI falhou (${openaiErr?.status ?? openaiErr?.message}). Tentando Gemini…`,
+      );
+    }
+
+    // ── Tentativa 2: Gemini via REST direto (sem SDK) ────────────────────────
+    try {
+      const geminiPrompt = mode === 'json'
+        ? prompt + '\n\nIMPORTANTE: Responda APENAS com JSON válido, sem markdown, sem texto extra.'
+        : prompt;
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error('GEMINI_API_KEY não configurada');
+
+const geminiRes = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
+      generationConfig: {
+        temperature,
+        maxOutputTokens: 2048,
+        thinkingConfig: { thinkingBudget: 0 }, // ← dentro do generationConfig
+      },
+    }),
+  },
+);
+
+if (!geminiRes.ok) {
+  const errBody = await geminiRes.text();
+  this.logger.error(`Gemini REST ${geminiRes.status}: ${errBody}`); // ← sem slice, ver tudo
+  throw new Error(`Gemini falhou: ${geminiRes.status}`);
+}
+
+      const geminiData = await geminiRes.json() as any;
+      const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      this.logger.debug('iGentVet → Gemini REST OK (fallback)');
+      return { text, provider: 'gemini' };
+    } catch (geminiErr: any) {
+      this.logger.error('iGentVet → Gemini também falhou:', geminiErr?.message);
+      throw new Error('Ambos os provedores de IA falharam.');
+    }
+  }
+
+  // ─── WRAPPER JSON: chama callAI e faz parse seguro do JSON ──────────────────
+  private async callAIJson(prompt: string, temperature = 0.3): Promise<AIJsonResult> {
+    const { text, provider } = await this.callAI(prompt, { mode: 'json', temperature });
+    try {
+      // Gemini pode envolver em ```json … ``` — remove
+      const clean = text.replace(/^```(?:json)?\n?/i, '').replace(/```$/,'').trim();
+      return { json: JSON.parse(clean), provider };
+    } catch {
+      this.logger.error('Falha no parse JSON da resposta IA:', text.slice(0, 200));
+      throw new Error('Resposta da IA não é JSON válido.');
+    }
   }
 
   // ─── HELPER: Mapa de relevância por sintoma ────────────────────────────────────
@@ -444,7 +531,7 @@ ${sp.triageQuestions.map((q, i) => `${i+1}. ${q}`).join('\n')}
     const pet = await this.prisma.pet.findUnique({
       where: { id: petId },
       include: {
-        healthRecords: { orderBy: { date: 'desc' }, take: 50 }, // tudo para poder filtrar por tipo
+        healthRecords: { orderBy: { date: 'desc' }, take: 50 },
         owner: true,
         documents: { orderBy: { date: 'desc' }, take: 5 },
       },
@@ -504,16 +591,12 @@ Responda APENAS com este JSON valido:
 }`.trim();
 
     try {
-      const res = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'system', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-      });
-      return JSON.parse(res.choices[0].message.content);
+      const { json, provider } = await this.callAIJson(prompt, 0.3);
+      this.logger.log(`analyzeSymptom OK via ${provider}`);
+      return json;
     } catch (err) {
-      console.error('Erro analyzeSymptom:', err);
-      return { isUrgent: false, analysisText: 'Erro na análise.', probabilities: [], care: [] };
+      this.logger.error('Erro analyzeSymptom:', err);
+      return { isUrgent: false, analysisText: 'Erro na análise. Tente novamente.', probabilities: [], care: [] };
     }
   }
 
@@ -527,7 +610,7 @@ Responda APENAS com este JSON valido:
   ) {
     const pet = await this.prisma.pet.findUnique({
       where: { id: petId },
-      include: { 
+      include: {
         healthRecords: { orderBy: { date: 'desc' }, take: 50 },
         documents: { orderBy: { date: 'desc' }, take: 5 },
       },
@@ -562,19 +645,16 @@ REGRAS DE OURO:
 7. Se pergunta fora do escopo: responda 1 frase e oferea nova consulta
 8. Ao final de respostas complexas, faca 1 pergunta de acompanhamento clinico relevante`.trim();
 
+    // Combina systemPrompt + mensagem do usuário num único prompt (compatível com Gemini)
+    const fullPrompt = `${systemPrompt}\n\n---\nTUTOR: ${message}`;
+
     try {
-      const res = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message },
-        ],
-        temperature: 0.4,
-      });
-      return { text: res.choices[0].message.content, sender: 'bot' };
+      const { text, provider } = await this.callAI(fullPrompt, { mode: 'text', temperature: 0.4 });
+      this.logger.log(`chatWithVet OK via ${provider}`);
+      return { text, sender: 'bot' };
     } catch (err) {
-      console.error('Erro chatWithVet:', err);
-      return { text: 'Conexão instável. Pode repetir?', sender: 'bot' };
+      this.logger.error('Erro chatWithVet:', err);
+      return { text: 'Conexão instável com a IA. Pode repetir?', sender: 'bot' };
     }
   }
 
@@ -656,6 +736,7 @@ REGRAS DE OURO:
       orderBy: { date: 'desc' },
     });
   }
+
   // ─── MÉTODO 6: ATUALIZA CONTEXTO DA IA ao salvar nova vacina/medicação ────────
   // Chamado pelo HealthForm após salvar qualquer health-record
   // Permite ao iGentVet saber imediatamente sobre novo medicamento/vacina
@@ -669,14 +750,11 @@ REGRAS DE OURO:
     isControlled?: boolean;
     notes?: string;
   }) {
-    // Busca o pet para atualizar o healthSummary se necessário
     const pet = await this.prisma.pet.findUnique({
       where: { id: data.petId },
       select: { name: true, healthSummary: true },
     });
 
-    // Log para rastreabilidade — o contexto já é carregado dinamicamente
-    // via fetchHistory no IGentVet, então não precisa gravar em campo separado
     console.log(
       `[iGentVet] Novo registro para ${pet?.name}: ${data.recordType} — ${data.title}${data.ongoing ? ' (contínuo)' : ''}${data.isControlled ? ' [CONTROLADO]' : ''}`,
     );
@@ -690,5 +768,4 @@ REGRAS DE OURO:
       isControlled: data.isControlled || false,
     };
   }
-
 }

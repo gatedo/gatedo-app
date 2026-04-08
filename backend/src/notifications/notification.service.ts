@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 // ─── TIPOS DE NOTIFICAÇÃO ─────────────────────────────────────────────────────
 export type NotifType =
@@ -17,7 +17,7 @@ export type NotifType =
 // ─── SISTEMA DE NÍVEIS (GAMIFICAÇÃO) ─────────────────────────────────────────
 export const LEVELS = [
   { min: 0,    max: 99,   label: 'Gateiro Curioso',  emoji: '🐾', color: '#9CA3AF' },
-  { min: 100,  max: 299,  label: 'Gateiro Raiz',     emoji: '😺', color: '#6158ca' },
+  { min: 100,  max: 299,  label: 'Gateiro Raiz',     emoji: '😺', color: '#8B4AFF' },
   { min: 300,  max: 599,  label: 'Guardião Felino',  emoji: '🛡️', color: '#0EA5E9' },
   { min: 600,  max: 999,  label: 'Especialista IA',  emoji: '🤖', color: '#8B5CF6' },
   { min: 1000, max: 1999, label: 'Embaixador Gatedo',emoji: '👑', color: '#F59E0B' },

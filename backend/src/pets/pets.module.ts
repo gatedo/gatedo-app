@@ -3,8 +3,8 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PetsService } from './pets.service';
 import { PetsController } from './pets.controller';
-import { PrismaService } from '../prisma.service';
-import { CloudflareService } from '../cloudflare.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { CloudflareService } from '../cloudflare/cloudflare.service';
 
 @Module({
   imports: [

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 // CloudflareService NÃO precisa ser declarado aqui
 // O @Global() do CloudflareModule já o injeta automaticamente
 
