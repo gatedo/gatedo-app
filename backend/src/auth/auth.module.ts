@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { EmailModule } from '../email/email.module';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { AdminInviteController } from './admin-invite.controller';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, AdminInviteController],
   providers: [AuthService, JwtAuthGuard],
   exports: [AuthService, JwtModule, JwtAuthGuard],
 })

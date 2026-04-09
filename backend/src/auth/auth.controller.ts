@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, Param } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Param, ForbiddenException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -7,6 +7,10 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() body: any) {
+    if (!body.token) {
+      throw new ForbiddenException('Cadastro permitido apenas via convite.');
+    }
+
     return this.authService.register(body);
   }
 
@@ -15,16 +19,27 @@ export class AuthController {
     return this.authService.login(body);
   }
 
-  // Valida token de convite Fundador — chamado pelo Register.jsx antes do form
-  @Get('validate-token')
-  async validateToken(@Query('token') token: string) {
-    return this.authService.validateFounderToken(token);
+  @Get('resolve-invite')
+  async resolveInvite(@Query('token') token: string) {
+    return this.authService.resolveInviteToken(token);
   }
 
-  // Cria convite Fundador — usado pelo webhook Kiwify ou admin
+  @Get('validate-token')
+  async validateToken(@Query('token') token: string) {
+    return this.authService.validateInviteToken(token);
+  }
+
   @Post('founder-invite')
-  async createFounderInvite(@Body() body: { email: string; name?: string; phase?: number }) {
-    return this.authService.createFounderInvite(body);
+  async createFounderInvite(
+    @Body() body: { email: string; name?: string; phase?: number },
+  ) {
+    return this.authService.createFounderInvite({
+      email: body.email,
+      name: body.name,
+      phase: body.phase,
+      source: 'ADMIN',
+      expiresInDays: 365,
+    });
   }
 
   @Get('verify-email/:token')
@@ -38,7 +53,9 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+  async resetPassword(
+    @Body() body: { token: string; newPassword: string },
+  ) {
     return this.authService.resetPassword(body.token, body.newPassword);
   }
 }
