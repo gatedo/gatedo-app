@@ -11,7 +11,8 @@
     "outDir": "./dist",
     "rootDir": "./",
     "incremental": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "esModuleInterop": true
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist", "test"]
