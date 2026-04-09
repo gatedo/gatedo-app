@@ -35,7 +35,7 @@ export class MediaService {
     const storageKey = `uploads/${new Date().toISOString().slice(0,10)}/${mediaId}.${ext}`;
 
     const cmd = new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET!,
+      Bucket: process.env.R2_BUCKET_NAME!,
       Key: storageKey,
       ContentType: mimeType,
     });
