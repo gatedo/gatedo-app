@@ -28,11 +28,12 @@ export class CloudflareService {
         throw new InternalServerErrorException('Arquivo inválido para upload.');
       }
 
-      const optimizedBuffer = await sharp(file.buffer)
+   const optimizedBuffer = await sharp(file.buffer)
+  .rotate()
   .resize(1080, 1080, { fit: 'inside', withoutEnlargement: true })
   .webp({ quality: 80 })
   .toBuffer();
-
+  
       const fileName = `${uuidv4()}.webp`;
 
       await this.s3Client.send(
