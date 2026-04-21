@@ -4,121 +4,139 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id                   String                 @id @default(uuid())
-  email                String                 @unique
-  phone                String?
-  password             String
-  name                 String?
-  photoUrl             String?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  status               String                 @default("ACTIVE")
-  badges               String[]               @default([])
-  city                 String?
-  plan                 String                 @default("FREE")
-  planExpires          DateTime?
-  role                 Role                   @default(USER)
-  emailVerified        Boolean                @default(false)
-  emailVerifyToken     String?                @unique
-  resetPasswordExpires DateTime?
-  resetPasswordToken   String?                @unique
-  level                Int                    @default(1)
-  xp                   Int                    @default(0)
-  balanceActionsMade   BalanceAdjustmentLog[] @relation("BalanceActor")
-  balanceLogs          BalanceAdjustmentLog[] @relation("BalanceTarget")
-  comments             Comment[]
-  targetCoupons        Coupon[]               @relation("CouponTarget")
-  couponRedemptions    CouponRedemption[]
-  memorialTributes     MemorialTribute[]
-  notifications        Notification[]
-  orders               Order[]
-  pets                 Pet[]
-  posts                Post[]
-  postLikes            PostLike[]
-  postSaves            PostSave[]
-  productShares        ProductShare[]
-  socialFollows        SocialFollow[]         @relation("SocialFollowFollower")
-  petFollowers         SocialFollow[]         @relation("SocialFollowPetOwner")
-  studioCreations      StudioCreation[]
-  subscription         Subscription?
-  tutorPoints          TutorPoints?
-  achievements         UserAchievement[]
-  credits              UserCredits?
-  vetProfile           VetPartner?
-  vetRecommendations   VetRecommendation[]
-  noticeReads          NoticeRead[]
+  id                     String                 @id @default(uuid())
+  email                  String                 @unique
+  phone                  String?
+  password               String
+  name                   String?
+  photoUrl               String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  status                 String                 @default("ACTIVE")
+  badges                 String[]               @default([])
+  city                   String?
+  plan                   String                 @default("FREE")
+  planExpires            DateTime?
+  role                   Role                   @default(USER)
+  emailVerified          Boolean                @default(false)
+  emailVerifyToken       String?                @unique
+  resetPasswordExpires   DateTime?
+  resetPasswordToken     String?                @unique
+  level                  Int    @default(1)
+  xpt                    Int    @default(0)
+  gatedoPoints Int       @default(0)
+  founderGrantedAt       DateTime?
+  founderBonusMonthsPaid Int                    @default(0)
+  balanceActionsMade     BalanceAdjustmentLog[] @relation("BalanceActor")
+  balanceLogs            BalanceAdjustmentLog[] @relation("BalanceTarget")
+  comments               Comment[]
+  targetCoupons          Coupon[]               @relation("CouponTarget")
+  couponRedemptions      CouponRedemption[]
+  memorialTributes       MemorialTribute[]
+  notifications          Notification[]
+  orders                 Order[]
+  pets                   Pet[]
+  posts                  Post[]
+  postLikes              PostLike[]
+  postSaves              PostSave[]
+  productShares          ProductShare[]
+  socialFollows          SocialFollow[]         @relation("SocialFollowFollower")
+  petFollowers           SocialFollow[]         @relation("SocialFollowPetOwner")
+  studioCreations        StudioCreation[]
+  subscription           Subscription?
+  tutorPoints            TutorPoints?
+  achievements           UserAchievement[]
+  petAchievements        PetAchievement[]       @relation("PetAchievementGrantedByUser")
+  credits                UserCredits?
+  vetProfile             VetPartner?
+  vetRecommendations     VetRecommendation[]
+  noticeReads            NoticeRead[]
+  rewardEvents           RewardEvent[]
+  documents              Document[]
 }
 
 model Pet {
-  id              String              @id @default(uuid())
-  ownerId         String
-  name            String
-  nicknames       String?
-  breed           String?
-  themeColor      String?
-  photoUrl        String?
-  gallery         String[]
-  gender          Gender              @default(UNKNOWN)
-  birthDate       DateTime?
-  deathDate       DateTime?
-  isDateEstimated Boolean             @default(false)
-  ageYears        Int?
-  ageMonths       Int?
-  weight          Float?
-  city            String?
-  microchip       String?
-  neutered        Boolean             @default(false)
-  neuterIntention String?
-  healthSummary   String?
-  foodBrand       String?
-  foodFreq        String?
-  foodType        String[]
-  personality     String[]
-  activityLevel   String?
-  socialOtherPets String?
-  behaviorIssues  String?
-  traumaHistory   String?
-  housingType     String?
-  streetAccess    Boolean             @default(false)
-  adoptionStory   String?
-  hasAwards       Boolean             @default(false)
-  awardsDetail    String?
-  isArchived      Boolean             @default(false)
-  isMemorial      Boolean             @default(false)
-  showInHome      Boolean             @default(true)
-  level           Int                 @default(1)
-  xp              Int                 @default(0)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  bio             String?
-  foodAmount      String?
-  pedigreeUrl     String?
-  skillAgility    String              @default("85")
-  skillCuriosity  String              @default("90")
-  skillDocile     String              @default("95")
-  skillEnergy     String              @default("75")
-  skillIndep      String              @default("60")
-  skillSocial     String              @default("80")
-  habitat         String?
-  riskAreaAccess  Boolean             @default(false)
-  deathCause      String?
-  pedigreeBackUrl String?
-  diaryEntries    DiaryEntry[]
-  documents       Document[]
-  healthRecords   HealthRecord[]
-  igentSessions   IgentSession[]
-  memorial        MemorialTribute?
-  owner           User                @relation(fields: [ownerId], references: [id])
-  posts           Post[]
-  followers       SocialFollow[]
-  studioCreations StudioCreation[]
-  treatments      TreatmentSchedule[]
+  id                    String              @id @default(uuid())
+  ownerId               String
+  name                  String
+  nicknames             String?
+  breed                 String?
+  themeColor            String?
+  photoUrl              String?
+  gallery               String[]
+  gender                Gender              @default(UNKNOWN)
+  birthDate             DateTime?
+  deathDate             DateTime?
+  isDateEstimated       Boolean             @default(false)
+  ageYears              Int?
+  ageMonths             Int?
+  weight                Float?
+  city                  String?
+  microchip             String?
+  neutered              Boolean             @default(false)
+  neuterIntention       String?
+  healthSummary         String?
+  foodBrand             String?
+  foodFreq              String?
+  foodType              String[]
+  personality           String[]
+  activityLevel         String?
+  socialOtherPets       String?
+  behaviorIssues        String?
+  traumaHistory         String?
+  housingType           String?
+  streetAccess          Boolean             @default(false)
+  adoptionStory         String?
+  hasAwards             Boolean             @default(false)
+  awardsDetail          String?
+  isArchived            Boolean             @default(false)
+  isMemorial            Boolean             @default(false)
+  showInHome            Boolean             @default(true)
+  level                 Int                 @default(1)
+  xpg                   Int                 @default(0)
+  badges                String[]            @default([])
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  bio                   String?
+  foodAmount            String?
+  pedigreeUrl           String?
+  skillAgility          String              @default("85")
+  skillCuriosity        String              @default("90")
+  skillDocile           String              @default("95")
+  skillEnergy           String              @default("75")
+  skillIndep            String              @default("60")
+  skillSocial           String              @default("80")
+  habitat               String?
+  riskAreaAccess        Boolean             @default(false)
+  deathCause            String?
+  pedigreeBackUrl       String?
+  diaryEntries          DiaryEntry[]
+  documents             Document[]
+  healthRecords         HealthRecord[]
+  igentSessions         IgentSession[]
+  memorial              MemorialTribute?
+  owner                 User                @relation(fields: [ownerId], references: [id])
+  posts                 Post[]
+  followers             SocialFollow[]
+  studioCreations       StudioCreation[]
+  treatments            TreatmentSchedule[]
+  rewardEvents          RewardEvent[]
+  achievements          PetAchievement[]
+  arrivalType           String?
+  arrivalNotes          String?
+  coatType              String?
+  preExistingConditions String[]            @default([])
+  feedFrequencyMode     String?
+  feedFrequencyNotes    String?
+  coexistsWith          String[]            @default([])
+  hasBehaviorIssues     Boolean             @default(false)
+  hasTraumaHistory      Boolean             @default(false)
 }
 
 model HealthRecord {
@@ -133,6 +151,20 @@ model HealthRecord {
   clinic        String?
   notes         String?
   attachmentUrl String?
+  clinicName          String?
+  clinicPhone         String?
+  clinicAddress       String?
+  ongoing             Boolean   @default(false)
+  active              Boolean   @default(false)
+  prescription        Boolean   @default(false)
+  isControlled        Boolean   @default(false)
+
+  reason              String?
+  appointmentMode     String?   // CLINICAL | SPECIALIST
+  specialty           String?
+  recommendedRecheck  Boolean   @default(false)
+  recheckDate         DateTime?
+  prescriptionDocId   String?
   pet           Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
@@ -157,13 +189,37 @@ model IgentSession {
 }
 
 model Document {
-  id    String   @id @default(uuid())
-  petId String
-  name  String
-  url   String
-  type  String?
-  date  DateTime @default(now())
-  pet   Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  id             String   @id @default(uuid())
+  petId          String
+  ownerId        String
+
+  title          String
+  category       String   // RECEITA | EXAME | LAUDO | PEDIGREE | VACINACAO | OFICIAL | OUTROS
+  type           String?  // PDF | IMAGE | DOC | OTHER
+  fileUrl        String
+  fileName       String?
+  mimeType       String?
+  size           Int?
+
+  isPrivate      Boolean  @default(true)
+  isVetShared    Boolean  @default(false)
+  isFavorite     Boolean  @default(false)
+
+  cloudProvider  String?  // GOOGLE_DRIVE | ICLOUD | FILES | DROPBOX | null
+  cloudPath      String?
+  cloudExportedAt DateTime?
+
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  pet            Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  owner          User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+  @@index([ownerId])
+  @@index([category])
+  @@index([createdAt])
 }
 
 model MemorialTribute {
@@ -179,6 +235,8 @@ model MemorialTribute {
   createdAt   DateTime @default(now())
   pet         Pet?     @relation(fields: [petId], references: [id])
   user        User     @relation(fields: [userId], references: [id])
+  title       String?
+  isPublic    Boolean  @default(true)
 }
 
 model Post {
@@ -202,7 +260,7 @@ model Post {
   studioCreationId String?
   comments         Comment[]
   pet              Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
-  studioCreation   StudioCreation? @relation(fields: [studioCreationId], references: [id])
+  studioCreation   StudioCreation? @relation(fields: [studioCreationId], references: [id], onDelete: SetNull)
   user             User            @relation(fields: [userId], references: [id])
   likedBy          PostLike[]
   savedBy          PostSave[]
@@ -265,13 +323,22 @@ model PostSave {
 }
 
 model Achievement {
-  id          String            @id @default(uuid())
+  id          String               @id @default(uuid())
+  code        String               @unique
   title       String
   description String
-  iconUrl     String
-  xpReward    Int               @default(100)
+  iconUrl     String?
+  category    String?
+  rarity      String?              @default("common")
+  ownerType   AchievementOwnerType
+  xptReward   Int                  @default(0)
+  xpgReward   Int                  @default(0)
+  pointReward Int                  @default(0)
   condition   String
-  users       UserAchievement[]
+  active      Boolean              @default(true)
+
+  users UserAchievement[]
+  pets  PetAchievement[]
 }
 
 model UserAchievement {
@@ -279,8 +346,32 @@ model UserAchievement {
   userId        String
   achievementId String
   unlockedAt    DateTime    @default(now())
-  achievement   Achievement @relation(fields: [achievementId], references: [id])
-  user          User        @relation(fields: [userId], references: [id])
+  rarity        String?
+  source        String?
+  meta          Json?
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId, unlockedAt])
+}
+
+model PetAchievement {
+  id              String   @id @default(uuid())
+  petId           String
+  achievementId   String
+  grantedByUserId String?
+  unlockedAt      DateTime @default(now())
+  rarity          String?
+  source          String?
+  meta            Json?
+
+  pet           Pet         @relation(fields: [petId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  grantedByUser User?       @relation("PetAchievementGrantedByUser", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([petId, achievementId])
+  @@index([petId, unlockedAt])
 }
 
 model DiaryEntry {
@@ -295,18 +386,38 @@ model DiaryEntry {
 }
 
 model StudioCreation {
-  id               String     @id @default(uuid())
-  userId           String
-  type             StudioType
-  originalPhotoUrl String?
-  resultUrl        String
-  createdAt        DateTime   @default(now())
-  petId            String?
-  socialPosts      Post[]
-  pet              Pet?       @relation(fields: [petId], references: [id])
-  user             User       @relation(fields: [userId], references: [id])
+  id     String  @id @default(uuid())
+  userId String
+  petId  String?
 
-  @@index([userId, petId, createdAt])
+  type        StudioType
+  moduleKey   String?
+  moduleLabel String?
+
+  prompt           String?
+  originalPhotoUrl String?
+  sourceImageUrls  String[] @default([])
+  outputImageUrl   String?
+  outputVideoUrl   String?
+  previewUrl       String?
+
+  status   StudioCreationStatus @default(COMPLETED)
+  metadata Json?
+
+  addedToPetGalleryAt DateTime?
+  publishedAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  socialPosts Post[]
+  pet         Pet?   @relation(fields: [petId], references: [id], onDelete: SetNull)
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
+  @@index([petId, createdAt])
+  @@index([type, createdAt])
 }
 
 model VetRecommendation {
@@ -463,6 +574,12 @@ model TreatmentSchedule {
   userId        String
   title         String
   notes         String?
+  veterinarian              String?
+  clinicName                String?
+  clinicPhone               String?
+  clinicAddress             String?
+  originHealthRecordId      String?
+  originPrescriptionDocumentId String?
   intervalHours Int
   startDate     DateTime
   endDate       DateTime?
@@ -624,9 +741,68 @@ model NoticeRead {
   @@map("notice_reads")
 }
 
+model RewardEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  petId        String?
+  action       String
+  gptsDelta    Int      @default(0)
+  xptDelta     Int      @default(0)
+  xpgDelta     Int      @default(0)
+  badgeGranted String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet  Pet? @relation(fields: [petId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([petId, createdAt])
+  @@index([action])
+}
+
+model Prospect {
+  id            String    @id @default(cuid())
+  phone         String
+  name          String?
+  note          String?
+  status        String    @default("pending")
+  column        String    @default("pending")
+  score         Int       @default(0)
+  tags          String[]
+  sentAt        DateTime?
+  repliedAt     DateTime?
+  lastReply     String?
+  lastMessageId String?
+  scriptId      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  messages      ProspectMessage[]
+
+  @@index([phone])
+  @@index([status])
+}
+
+model ProspectMessage {
+  id           String   @id @default(cuid())
+  prospectId   String
+  direction    String
+  body         String
+  imageUrl     String?
+  waMessageId  String?
+  sentAt       DateTime @default(now())
+
+  prospect     Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+}
+
 enum Role {
   USER
   ADMIN
+  FOUNDER
+  TESTER_VIP
   VET
 }
 
@@ -656,8 +832,15 @@ enum PostVisibility {
 
 enum StudioType {
   PORTRAIT
+  STICKER
   ID_CARD
-  MAGAZINE
+  MIND_READER
+  TUTOR_CAT
+  DANCE
+  CAT_VOICE
+  ANIMATED_STORY
+  MEME_MAKER
+  VOGUE_CAT
 }
 
 enum OrderStatus {
@@ -666,4 +849,17 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELED
+}
+
+enum AchievementOwnerType {
+  TUTOR
+  PET
+}
+
+enum StudioCreationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  PUBLISHED
 }

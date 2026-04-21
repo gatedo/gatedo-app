@@ -72,12 +72,20 @@ export class PetsService {
     if (raw.themeColor    !== undefined) data.themeColor    = toNullableString(raw.themeColor);
     if (raw.bio           !== undefined) data.bio           = toNullableString(raw.bio);
     if (raw.deathCause    !== undefined) data.deathCause    = toNullableString(raw.deathCause);
+    
 
     // Booleanos — FormData envia como string "true"/"false"
     if (raw.isMemorial      !== undefined) data.isMemorial      = toBoolean(raw.isMemorial);
     if (raw.isArchived      !== undefined) data.isArchived      = toBoolean(raw.isArchived);
     if (raw.isDateEstimated !== undefined) data.isDateEstimated = toBoolean(raw.isDateEstimated);
     if (raw.neutered        !== undefined) data.neutered        = toBoolean(raw.neutered);
+    if (raw.streetAccess      !== undefined) data.streetAccess      = toBoolean(raw.streetAccess);
+    if (raw.riskAreaAccess    !== undefined) data.riskAreaAccess    = toBoolean(raw.riskAreaAccess);
+    if (raw.hasAwards         !== undefined) data.hasAwards         = toBoolean(raw.hasAwards);
+    if (raw.hasBehaviorIssues !== undefined) data.hasBehaviorIssues = toBoolean(raw.hasBehaviorIssues);
+    if (raw.hasTraumaHistory  !== undefined) data.hasTraumaHistory  = toBoolean(raw.hasTraumaHistory);
+    
+    
 
     // Inteiros — string vazia → null
     if (raw.ageYears  !== undefined) data.ageYears  = toNullableInt(raw.ageYears);
@@ -87,12 +95,50 @@ export class PetsService {
     if (raw.birthDate !== undefined) data.birthDate = toNullableDate(raw.birthDate);
     if (raw.deathDate !== undefined) data.deathDate = toNullableDate(raw.deathDate);
 
+    if (raw.arrivalType        !== undefined) data.arrivalType        = toNullableString(raw.arrivalType);
+    if (raw.arrivalNotes       !== undefined) data.arrivalNotes       = toNullableString(raw.arrivalNotes);
+    if (raw.coatType           !== undefined) data.coatType           = toNullableString(raw.coatType);
+    if (raw.feedFrequencyMode  !== undefined) data.feedFrequencyMode  = toNullableString(raw.feedFrequencyMode);
+    if (raw.feedFrequencyNotes !== undefined) data.feedFrequencyNotes = toNullableString(raw.feedFrequencyNotes);
+    if (raw.foodBrand          !== undefined) data.foodBrand          = toNullableString(raw.foodBrand);
+    if (raw.activityLevel      !== undefined) data.activityLevel      = toNullableString(raw.activityLevel);
+    if (raw.socialOtherPets    !== undefined) data.socialOtherPets    = toNullableString(raw.socialOtherPets);
+    if (raw.behaviorIssues     !== undefined) data.behaviorIssues     = toNullableString(raw.behaviorIssues);
+    if (raw.neuterIntention    !== undefined) data.neuterIntention    = toNullableString(raw.neuterIntention);
+    if (raw.habitat            !== undefined) data.habitat            = toNullableString(raw.habitat);
+    if (raw.housingType        !== undefined) data.housingType        = toNullableString(raw.housingType);
+    if (raw.adoptionStory      !== undefined) data.adoptionStory      = toNullableString(raw.adoptionStory);
+    if (raw.awardsDetail       !== undefined) data.awardsDetail       = toNullableString(raw.awardsDetail);
+
     // Arrays (gallery, personality, etc.) — se vier como JSON string
     if (raw.gallery !== undefined) {
       data.gallery = typeof raw.gallery === 'string'
         ? JSON.parse(raw.gallery)
         : raw.gallery;
     }
+    if (raw.personality !== undefined) {
+  data.personality =
+    typeof raw.personality === 'string' ? JSON.parse(raw.personality) : raw.personality;
+}
+
+if (raw.foodType !== undefined) {
+  data.foodType =
+    typeof raw.foodType === 'string' ? JSON.parse(raw.foodType) : raw.foodType;
+}
+
+if (raw.preExistingConditions !== undefined) {
+  data.preExistingConditions =
+    typeof raw.preExistingConditions === 'string'
+      ? JSON.parse(raw.preExistingConditions)
+      : raw.preExistingConditions;
+}
+
+if (raw.coexistsWith !== undefined) {
+  data.coexistsWith =
+    typeof raw.coexistsWith === 'string'
+      ? JSON.parse(raw.coexistsWith)
+      : raw.coexistsWith;
+}
 
     return this.prisma.pet.update({
       where: { id },

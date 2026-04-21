@@ -9,7 +9,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-
 import { SocialService } from './social.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -23,6 +22,11 @@ export class SocialController {
     return this.socialService.getPosts(req.user, query);
   }
 
+  @Get('community-cats')
+  getCommunityCats(@Req() req: any, @Query() query: any) {
+    return this.socialService.getCommunityCats(req.user, query);
+  }
+
   @Get('posts/pet/:petId')
   getPetPosts(@Req() req: any, @Param('petId') petId: string) {
     return this.socialService.getPetPosts(req.user, petId);
@@ -34,7 +38,11 @@ export class SocialController {
   }
 
   @Post('posts/:postId/comments')
-  addComment(@Req() req: any, @Param('postId') postId: string, @Body() body: any) {
+  addComment(
+    @Req() req: any,
+    @Param('postId') postId: string,
+    @Body() body: any,
+  ) {
     return this.socialService.addComment(req.user, postId, body);
   }
 
@@ -50,8 +58,6 @@ export class SocialController {
 
   @Post('posts')
   createPost(@Req() req: any, @Body() body: any) {
-    console.log('SOCIAL AUTH HEADER =>', req.headers?.authorization);
-    console.log('SOCIAL REQ USER =>', req.user);
     return this.socialService.createPost(req.user, body);
   }
 

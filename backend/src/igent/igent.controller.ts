@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Query } from '@nestjs/common';
 import { IgentService } from './igent.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { GamificationIntegration } from '../notifications/gamification.integration';
+import { GamificationIntegration } from '../gamification/gamification.integration';
 
 @Controller('igent')
 export class IgentController {

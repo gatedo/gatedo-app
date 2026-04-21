@@ -23,7 +23,7 @@ export class EmailService {
     const html = this.baseTemplate(`
       <div style="text-align:center; padding-bottom:32px;">
         <img
-          src="https://app.gatedo.com/icone-login.png"
+          src="https://app.gatedo.com/assets/App_gatedo_logo1.webp"
           width="80"
           height="80"
           style="margin-bottom:24px; border-radius:22px; box-shadow:0 4px 12px rgba(0,0,0,0.1);"
@@ -149,7 +149,7 @@ export class EmailService {
                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:520px;">
                   <tr>
                     <td style="text-align:center; padding-bottom:32px;">
-                      <img src="https://app.gatedo.com/logo-login.png" height="32" alt="Gatedo" />
+                      <img src="https://app.gatedo.com/assets/App_gatedo_logo1.webp" height="32" alt="Gatedo" />
                     </td>
                   </tr>
                   <tr>

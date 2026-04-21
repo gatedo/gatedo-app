@@ -48,28 +48,30 @@ export class NoticesService {
         : undefined,
     });
 
-    return notices.map((notice: any) => {
-      const read =
-        Array.isArray(notice.reads) && notice.reads.length > 0
-          ? notice.reads[0]
-          : null;
+    return notices
+      .map((notice: any) => {
+        const read =
+          Array.isArray(notice.reads) && notice.reads.length > 0
+            ? notice.reads[0]
+            : null;
 
-      return {
-        id: notice.id,
-        title: notice.title,
-        content: notice.content,
-        type: notice.type,
-        isActive: notice.isActive,
-        expiresAt: notice.expiresAt,
-        createdAt: notice.createdAt,
-        updatedAt: notice.updatedAt,
-        xpReward: notice.xpReward ?? 3,
-        imageUrl: notice.imageUrl ?? null,
-        hasRead: !!read,
-        readAt: read?.readAt ?? null,
-        xpGranted: read?.xpGranted ?? false,
-      };
-    });
+        return {
+          id: notice.id,
+          title: notice.title,
+          content: notice.content,
+          type: notice.type,
+          isActive: notice.isActive,
+          expiresAt: notice.expiresAt,
+          createdAt: notice.createdAt,
+          updatedAt: notice.updatedAt,
+          xpReward: notice.xpReward ?? 3,
+          imageUrl: notice.imageUrl ?? null,
+          hasRead: !!read,
+          readAt: read?.readAt ?? null,
+          xpGranted: read?.xpGranted ?? false,
+        };
+      })
+      .filter((notice) => !notice.hasRead);
   }
 
   async getAdminNotices(user: AuthUser) {

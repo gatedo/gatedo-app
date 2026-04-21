@@ -48,6 +48,31 @@ findOne(@Param('id') id: string) {
   });
 }
 
+@Get('memorial/public')
+async getPublicMemorialPets() {
+  return this.prisma.pet.findMany({
+    where: {
+      OR: [
+        { isMemorial: true },
+        { isArchived: true },
+        { deathDate: { not: null } },
+      ],
+    },
+    include: {
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          photoUrl: true,
+        },
+      },
+    },
+    orderBy: {
+      deathDate: 'desc',
+    },
+  });
+}
+
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.prisma.pet.delete({ where: { id } });
@@ -73,7 +98,18 @@ findOne(@Param('id') id: string) {
     const dataToUpdate: any = { ...body };
 
     // Booleanos
-    const booleanFields = ['isMemorial', 'neutered', 'isArchived', 'showInHome', 'streetAccess', 'hasAwards', 'isDateEstimated', 'riskAreaAccess'];
+const booleanFields = [
+  'isMemorial',
+  'neutered',
+  'isArchived',
+  'showInHome',
+  'streetAccess',
+  'hasAwards',
+  'isDateEstimated',
+  'riskAreaAccess',
+  'hasBehaviorIssues',
+  'hasTraumaHistory',
+];
     booleanFields.forEach(field => {
       if (dataToUpdate[field] === 'true')  dataToUpdate[field] = true;
       if (dataToUpdate[field] === 'false') dataToUpdate[field] = false;
@@ -105,6 +141,27 @@ findOne(@Param('id') id: string) {
     if (typeof body.foodType === 'string') {
       try { dataToUpdate.foodType = JSON.parse(body.foodType); } catch { dataToUpdate.foodType = []; }
     }
+
+
+    if (typeof body.preExistingConditions === 'string') {
+  try {
+    dataToUpdate.preExistingConditions = JSON.parse(body.preExistingConditions);
+  } catch {
+    dataToUpdate.preExistingConditions = [];
+  }
+} else if (Array.isArray(body.preExistingConditions)) {
+  dataToUpdate.preExistingConditions = body.preExistingConditions;
+}
+
+if (typeof body.coexistsWith === 'string') {
+  try {
+    dataToUpdate.coexistsWith = JSON.parse(body.coexistsWith);
+  } catch {
+    dataToUpdate.coexistsWith = [];
+  }
+} else if (Array.isArray(body.coexistsWith)) {
+  dataToUpdate.coexistsWith = body.coexistsWith;
+}
 
     // Upload foto principal
     if (files?.file?.[0]) {
@@ -177,9 +234,18 @@ findOne(@Param('id') id: string) {
 
     // Booleanos
     const booleanFields = [
-      'neutered', 'isDateEstimated', 'streetAccess',
-      'riskAreaAccess', 'hasAwards', 'isMemorial', 'isArchived', 'showInHome',
-    ];
+  'neutered',
+  'isDateEstimated',
+  'streetAccess',
+  'riskAreaAccess',
+  'hasAwards',
+  'isMemorial',
+  'isArchived',
+  'showInHome',
+  'hasBehaviorIssues',
+  'hasTraumaHistory',
+];
+
     booleanFields.forEach(field => {
       if (petData[field] === 'true')  petData[field] = true;
       if (petData[field] === 'false') petData[field] = false;
@@ -224,20 +290,72 @@ findOne(@Param('id') id: string) {
       petData.foodType = [];
     }
 
+    if (Array.isArray(body.preExistingConditions)) {
+  petData.preExistingConditions = body.preExistingConditions;
+} else if (typeof body.preExistingConditions === 'string') {
+  try {
+    petData.preExistingConditions = JSON.parse(body.preExistingConditions);
+  } catch {
+    petData.preExistingConditions = [];
+  }
+} else {
+  petData.preExistingConditions = [];
+}
+
+if (Array.isArray(body.coexistsWith)) {
+  petData.coexistsWith = body.coexistsWith;
+} else if (typeof body.coexistsWith === 'string') {
+  try {
+    petData.coexistsWith = JSON.parse(body.coexistsWith);
+  } catch {
+    petData.coexistsWith = [];
+  }
+} else {
+    petData.coexistsWith = [];
+}
+
     // Remove campos que não existem no schema
-    const unknownFields = ['catType', 'avatarPreview', 'avatarFile', 'file', 'photo', 'pedigree', 'pedigreeBack'];
-    unknownFields.forEach(f => delete petData[f]);
+    const unknownFields = [
+  'catType',
+  'avatarPreview',
+  'avatarFile',
+  'file',
+  'photo',
+  'pedigree',
+  'pedigreeBack',
+];
+unknownFields.forEach((f) => delete petData[f]);
 
     // Strings opcionais vazias → null
-    const optionalStrings = [
-      'nicknames', 'microchip', 'neuterIntention', 'healthSummary',
-      'foodBrand', 'foodFreq', 'activityLevel', 'socialOtherPets',
-      'behaviorIssues', 'traumaHistory', 'habitat', 'housingType',
-      'adoptionStory', 'awardsDetail', 'deathCause', 'themeColor',
-    ];
-    optionalStrings.forEach(f => {
-      if (petData[f] === '') petData[f] = null;
-    });
+   const optionalStrings = [
+  'nicknames',
+  'microchip',
+  'neuterIntention',
+  'healthSummary',
+  'foodBrand',
+  'foodFreq',
+  'activityLevel',
+  'socialOtherPets',
+  'behaviorIssues',
+  'traumaHistory',
+  'habitat',
+  'housingType',
+  'adoptionStory',
+  'awardsDetail',
+  'deathCause',
+  'themeColor',
+  'arrivalType',
+  'arrivalNotes',
+  'coatType',
+  'feedFrequencyMode',
+  'feedFrequencyNotes',
+  'city',
+  'breed',
+  'bio',
+];
+optionalStrings.forEach((f) => {
+  if (petData[f] === '') petData[f] = null;
+});
 
     return this.prisma.pet.create({ data: petData });
   }

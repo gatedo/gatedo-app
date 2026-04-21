@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { NotificationController } from '../notifications/notification.controller';
 import { NotificationService } from '../notifications/notification.service';
-import { GamificationIntegration } from '../notifications/gamification.integration';
+import { GamificationIntegration } from '../gamification/gamification.integration';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
