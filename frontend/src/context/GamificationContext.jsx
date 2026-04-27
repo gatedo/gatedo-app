@@ -1,125 +1,100 @@
-/**
- * GamificationContext.jsx
- * ─────────────────────────────────────────────────────────────────────────────
- * Estado global de gamificação — XP, nível, badges, streak, toasts.
- * Wraps o app inteiro. Qualquer página chama useGamification() para
- * ganhar XP, desbloquear badge, checar nível sem prop-drilling.
- *
- * INTEGRAÇÃO:
- *   1. Em App.jsx ou main.jsx:
- *      import { GamificationProvider } from './context/GamificationContext';
- *      <GamificationProvider><App /></GamificationProvider>
- *
- *   2. Em qualquer componente:
- *      const { earnXP, unlockBadge, xp, level, badges, streak } = useGamification();
- *
- *   3. Sincronização API:
- *      O provider chama GET /gamification/me no mount e PATCH /gamification
- *      após cada mudança. Substitua os mocks de API pela sua instância.
- */
-
 import React, {
-  createContext, useContext, useState, useEffect,
-  useCallback, useRef,
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Sparkles, Trophy, X } from 'lucide-react';
-import api from '../services/api';  // sua instância axios
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// DEFINIÇÕES — níveis e badges (single source of truth)
-// ═══════════════════════════════════════════════════════════════════════════════
+import { Zap, Sparkles, PawPrint, Trophy } from 'lucide-react';
+import api from '../services/api';
+import { AuthContext } from './AuthContext';
 
 export const LEVELS = [
-  { rank: 1, min: 0,    max: 149,    name: 'Filhote',          emoji: '🐾', color: '#9CA3AF', glow: '#9CA3AF30' },
-  { rank: 2, min: 150,  max: 399,    name: 'Gato Curioso',     emoji: '🐱', color: '#60A5FA', glow: '#60A5FA30' },
-  { rank: 3, min: 400,  max: 799,    name: 'Gateiro Raiz',     emoji: '🐈', color: '#34D399', glow: '#34D39930' },
-  { rank: 4, min: 800,  max: 1499,   name: 'Felino Sábio',     emoji: '🦁', color: '#F59E0B', glow: '#F59E0B30' },
-  { rank: 5, min: 1500, max: 2999,   name: 'Mestre das Patas', emoji: '👑', color: '#8B5CF6', glow: '#8B5CF630' },
-  { rank: 6, min: 3000, max: Infinity,name: 'Lenda Gateira',   emoji: '⭐', color: '#DFFF40', glow: '#DFFF4060' },
+  { rank: 1, min: 0, max: 49, name: 'Gateiro Iniciante', emoji: '🐾', color: '#8bbcf3', glow: '#8bbcf330' },
+  { rank: 2, min: 50, max: 119, name: 'Gateiro Curioso', emoji: '🐱', color: '#fa608e', glow: '#fa608e30' },
+  { rank: 3, min: 120, max: 219, name: 'Gateiro Atento', emoji: '🐈', color: '#34D399', glow: '#34D39930' },
+  { rank: 4, min: 220, max: 349, name: 'Tutor de Rotina', emoji: '📘', color: '#22C55E', glow: '#22C55E30' },
+  { rank: 5, min: 350, max: 519, name: 'Tutor Preventivo', emoji: '🛡️', color: '#0EA5E9', glow: '#0EA5E930' },
+  { rank: 6, min: 520, max: 749, name: 'Tutor Cuidadoso', emoji: '🧡', color: '#6366F1', glow: '#6366F130' },
+  { rank: 7, min: 750, max: 1049, name: 'Guardião Doméstico', emoji: '🏠', color: '#F59E0B', glow: '#F59E0B30' },
+  { rank: 8, min: 1050, max: 1449, name: 'Guardião Ativo', emoji: '⚡', color: '#F97316', glow: '#F9731630' },
+  { rank: 9, min: 1450, max: 1999, name: 'Guardião Preventivo', emoji: '🧭', color: '#8B5CF6', glow: '#8B5CF630' },
+  { rank: 10, min: 2000, max: 2699, name: 'Mentor Felino', emoji: '🎓', color: '#EC4899', glow: '#EC489930' },
+  { rank: 11, min: 2700, max: 3549, name: 'Mentor de Rotina', emoji: '📊', color: '#14B8A6', glow: '#14B8A630' },
+  { rank: 12, min: 3550, max: 4549, name: 'Mentor do Bem-Estar', emoji: '🌿', color: '#06B6D4', glow: '#06B6D430' },
+  { rank: 13, min: 4550, max: 5699, name: 'Estrategista Felino', emoji: '🤖', color: '#8B4AFF', glow: '#8B4AFF30' },
+  { rank: 14, min: 5700, max: 6999, name: 'Estrategista de Cuidado', emoji: '🧪', color: '#10B981', glow: '#10B98130' },
+  { rank: 15, min: 7000, max: 8499, name: 'Curador do Gatedo', emoji: '🏛️', color: '#F43F5E', glow: '#F43F5E30' },
+  { rank: 16, min: 8500, max: 10199, name: 'Curador Preventivo', emoji: '🔮', color: '#A855F7', glow: '#A855F730' },
+  { rank: 17, min: 10200, max: 12099, name: 'Protetor de Elite', emoji: '✨', color: '#EAB308', glow: '#EAB30830' },
+  { rank: 18, min: 12100, max: 14199, name: 'Guardião Supremo', emoji: '👑', color: '#F59E0B', glow: '#F59E0B30' },
+  { rank: 19, min: 14200, max: 16499, name: 'Lenda do Gatedo', emoji: '🌟', color: '#D946EF', glow: '#D946EF30' },
+  { rank: 20, min: 16500, max: Infinity, name: 'Arquiteto da Jornada', emoji: '🐾👑', color: '#DFFF40', glow: '#DFFF4060' },
 ];
 
-export const BADGES = {
-  // 🧠 Inteligência
-  IGENT_PIONEER:   { axis: 'intel',  emoji: '🧠', name: 'Pioneer iGent',     desc: '1ª consulta iGentVet',             xp: 50,   rarity: 'common'    },
-  IGENT_ANALISTA:  { axis: 'intel',  emoji: '🔬', name: 'Tutor Analítico',   desc: '5 consultas registradas',           xp: 150,  rarity: 'uncommon'  },
-  IGENT_MASTER:    { axis: 'intel',  emoji: '🤖', name: 'Mestre iGent',      desc: '25 consultas — IA preditiva ativa', xp: 400,  rarity: 'epic'      },
-  DIAGNOSE_PRO:    { axis: 'intel',  emoji: '✅', name: 'Diagnóstico Certo', desc: '3 outcomes confirmados',            xp: 200,  rarity: 'rare'      },
-  HEALTH_GUARDIAN: { axis: 'intel',  emoji: '🛡️', name: 'Guardião da Saúde', desc: 'Perfil de saúde 100% completo',    xp: 100,  rarity: 'uncommon'  },
-  PREDICTIVE:      { axis: 'intel',  emoji: '🔮', name: 'Tutor Preditivo',   desc: 'Histórico preditivo desbloqueado',  xp: 500,  rarity: 'legendary' },
-  // 🌍 Comunidade
-  FIRST_MIADO:     { axis: 'social', emoji: '📣', name: 'Primeiro Miado',    desc: '1º post na comunidade',            xp: 30,   rarity: 'common'    },
-  VIRAL_GATEIRO:   { axis: 'social', emoji: '🔥', name: 'Viral Gateiro',     desc: 'Post com 100+ curtidas',           xp: 300,  rarity: 'rare'      },
-  MEME_LORD:       { axis: 'social', emoji: '😂', name: 'Lord do Meme',      desc: '5 posts de humor',                 xp: 150,  rarity: 'uncommon'  },
-  GUARDIAO_Q:      { axis: 'social', emoji: '💜', name: 'Coração Gateiro',   desc: 'Respondeu 10 dúvidas',             xp: 200,  rarity: 'uncommon'  },
-  TREND_SETTER:    { axis: 'social', emoji: '📈', name: 'Trend Setter',      desc: '3 desafios virais completos',       xp: 250,  rarity: 'rare'      },
-  EMBAIXADOR:      { axis: 'social', emoji: '🌟', name: 'Embaixador Gatedo', desc: 'Convidou 5 amigos',                xp: 500,  rarity: 'epic'      },
-  // 🎨 Criação
-  CRIADOR_NATO:    { axis: 'create', emoji: '🎨', name: 'Criador Nato',      desc: '1ª criação no Studio',             xp: 50,   rarity: 'common'    },
-  ARTISTA_GATEIRO: { axis: 'create', emoji: '✨', name: 'Artista Gateiro',   desc: '3 ferramentas do Studio usadas',   xp: 150,  rarity: 'uncommon'  },
-  STUDIO_LEGEND:   { axis: 'create', emoji: '🏆', name: 'Studio Legend',     desc: 'Todas as ferramentas usadas',      xp: 400,  rarity: 'epic'      },
-  VIRAL_STUDIO:    { axis: 'create', emoji: '💫', name: 'Viral do Studio',   desc: 'Criação com 50+ curtidas',         xp: 300,  rarity: 'rare'      },
-  // ⚡ Consistência
-  STREAK_7:        { axis: 'streak', emoji: '🔥', name: '7 Dias de Fogo',    desc: 'Streak de 7 dias',                 xp: 100,  rarity: 'uncommon'  },
-  STREAK_30:       { axis: 'streak', emoji: '⚡', name: 'Guardião Gatedo',   desc: 'Streak épico de 30 dias',          xp: 500,  rarity: 'legendary' },
-  STREAK_365:      { axis: 'streak', emoji: '🌟', name: 'Lenda Viva',        desc: '365 dias consecutivos',            xp: 2000, rarity: 'legendary' },
-  GATEDO_OG:       { axis: 'streak', emoji: '👑', name: 'Gatedo OG',         desc: '1 ano na plataforma',              xp: 1000, rarity: 'legendary' },
-  COLECIONADOR:    { axis: 'streak', emoji: '💎', name: 'Colecionador',      desc: '10 badges conquistados',           xp: 200,  rarity: 'rare'      },
-};
+export const CAT_LEVELS = [
+  { rank: 1, min: 0, max: 19, name: 'Filhote de Jornada', emoji: '🐾', color: '#8bbcf3', glow: '#8bbcf330' },
+  { rank: 2, min: 20, max: 59, name: 'Patinha Curiosa', emoji: '🐱', color: '#fa608e', glow: '#fa608e30' },
+  { rank: 3, min: 60, max: 119, name: 'Ronrom Inicial', emoji: '😺', color: '#34D399', glow: '#34D39930' },
+  { rank: 4, min: 120, max: 199, name: 'Explorador Doméstico', emoji: '🏠', color: '#22C55E', glow: '#22C55E30' },
+  { rank: 5, min: 200, max: 319, name: 'Guardião da Casa', emoji: '🛡️', color: '#0EA5E9', glow: '#0EA5E930' },
+  { rank: 6, min: 320, max: 479, name: 'Miado Atento', emoji: '👀', color: '#6366F1', glow: '#6366F130' },
+  { rank: 7, min: 480, max: 699, name: 'Vigilante Felino', emoji: '🐈', color: '#F59E0B', glow: '#F59E0B30' },
+  { rank: 8, min: 700, max: 999, name: 'Companheiro Evolutivo', emoji: '💫', color: '#F97316', glow: '#F9731630' },
+  { rank: 9, min: 1000, max: 1399, name: 'Alma da Casa', emoji: '🏡', color: '#8B5CF6', glow: '#8B5CF630' },
+  { rank: 10, min: 1400, max: 1899, name: 'Gato de Rotina', emoji: '📘', color: '#EC4899', glow: '#EC489930' },
+  { rank: 11, min: 1900, max: 2499, name: 'Guardião de Sofá', emoji: '🛋️', color: '#14B8A6', glow: '#14B8A630' },
+  { rank: 12, min: 2500, max: 3199, name: 'Veterano Felino', emoji: '🎖️', color: '#06B6D4', glow: '#06B6D430' },
+  { rank: 13, min: 3200, max: 3999, name: 'Olhar Experiente', emoji: '👁️', color: '#8B4AFF', glow: '#8B4AFF30' },
+  { rank: 14, min: 4000, max: 4899, name: 'Mestre do Ronrom', emoji: '🎼', color: '#10B981', glow: '#10B98130' },
+  { rank: 15, min: 4900, max: 5899, name: 'Guardião Nobre', emoji: '👑', color: '#F43F5E', glow: '#F43F5E30' },
+  { rank: 16, min: 5900, max: 6999, name: 'Oráculo do Lar', emoji: '🔮', color: '#A855F7', glow: '#A855F730' },
+  { rank: 17, min: 7000, max: 8199, name: 'Lenda Felina', emoji: '🌟', color: '#EAB308', glow: '#EAB30830' },
+  { rank: 18, min: 8200, max: 9499, name: 'Espírito da Casa', emoji: '✨', color: '#F59E0B', glow: '#F59E0B30' },
+  { rank: 19, min: 9500, max: 10999, name: 'Soberano do Gatedo', emoji: '🐾👑', color: '#D946EF', glow: '#D946EF30' },
+  { rank: 20, min: 11000, max: Infinity, name: 'Mito Felino', emoji: '💎', color: '#DFFF40', glow: '#DFFF4060' },
+];
+
+export const BADGES = {};
 
 export const RARITY_STYLES = {
-  common:    { border: '#E5E7EB', bg: '#F9FAFB', shadow: 'none',                 label: 'Comum'    },
-  uncommon:  { border: '#A7F3D0', bg: '#F0FDF4', shadow: '0 0 10px #34D39928',   label: 'Incomum'  },
-  rare:      { border: '#BFDBFE', bg: '#EFF6FF', shadow: '0 0 14px #60A5FA30',   label: 'Raro'     },
-  epic:      { border: '#DDD6FE', bg: '#F5F3FF', shadow: '0 0 18px #8B5CF638',   label: 'Épico'    },
-  legendary: { border: '#FDE68A', bg: '#FFFBEB', shadow: '0 0 24px #F59E0B50',   label: 'Lendário' },
+  common: { border: '#E5E7EB', bg: '#F9FAFB', shadow: 'none', label: 'Comum' },
+  uncommon: { border: '#A7F3D0', bg: '#F0FDF4', shadow: '0 0 10px #34D39928', label: 'Incomum' },
+  rare: { border: '#BFDBFE', bg: '#EFF6FF', shadow: '0 0 14px #60A5FA30', label: 'Raro' },
+  epic: { border: '#DDD6FE', bg: '#F5F3FF', shadow: '0 0 18px #8B5CF638', label: 'Épico' },
+  legendary: { border: '#FDE68A', bg: '#FFFBEB', shadow: '0 0 24px #F59E0B50', label: 'Lendário' },
+  limited: { border: '#DFFF40', bg: '#F7FEE7', shadow: '0 0 28px #DFFF4060', label: 'Limitado' },
+  founder: { border: '#DFFF40', bg: '#F7FEE7', shadow: '0 0 28px #DFFF4060', label: 'Fundador' },
 };
 
-// ─── UTILITÁRIOS ──────────────────────────────────────────────────────────────
-export const getLevel = (xp) =>
-  LEVELS.find(l => xp >= l.min && xp <= l.max) || LEVELS[0];
+export const getLevel = (xpt = 0) =>
+  LEVELS.find((l) => xpt >= l.min && xpt <= l.max) || LEVELS[0];
 
-export const getLevelProgress = (xp) => {
-  const lvl = getLevel(xp);
+export const getLevelProgress = (xpt = 0) => {
+  const lvl = getLevel(xpt);
   if (lvl.rank === LEVELS.length) return 100;
-  return Math.round(((xp - lvl.min) / (lvl.max - lvl.min)) * 100);
+  const range = lvl.max - lvl.min + 1;
+  return Math.max(0, Math.min(100, Math.round(((xpt - lvl.min) / range) * 100)));
 };
 
-// ─── LÓGICA DE BADGES AUTOMÁTICOS ────────────────────────────────────────────
-// Retorna lista de badge keys que devem ser desbloqueados dado o estado atual
-function computeAutoUnlocks(state) {
-  const unlocks = [];
-  const owned = new Set(state.badges);
-  const { consultCount, postCount, studioCount, streak, totalBadges } = state.stats;
+export const getCatLevel = (xpg = 0) =>
+  CAT_LEVELS.find((l) => xpg >= l.min && xpg <= l.max) || CAT_LEVELS[0];
 
-  const check = (key, condition) => {
-    if (condition && !owned.has(key)) unlocks.push(key);
-  };
-
-  check('IGENT_PIONEER',   consultCount >= 1);
-  check('IGENT_ANALISTA',  consultCount >= 5);
-  check('IGENT_MASTER',    consultCount >= 25);
-  check('FIRST_MIADO',     postCount >= 1);
-  check('MEME_LORD',       state.stats.memeCount >= 5);
-  check('CRIADOR_NATO',    studioCount >= 1);
-  check('ARTISTA_GATEIRO', studioCount >= 3);
-  check('STREAK_7',        streak >= 7);
-  check('STREAK_30',       streak >= 30);
-  check('STREAK_365',      streak >= 365);
-  check('COLECIONADOR',    totalBadges >= 10);
-
-  return unlocks;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// TOASTS GLOBAIS
-// ═══════════════════════════════════════════════════════════════════════════════
+export const getCatLevelProgress = (xpg = 0) => {
+  const lvl = getCatLevel(xpg);
+  if (lvl.rank === CAT_LEVELS.length) return 100;
+  const range = lvl.max - lvl.min + 1;
+  return Math.max(0, Math.min(100, Math.round(((xpg - lvl.min) / range) * 100)));
+};
 
 function XPToast({ item, onDone }) {
   useEffect(() => {
     const t = setTimeout(onDone, 2400);
     return () => clearTimeout(t);
-  }, []);
+  }, [onDone]);
 
   return (
     <motion.div
@@ -128,74 +103,60 @@ function XPToast({ item, onDone }) {
       exit={{ y: -50, opacity: 0, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 420, damping: 28 }}
       className="flex items-center gap-2.5 px-5 py-3 rounded-full font-black text-sm pointer-events-none"
-      style={{ background: '#DFFF40', color: '#1a1a00', boxShadow: '0 8px 32px #DFFF4080' }}>
+      style={{ background: '#DFFF40', color: '#1a1a00', boxShadow: '0 8px 32px #DFFF4080' }}
+    >
       <Zap size={15} fill="#1a1a00" />
-      <span>+{item.xp} XP</span>
+      <span>+{item.xp} XPT</span>
       {item.label && <span className="text-[10px] font-bold opacity-60">· {item.label}</span>}
       <Sparkles size={13} />
     </motion.div>
   );
 }
 
-function BadgeToast({ badge, onDone }) {
+function PointsToast({ item, onDone }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 3500);
+    const t = setTimeout(onDone, 2000);
     return () => clearTimeout(t);
-  }, []);
-
-  const r = RARITY_STYLES[badge.rarity] || RARITY_STYLES.common;
+  }, [onDone]);
 
   return (
     <motion.div
       initial={{ y: 80, opacity: 0, scale: 0.85 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
       exit={{ y: -50, opacity: 0, scale: 0.9 }}
-      transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-      className="flex items-center gap-3 px-5 py-4 rounded-2xl pointer-events-none"
-      style={{ background: r.bg, border: `2px solid ${r.border}`, boxShadow: r.shadow, maxWidth: 300 }}>
-      <div className="text-2xl">{badge.emoji}</div>
-      <div>
-        <p className="text-[8px] font-black uppercase tracking-widest text-gray-400 mb-0.5">
-          Badge desbloqueado · {r.label}
-        </p>
-        <p className="text-sm font-black text-gray-800">{badge.name}</p>
-        <p className="text-[10px] text-gray-500 font-medium">{badge.desc}</p>
-      </div>
-      <Trophy size={18} className="text-yellow-500 flex-shrink-0 ml-1" />
+      transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+      className="flex items-center gap-2.5 px-5 py-3 rounded-full font-black text-sm pointer-events-none"
+      style={{ background: '#8B4AFF', color: 'white', boxShadow: '0 8px 32px #8B4AFF60' }}
+    >
+      <PawPrint size={15} fill="white" />
+      <span>{item.pts >= 0 ? '+' : ''}{item.pts} GPTS</span>
+      {item.label && <span className="text-[10px] font-bold opacity-70">· {item.label}</span>}
     </motion.div>
   );
 }
 
-function LevelUpToast({ level, onDone }) {
+function PetXPToast({ item, onDone }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 4000);
+    const t = setTimeout(onDone, 2200);
     return () => clearTimeout(t);
-  }, []);
+  }, [onDone]);
 
   return (
     <motion.div
-      initial={{ y: 100, opacity: 0, scale: 0.8 }}
+      initial={{ y: 80, opacity: 0, scale: 0.85 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
-      exit={{ y: -60, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-      className="flex flex-col items-center gap-2 px-8 py-5 rounded-3xl pointer-events-none text-center"
-      style={{ background: `linear-gradient(135deg, ${level.color}22, ${level.color}44)`,
-        border: `2px solid ${level.color}60`, boxShadow: `0 12px 48px ${level.color}60` }}>
-      <motion.div
-        animate={{ scale: [1, 1.3, 1], rotate: [0, 15, -15, 0] }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-        className="text-4xl">{level.emoji}</motion.div>
-      <div>
-        <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: level.color }}>
-          Nível alcançado!
-        </p>
-        <p className="text-xl font-black text-white mt-0.5">{level.name}</p>
-      </div>
+      exit={{ y: -50, opacity: 0, scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+      className="flex items-center gap-2.5 px-5 py-3 rounded-full font-black text-sm pointer-events-none"
+      style={{ background: '#ffffff', color: '#111827', boxShadow: '0 8px 32px rgba(17,24,39,0.14)' }}
+    >
+      <Trophy size={15} />
+      <span>{item.petName || 'Seu gato'} +{item.xpg} XPG</span>
+      {item.label && <span className="text-[10px] font-bold opacity-60">· {item.label}</span>}
     </motion.div>
   );
 }
 
-// ─── TOAST MANAGER ────────────────────────────────────────────────────────────
 function ToastManager({ queue, onDismiss }) {
   const current = queue[0];
   if (!current) return null;
@@ -203,217 +164,417 @@ function ToastManager({ queue, onDismiss }) {
   return (
     <div className="fixed bottom-28 left-0 right-0 flex justify-center z-[500] pointer-events-none px-4">
       <AnimatePresence mode="wait">
-        {current.type === 'xp'      && <XPToast      key={current.id} item={current}   onDone={() => onDismiss(current.id)} />}
-        {current.type === 'badge'   && <BadgeToast   key={current.id} badge={current}  onDone={() => onDismiss(current.id)} />}
-        {current.type === 'levelup' && <LevelUpToast key={current.id} level={current}  onDone={() => onDismiss(current.id)} />}
+        {current.type === 'xp' && (
+          <XPToast key={current.id} item={current} onDone={() => onDismiss(current.id)} />
+        )}
+        {current.type === 'pts' && (
+          <PointsToast key={current.id} item={current} onDone={() => onDismiss(current.id)} />
+        )}
+        {current.type === 'pet_xp' && (
+          <PetXPToast key={current.id} item={current} onDone={() => onDismiss(current.id)} />
+        )}
       </AnimatePresence>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// CONTEXT + PROVIDER
-// ═══════════════════════════════════════════════════════════════════════════════
-
 const GamificationContext = createContext(null);
 
-const STORAGE_KEY = 'gatedo_gamification_v2';
-
 const defaultState = {
-  xp: 0,
-  badges: [],   // array de badge keys já conquistados
+  tutor: {
+    id: null,
+    name: '',
+    xpt: 0,
+    gpts: 0,
+    level: 1,
+    levelMeta: LEVELS[0],
+    progress: 0,
+    nextLevel: LEVELS[1] || null,
+    badges: [],
+    achievements: [],
+  },
+  cats: [],
+  petMap: {},
   streak: 0,
-  lastActiveDate: null,
+  recentEvents: [],
   stats: {
     consultCount: 0,
     postCount: 0,
     studioCount: 0,
-    memeCount: 0,
-    totalBadges: 0,
+    petCount: 0,
+    diaryCount: 0,
+    vaccinesRegistered: 0,
+    profileComplete: false,
   },
+  loaded: false,
 };
 
-function loadLocal() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...defaultState, ...JSON.parse(raw) } : defaultState;
-  } catch {
-    return defaultState;
-  }
+function normalizeTutor(input = {}) {
+  const xpt = Number(
+    input?.xpt ??
+    input?.xp ??
+    input?.totalEarned ??
+    input?.tutorPoints?.totalEarned ??
+    input?.tutorPoints?.points ??
+    input?.summary?.xp ??
+    0
+  );
+
+  const gpts = Number(
+    input?.gpts ??
+    input?.points ??
+    input?.balance ??
+    input?.walletBalance ??
+    input?.wallet ??
+    input?.credits ??
+    input?.userCredits?.balance ??
+    input?.summary?.points ??
+    0
+  );
+
+  const levelMeta = input?.levelMeta || getLevel(xpt);
+  const nextLevel = LEVELS.find((l) => l.rank === levelMeta.rank + 1) || null;
+
+  return {
+    id: input?.id || null,
+    name: input?.name || '',
+    xpt,
+    gpts,
+    level: Number(input?.level || levelMeta.rank || 1),
+    levelMeta,
+    progress: typeof input?.progress === 'number' ? input.progress : getLevelProgress(xpt),
+    nextLevel,
+    badges: Array.isArray(input?.badges) ? input.badges : [],
+    achievements: Array.isArray(input?.achievements) ? input.achievements : [],
+  };
 }
 
-function saveLocal(state) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+function normalizeCats(list = []) {
+  return (Array.isArray(list) ? list : []).map((cat) => {
+    const xpg = Number(cat?.xpg ?? cat?.xp ?? 0);
+    const levelMeta = cat?.levelMeta || getCatLevel(xpg);
+    const nextLevel = CAT_LEVELS.find((l) => l.rank === levelMeta.rank + 1) || null;
+
+    return {
+      ...cat,
+      xpg,
+      level: Number(cat?.level || levelMeta.rank || 1),
+      levelMeta,
+      progress: typeof cat?.progress === 'number' ? cat.progress : getCatLevelProgress(xpg),
+      nextLevel,
+      badges: Array.isArray(cat?.badges) ? cat.badges : [],
+      achievements: Array.isArray(cat?.achievements) ? cat.achievements : [],
+    };
+  });
+}
+
+function buildPetMap(cats = []) {
+  return cats.reduce((acc, cat) => {
+    acc[cat.id] = cat;
+    return acc;
+  }, {});
+}
+
+function countEvents(events = [], action) {
+  return events.filter((e) => e?.action === action).length;
+}
+
+function deriveStats(payload) {
+  const apiStats = payload?.stats || {};
+  const tutor = payload?.tutor || {};
+  const recentEvents = Array.isArray(payload?.recentEvents) ? payload.recentEvents : [];
+  const cats = Array.isArray(payload?.cats) ? payload.cats : [];
+
+  return {
+    consultCount: apiStats?.consultCount ?? countEvents(recentEvents, 'IGENT_CONSULT'),
+    postCount: apiStats?.postCount ?? countEvents(recentEvents, 'COMMUNITY_POST'),
+    studioCount:
+      apiStats?.studioCount ??
+      countEvents(recentEvents, 'STUDIO_IMAGE') + countEvents(recentEvents, 'STUDIO_VIDEO'),
+    petCount: apiStats?.petCount ?? cats.length,
+    diaryCount: apiStats?.diaryCount ?? 0,
+    vaccinesRegistered: countEvents(recentEvents, 'VACCINE_REGISTERED'),
+    profileComplete:
+      Array.isArray(tutor?.badges) &&
+      tutor.badges.some((b) => String(b).toLowerCase().includes('verificado')),
+  };
+}
+
+function parseGamificationPayload(data) {
+  const payload = data || {};
+
+  if (!payload?.tutor) {
+    const xpt =
+      payload?.xpt ??
+      payload?.xp ??
+      payload?.totalEarned ??
+      payload?.tutorPoints?.totalEarned ??
+      payload?.stats?.xpt ??
+      payload?.stats?.xp ??
+      payload?.summary?.xp ??
+      0;
+
+    const gpts =
+      payload?.gpts ??
+      payload?.points ??
+      payload?.balance ??
+      payload?.walletBalance ??
+      payload?.wallet ??
+      payload?.credits ??
+      payload?.userCredits?.balance ??
+      payload?.stats?.points ??
+      payload?.summary?.points ??
+      0;
+
+    const tutor = normalizeTutor({
+      id: payload?.id || null,
+      name: payload?.name || '',
+      xpt,
+      gpts,
+      badges: payload?.badges || [],
+      achievements: payload?.achievements || [],
+      progress: payload?.progress,
+    });
+
+    return {
+      tutor,
+      cats: [],
+      petMap: {},
+      streak: Number(payload?.streak || 0),
+      recentEvents: Array.isArray(payload?.recentEvents) ? payload.recentEvents : [],
+      stats: payload?.stats || defaultState.stats,
+      loaded: true,
+    };
+  }
+
+  const tutor = normalizeTutor({
+    ...payload.tutor,
+    xpt:
+      payload?.tutor?.xpt ??
+      payload?.tutor?.xp ??
+      payload?.xpt ??
+      payload?.xp ??
+      payload?.totalEarned ??
+      payload?.tutorPoints?.totalEarned,
+    gpts:
+      payload?.tutor?.gpts ??
+      payload?.tutor?.points ??
+      payload?.tutor?.balance ??
+      payload?.gpts ??
+      payload?.points ??
+      payload?.balance ??
+      payload?.walletBalance ??
+      payload?.wallet ??
+      payload?.credits ??
+      payload?.userCredits?.balance,
+    progress:
+      payload?.tutor?.progress ??
+      payload?.progress,
+  });
+
+  const cats = normalizeCats(payload.cats || []);
+  const petMap = buildPetMap(cats);
+
+  return {
+    tutor,
+    cats,
+    petMap,
+    streak: Number(payload?.streak || 0),
+    recentEvents: Array.isArray(payload?.recentEvents) ? payload.recentEvents : [],
+    stats: deriveStats(payload),
+    loaded: true,
+  };
 }
 
 export function GamificationProvider({ children }) {
-  const [state, setState] = useState(loadLocal);
+  const { user } = useContext(AuthContext);
+  const [state, setState] = useState(defaultState);
   const [toastQueue, setToastQueue] = useState([]);
   const toastCounter = useRef(0);
-  const syncing = useRef(false);
 
-  // ── Persistência local ──
-  useEffect(() => { saveLocal(state); }, [state]);
+  const isAdmin =
+    user?.role === 'ADMIN' ||
+    user?.email === 'diegobocktavares@gmail.com';
 
-  // ── Sync API no mount — só se usuário estiver logado (token presente) ──
-  useEffect(() => {
-    const token = localStorage.getItem('gatedo_token');
-    if (!token) return; // usuário não logado: usa estado local, não chama API
-    
-    api.get('/gamification/me')
-      .then(r => {
-        if (r.data) {
-          setState(prev => ({
-            ...prev,
-            xp:     r.data.xp     ?? prev.xp,
-            badges: r.data.badges ?? prev.badges,
-            streak: r.data.streak ?? prev.streak,
-            stats:  r.data.stats  ?? prev.stats,
-          }));
-        }
-      })
-      .catch(() => {}); // offline-first: usa local se falhar
-  }, []);
-
-  // ── Atualiza streak diário ──
-  useEffect(() => {
-    const today = new Date().toDateString();
-    if (state.lastActiveDate === today) return;
-
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
-    const newStreak = state.lastActiveDate === yesterday ? state.streak + 1 : 1;
-
-    setState(prev => ({ ...prev, streak: newStreak, lastActiveDate: today }));
-  }, []);
-
-  // ── Push toast ──────────────────────────────────────────────────────────────
   const pushToast = useCallback((toast) => {
     const id = ++toastCounter.current;
-    setToastQueue(q => [...q, { ...toast, id }]);
+    setToastQueue((q) => [...q, { ...toast, id }]);
   }, []);
 
   const dismissToast = useCallback((id) => {
-    setToastQueue(q => q.filter(t => t.id !== id));
+    setToastQueue((q) => q.filter((t) => t.id !== id));
   }, []);
 
-  // ── EARN XP ─────────────────────────────────────────────────────────────────
+  const refreshGamification = useCallback(async () => {
+    if (!localStorage.getItem('gatedo_token')) {
+      setState((prev) => ({ ...prev, loaded: true }));
+      return null;
+    }
+
+    try {
+      const res = await api.get('/gamification/me');
+      const parsed = parseGamificationPayload(res.data);
+      setState(parsed);
+      window.dispatchEvent(new CustomEvent('gatedo-gamification-refreshed', { detail: parsed }));
+      return parsed;
+    } catch {
+      setState((prev) => ({ ...prev, loaded: true }));
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshGamification();
+  }, [refreshGamification]);
+
+  useEffect(() => {
+    const handler = () => {
+      refreshGamification();
+    };
+
+    window.addEventListener('gatedo-gamification-refresh', handler);
+    window.addEventListener('gatedo:xp-updated', handler);
+    window.addEventListener('comunigato:new_post', handler);
+
+    return () => {
+      window.removeEventListener('gatedo-gamification-refresh', handler);
+      window.removeEventListener('gatedo:xp-updated', handler);
+      window.removeEventListener('comunigato:new_post', handler);
+    };
+  }, [refreshGamification]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const founderSync = setTimeout(() => {
+      refreshGamification();
+    }, 1200);
+
+    return () => clearTimeout(founderSync);
+  }, [user?.id, refreshGamification]);
+
   const earnXP = useCallback((amount, label = '') => {
     if (!amount || amount <= 0) return;
-
-    setState(prev => {
-      const oldLvl = getLevel(prev.xp);
-      const newXP  = prev.xp + amount;
-      const newLvl = getLevel(newXP);
-
-      // Check auto-badge unlocks
-      const autoUnlocks = computeAutoUnlocks({ ...prev, xp: newXP });
-
-      // XP toast
-      pushToast({ type: 'xp', xp: amount, label });
-
-      // Badge toasts
-      autoUnlocks.forEach((key, i) => {
-        const badge = BADGES[key];
-        if (badge) {
-          setTimeout(() => pushToast({ type: 'badge', ...badge }), 400 + i * 300);
-        }
-      });
-
-      // Level-up toast
-      if (newLvl.rank > oldLvl.rank) {
-        setTimeout(() => pushToast({ type: 'levelup', ...newLvl }), 800);
-      }
-
-      const newState = {
-        ...prev,
-        xp: newXP,
-        badges: [...new Set([...prev.badges, ...autoUnlocks])],
-        stats: {
-          ...prev.stats,
-          totalBadges: prev.badges.length + autoUnlocks.length,
-        },
-      };
-
-      // Sync to API (non-blocking)
-      if (!syncing.current) {
-        syncing.current = true;
-        if (localStorage.getItem('gatedo_token'))
-          if (localStorage.getItem('gatedo_token'))
-          api.patch('/gamification', { xp: newXP, badges: newState.badges, streak: prev.streak })
-          .catch(() => {})
-          .finally(() => { syncing.current = false; });
-      }
-
-      return newState;
-    });
+    pushToast({ type: 'xp', xp: amount, label });
+    window.dispatchEvent(new CustomEvent('gatedo-gamification-refresh'));
   }, [pushToast]);
 
-  // ── UNLOCK BADGE ────────────────────────────────────────────────────────────
-  const unlockBadge = useCallback((key) => {
-    const badge = BADGES[key];
-    if (!badge) return;
-
-    setState(prev => {
-      if (prev.badges.includes(key)) return prev; // já tem
-
-      pushToast({ type: 'badge', ...badge });
-
-      const xpBonus = badge.xp || 0;
-      const newXP   = prev.xp + xpBonus;
-      if (xpBonus > 0) {
-        setTimeout(() => pushToast({ type: 'xp', xp: xpBonus, label: badge.name }), 500);
-      }
-
-      const newState = {
-        ...prev,
-        xp: newXP,
-        badges: [...prev.badges, key],
-        stats: { ...prev.stats, totalBadges: prev.badges.length + 1 },
-      };
-
-      if (localStorage.getItem('gatedo_token'))
-        if (localStorage.getItem('gatedo_token'))
-        api.patch('/gamification', { xp: newXP, badges: newState.badges }).catch(() => {});
-      return newState;
-    });
+  const earnPoints = useCallback((amount, label = '') => {
+    if (!amount) return;
+    pushToast({ type: 'pts', pts: amount, label });
+    window.dispatchEvent(new CustomEvent('gatedo-gamification-refresh'));
   }, [pushToast]);
 
-  // ── INCREMENT STAT ───────────────────────────────────────────────────────────
-  // Chame após cada ação: incrementStat('consultCount') → verifica badges automáticos
+  const earnPetXP = useCallback((petName, amount, label = '') => {
+    if (!amount || amount <= 0) return;
+    pushToast({ type: 'pet_xp', petName, xpg: amount, label });
+    window.dispatchEvent(new CustomEvent('gatedo-gamification-refresh'));
+  }, [pushToast]);
+
+  const spendPoints = useCallback(async (amount, label = '') => {
+    if (!amount || amount <= 0) return true;
+    if (isAdmin) return true;
+
+    try {
+      await api.post('/gamification/spend', { amount });
+      pushToast({ type: 'pts', pts: -amount, label: label || 'Consumo' });
+      await refreshGamification();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [isAdmin, pushToast, refreshGamification]);
+
   const incrementStat = useCallback((statKey, by = 1) => {
-    setState(prev => {
-      const newStats = { ...prev.stats, [statKey]: (prev.stats[statKey] || 0) + by };
-      const autoUnlocks = computeAutoUnlocks({ ...prev, stats: newStats });
-      autoUnlocks.forEach((key, i) => {
-        const badge = BADGES[key];
-        if (badge) setTimeout(() => pushToast({ type: 'badge', ...badge }), i * 300);
-      });
-      return {
-        ...prev,
-        badges: [...new Set([...prev.badges, ...autoUnlocks])],
-        stats: newStats,
-      };
-    });
-  }, [pushToast]);
+    setState((prev) => ({
+      ...prev,
+      stats: {
+        ...prev.stats,
+        [statKey]: (prev.stats?.[statKey] || 0) + by,
+      },
+    }));
+  }, []);
 
-  // ── COMPUTED ─────────────────────────────────────────────────────────────────
-  const level    = getLevel(state.xp);
-  const progress = getLevelProgress(state.xp);
-  const nextLevel= LEVELS.find(l => l.rank === level.rank + 1) || null;
+  const unlockBadge = useCallback(async () => {
+    await refreshGamification();
+  }, [refreshGamification]);
+
+  const getPetById = useCallback((petId) => {
+    if (!petId) return null;
+    return state.petMap?.[petId] || null;
+  }, [state.petMap]);
+
+  const getPetLevelById = useCallback((petId) => {
+    const pet = getPetById(petId);
+    return pet?.levelMeta || null;
+  }, [getPetById]);
+
+  const getPetProgressById = useCallback((petId) => {
+    const pet = getPetById(petId);
+    return pet?.progress ?? 0;
+  }, [getPetById]);
+
+  const effectiveTutor = useMemo(() => {
+    if (!isAdmin) return state.tutor;
+
+    const xpt = 999999;
+    const levelMeta = getLevel(xpt);
+
+    return {
+      ...state.tutor,
+      xpt,
+      gpts: 999999,
+      level: 20,
+      levelMeta,
+      progress: 100,
+      nextLevel: null,
+    };
+  }, [isAdmin, state.tutor]);
+
+  const effectiveStats = useMemo(() => {
+    if (!isAdmin) return state.stats;
+
+    return {
+      ...state.stats,
+      consultCount: Math.max(state.stats.consultCount || 0, 999),
+      postCount: Math.max(state.stats.postCount || 0, 999),
+      studioCount: Math.max(state.stats.studioCount || 0, 999),
+      petCount: Math.max(state.stats.petCount || 0, state.cats.length || 1),
+      diaryCount: Math.max(state.stats.diaryCount || 0, 999),
+    };
+  }, [isAdmin, state.stats, state.cats.length]);
 
   const value = {
-    // State
-    xp:         state.xp,
-    badges:     state.badges,
-    streak:     state.streak,
-    stats:      state.stats,
-    // Computed
-    level,
-    progress,
-    nextLevel,
-    hasBadge:   (key) => state.badges.includes(key),
-    // Actions
+    tutor: effectiveTutor,
+    cats: state.cats,
+    petMap: state.petMap,
+    recentEvents: state.recentEvents,
+    streak: isAdmin ? 999 : state.streak,
+    stats: effectiveStats,
+    loaded: state.loaded,
+
+    xp: effectiveTutor.xpt,
+    xpt: effectiveTutor.xpt,
+    points: effectiveTutor.gpts,
+    gpts: effectiveTutor.gpts,
+    badges: effectiveTutor.badges,
+    level: effectiveTutor.levelMeta,
+    progress: effectiveTutor.progress,
+    nextLevel: effectiveTutor.nextLevel,
+
+    hasBadge: (code) =>
+      Array.isArray(effectiveTutor.badges) &&
+      effectiveTutor.badges.some((b) => String(b).toLowerCase() === String(code).toLowerCase()),
+
+    getPetById,
+    getPetLevel: getPetLevelById,
+    getPetProgress: getPetProgressById,
+
+    refreshGamification,
     earnXP,
+    earnPoints,
+    earnPetXP,
+    spendPoints,
     unlockBadge,
     incrementStat,
   };
@@ -432,90 +593,81 @@ export function useGamification() {
   return ctx;
 }
 
-// ─── COMPONENTES REUTILIZÁVEIS EXPORTADOS ────────────────────────────────────
-
-export function LevelBadge({ xp, size = 'md', showBar = false }) {
-  const lvl  = getLevel(xp);
-  const prog = getLevelProgress(xp);
-  const sizes = { sm: 'w-7 h-7 text-xs', md: 'w-9 h-9 text-sm', lg: 'w-12 h-12 text-base' };
+export function PointsChip({ onClick }) {
+  const { gpts } = useGamification();
 
   return (
-    <div className="flex items-center gap-2">
-      <div className={`${sizes[size]} rounded-full flex items-center justify-center font-black flex-shrink-0`}
-        style={{ background: `${lvl.color}20`, border: `2px solid ${lvl.color}70`, boxShadow: lvl.glow }}>
-        {lvl.emoji}
-      </div>
-      <div>
-        <p className="text-[10px] font-black leading-none" style={{ color: lvl.color }}>{lvl.name}</p>
-        <p className="text-[8px] text-gray-400 font-bold">{xp.toLocaleString()} XP</p>
-      </div>
-      {showBar && (
-        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden ml-1 min-w-[60px]">
-          <motion.div initial={{ width: 0 }} animate={{ width: `${prog}%` }}
-            transition={{ duration: 1, ease: 'easeOut' }}
-            className="h-full rounded-full"
-            style={{ background: `linear-gradient(90deg, ${lvl.color}80, ${lvl.color})` }} />
-        </div>
-      )}
-    </div>
+    <motion.button
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+      style={{ background: '#8B4AFF12', border: '1.5px solid #8B4AFF25' }}
+    >
+      <PawPrint size={11} style={{ color: '#8B4AFF' }} fill="#8B4AFF" />
+      <span className="text-[10px] font-black" style={{ color: '#8B4AFF' }}>
+        {Number(gpts || 0).toLocaleString('pt-BR')} GPTS
+      </span>
+    </motion.button>
   );
 }
 
-export function BadgeChip({ badgeKey, size = 'sm' }) {
-  const b = BADGES[badgeKey];
-  if (!b) return null;
-  const r = RARITY_STYLES[b.rarity] || RARITY_STYLES.common;
-  return (
-    <div className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5"
-      style={{ border: `1.5px solid ${r.border}`, background: r.bg, boxShadow: r.shadow }}>
-      <span className={size === 'lg' ? 'text-base' : 'text-sm'}>{b.emoji}</span>
-      <div>
-        <p className="text-[9px] font-black leading-none" style={{ color: BADGES[badgeKey]?.color || '#6B7280' }}>
-          {b.name}
-        </p>
-        {size === 'lg' && <p className="text-[8px] text-gray-400 mt-0.5">{b.desc}</p>}
-      </div>
-      {size === 'lg' && (
-        <span className="text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-wider ml-0.5"
-          style={{ background: `${BADGES[badgeKey]?.color || '#6B7280'}15`, color: BADGES[badgeKey]?.color || '#6B7280' }}>
-          {r.label}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/**
- * XPBar — barra de progresso inline usada no header de qualquer página
- * Clicável → navega para /ranking ou abre modal de gamificação
- */
 export function XPBar({ onClick }) {
-  const { xp, streak, level, progress, nextLevel } = useGamification();
+  const { tutor, streak } = useGamification();
+  const { xpt, gpts, levelMeta, progress, nextLevel } = tutor;
+
   return (
-    <motion.button onClick={onClick} whileTap={{ scale: 0.98 }}
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.98 }}
       className="flex items-center gap-3 px-4 py-2.5 rounded-[20px] border w-full"
-      style={{ background: `${level.color}08`, borderColor: `${level.color}25` }}>
-      <div className="w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0"
-        style={{ background: `${level.color}18`, border: `2px solid ${level.color}60`, boxShadow: level.glow }}>
-        {level.emoji}
+      style={{ background: `${levelMeta.color}08`, borderColor: `${levelMeta.color}25` }}
+    >
+      <div
+        className="w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0"
+        style={{
+          background: `${levelMeta.color}18`,
+          border: `2px solid ${levelMeta.color}60`,
+          boxShadow: levelMeta.glow,
+        }}
+      >
+        {levelMeta.emoji}
       </div>
+
       <div className="flex-1 min-w-0">
         <div className="flex justify-between mb-1">
-          <span className="text-[10px] font-black" style={{ color: level.color }}>{level.name}</span>
+          <span className="text-[10px] font-black" style={{ color: levelMeta.color }}>
+            {levelMeta.name}
+          </span>
           <span className="text-[9px] font-bold text-gray-400">
-            {xp.toLocaleString()}{nextLevel ? `/${nextLevel.min.toLocaleString()}` : ''} XP
+            {Number(xpt || 0).toLocaleString('pt-BR')}
+            {nextLevel ? `/${Number(nextLevel.min).toLocaleString('pt-BR')}` : ''} XPT
           </span>
         </div>
+
         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }}
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
             transition={{ duration: 1.2, ease: 'easeOut' }}
             className="h-full rounded-full"
-            style={{ background: `linear-gradient(90deg, ${level.color}80, ${level.color})` }} />
+            style={{ background: `linear-gradient(90deg, ${levelMeta.color}80, ${levelMeta.color})` }}
+          />
         </div>
       </div>
-      <div className="flex flex-col items-center flex-shrink-0">
-        <span className="text-sm">🔥</span>
-        <span className="text-[9px] font-black text-orange-500 leading-none">{streak}d</span>
+
+      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+        <div className="flex items-center gap-1">
+          <PawPrint size={9} style={{ color: '#8B4AFF' }} fill="#8B4AFF" />
+          <span className="text-[9px] font-black" style={{ color: '#8B4AFF' }}>
+            {Number(gpts || 0).toLocaleString('pt-BR')}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-sm">🔥</span>
+          <span className="text-[9px] font-black text-orange-500 leading-none">
+            {streak}d
+          </span>
+        </div>
       </div>
     </motion.button>
   );

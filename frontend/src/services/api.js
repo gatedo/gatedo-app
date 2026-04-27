@@ -1,21 +1,44 @@
 import axios from 'axios';
 
-// Detecta se o app está em produção através do Vite
-const isProduction = import.meta.env.PROD;
+const isLocal = window.location.hostname === 'localhost';
+
+// Em dev, usa VITE_API_URL se definido — senão localhost:3001
+// Em produção, sempre usa api.gatedo.com
+const BASE_URL = isLocal
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
+  : 'https://api.gatedo.com/api';
 
 const api = axios.create({
-  // Se for produção, usa a URL do seu servidor hospedado. 
-  // Se for desenvolvimento, usa o localhost:3000.
-  baseURL: isProduction 
-    ? 'https://app.gatedo.com/api' // Substitua pela URL real do seu deploy
-    : 'http://localhost:3000/api', 
+  baseURL: BASE_URL,
 });
 
-// Interceptor opcional para garantir que o token seja enviado em cada requisição
+function getStoredToken() {
+  const possibleKeys = [
+    'gatedo_token',
+    'token',
+    'authToken',
+    'access_token',
+    'accessToken',
+    'jwt',
+  ];
+
+  for (const key of possibleKeys) {
+    const value = localStorage.getItem(key);
+    if (value && String(value).trim()) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('@Gatedo:token');
+  const token = getStoredToken();
+  config.headers = config.headers || {};
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    delete config.headers.Authorization;
   }
   return config;
 });

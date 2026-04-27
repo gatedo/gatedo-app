@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { useSound } from '../hooks/useSound'; // Importamos seu hook
+import { useSound } from '../hooks/useSound';
 
 const CAT_PHRASES = [
   "Limpando as patinhas...",
@@ -10,41 +10,50 @@ const CAT_PHRASES = [
   "Preparando os mimos..."
 ];
 
+// 4 GIFs que vão alternar a cada navegação
+const LOADING_GIFS = [
+  '/assets/utils/loadcat1.gif',
+  '/assets/utils/loadcat2.gif',
+  '/assets/utils/loadcat3.gif',
+  '/assets/utils/loadcat4.gif',
+];
+
 export function LoadingScreen({ isVisible }) {
-  const { playMeow } = useSound(); // Inicializamos o som
+  const { playMeow } = useSound();
 
-  // Memoize para a frase não mudar durante o loading
-  const phrase = useMemo(() => 
-    CAT_PHRASES[Math.floor(Math.random() * CAT_PHRASES.length)], 
-  [isVisible]);
+  // Sorteia frase e gif juntos — só muda quando isVisible muda (nova navegação)
+  const { phrase, gif } = useMemo(() => ({
+    phrase: CAT_PHRASES[Math.floor(Math.random() * CAT_PHRASES.length)],
+    gif:    LOADING_GIFS[Math.floor(Math.random() * LOADING_GIFS.length)],
+  }), [isVisible]);
 
-  // Efeito para tocar o som assim que o loading aparecer
   useEffect(() => {
     if (isVisible) {
-      // Sorteia entre 'soft', 'loud' ou 'happy' (se você os adicionou ao hook)
-      const soundTypes = ['soft', 'loud']; 
+      const soundTypes = ['soft', 'loud'];
       const randomType = soundTypes[Math.floor(Math.random() * soundTypes.length)];
-      
-      playMeow(randomType); // Toca o miado sorteado
+      playMeow(randomType);
     }
-  }, [isVisible]); // Só dispara quando a visibilidade mudar
+  }, [isVisible]);
 
   if (!isVisible) return null;
 
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-      backgroundColor: '#FFFFFF', 
+      backgroundColor: '#823fff',
       zIndex: 99999,
       display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
     }}>
-      {/* Verifique se o nome do arquivo é gif-gatedo.gif ou cat-walking.gif conforme o print */}
-      <img src="/assets/gif-gatedo.gif" alt="Carregando..." style={{ width: '150px' }} />
-      <p style={{ 
-        color: '#7865da70', marginTop: '20px', fontFamily: 'Nunito, sans-serif', 
+      <img
+        src={gif}
+        alt="Carregando..."
+        style={{ width: '150px' }}
+      />
+      <p style={{
+        color: '#fbfbff70', marginTop: '20px', fontFamily: 'Nunito, sans-serif',
         fontWeight: '600', fontSize: '1.1rem', letterSpacing: '0.5px'
       }}>
-        {phrase} 🐾
+        {phrase}
       </p>
     </div>
   );

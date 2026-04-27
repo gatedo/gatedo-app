@@ -11,38 +11,53 @@ import { useNavigate } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
 
-// ─── SONS (Web Audio API — zero dependência) ──────────────────────────────────
+// ─── // ─── SONS (Web Audio API — zero dependência) ──────────────────────────────────
 const SFX = (() => {
   let ctx = null;
-  const getCtx = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; };
-  const tone = (freq, dur, vol = 0.08, type = 'sine') => {
+  let lastPlayed = 0; // ← guard anti-overlap
+
+  const getCtx = () => {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  };
+
+  const tone = (freq, dur, vol = 0.08, type = 'sine', delay = 0) => {
     try {
       const c = getCtx();
       const o = c.createOscillator();
       const g = c.createGain();
       o.connect(g); g.connect(c.destination);
       o.frequency.value = freq; o.type = type;
-      g.gain.setValueAtTime(vol, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
-      o.start(c.currentTime); o.stop(c.currentTime + dur);
+      const t = c.currentTime + delay;
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.start(t); o.stop(t + dur);
     } catch {}
   };
+
+  const play = (fn) => {
+    const now = Date.now();
+    if (now - lastPlayed < 150) return; // ← ignora se < 150ms do último
+    lastPlayed = now;
+    fn();
+  };
+
   return {
-    keyTap:    () => tone(800, 0.06, 0.04, 'sine'),
-    send:      () => { tone(600, 0.08, 0.07); setTimeout(() => tone(900, 0.1, 0.06), 60); },
-    receive:   () => { tone(440, 0.12, 0.06); setTimeout(() => tone(550, 0.1, 0.05), 80); },
-    confirm:   () => { tone(523, 0.1, 0.08); setTimeout(() => tone(659, 0.1, 0.08), 100); setTimeout(() => tone(784, 0.15, 0.09), 200); },
-    error:     () => tone(200, 0.2, 0.07, 'sawtooth'),
-    select:    () => tone(700, 0.07, 0.06),
+    keyTap:  () => play(() => tone(800, 0.06, 0.04, 'sine')),
+    send:    () => play(() => { tone(600, 0.08, 0.07); tone(900, 0.1, 0.06, 'sine', 0.06); }),
+    receive: () => play(() => { tone(440, 0.12, 0.06); tone(550, 0.1, 0.05, 'sine', 0.08); }),
+    confirm: () => play(() => { tone(523, 0.1, 0.08); tone(659, 0.1, 0.08, 'sine', 0.1); tone(784, 0.15, 0.09, 'sine', 0.2); }),
+    error:   () => play(() => tone(200, 0.2, 0.07, 'sawtooth')),
+    select:  () => play(() => tone(700, 0.07, 0.06)),
   };
 })();
 
 // ─── BRAND ───────────────────────────────────────────────────────────────────
 const C = {
-  purple: '#6158ca',
+  purple: '#8B4AFF',
   purpleDark: '#4B40C6',
   purpleDeep: '#2D2657',
-  accent: '#DFFF40',
+  accent: '#ebfc66',
   accentDim: '#ebfc66',
   bg: '#F4F3FF',
   white: '#ffffff',
@@ -85,9 +100,9 @@ const CSS = `
 
   /* Fundo degradê vivo da tela de seleção */
   .igent-hero-bg {
-    background: linear-gradient(160deg, #5e42c0 0%, #7865da 40%, #9D8FFF 70%, #C5BCFF 100%);
+    background: w-full linear-gradient(160deg, #6b2ece 0%, #8b4dff 40%, #a474ff 70%, #b392ff 100%);
   }
-
+    
   /* Card do gato no carrossel */
   .cat-card {
     background: rgba(255,255,255,0.15);
@@ -165,7 +180,7 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
       exit={{ y: -60, opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.35 }}
       className="igent-hero-bg flex flex-col overflow-hidden"
-      style={{ height: 'min(100dvh, 100vh)', position: 'relative' }}
+      style={{ height: '100svh', position: 'relative' }}
     >
       {/* Orbs decorativos */}
       <div className="absolute top-[-80px] right-[-60px] w-72 h-72 rounded-full opacity-20 pointer-events-none"
@@ -293,6 +308,12 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
             <p className="text-center text-white/35 text-[10px] font-bold mt-2 uppercase tracking-widest">
               {cats.length} {cats.length === 1 ? 'gato cadastrado' : 'gatos cadastrados'}
             </p>
+
+            <button
+              onClick={() => { touch(); SFX.select(); navigate('/cats'); }}
+              className="mt-3 px-4 py-2 rounded-full border border-white/20 bg-white/10 text-white text-xs font-black uppercase tracking-wider backdrop-blur-sm">
+              Ver todos os gatos
+            </button>
           </>
         )}
       </div>
@@ -467,6 +488,7 @@ function StepSymptoms({ cat, onSelect, onBack }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
   const touch = useSensory();
+  const navigate = useNavigate();
   const scrollRef = useRef(null);
   const inputRef  = useRef(null);
 
@@ -485,7 +507,9 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
   const mediaRecRef                     = useRef(null);
   const fileInputRef                    = useRef(null);
   const [medAlertModal, setMedAlertModal] = useState(null);
-  const [notifGranted, setNotifGranted] = useState(Notification?.permission === 'granted');
+  const [notifGranted, setNotifGranted] = useState(
+    typeof Notification !== 'undefined' && Notification?.permission === 'granted'
+  );
 
   // Auto-scroll
   useEffect(() => {
@@ -494,16 +518,29 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
     }, 80);
   }, [messages, isTyping]);
 
-  // Fase de loading rotativa + bip a cada fase
-  useEffect(() => {
-    if (!isTyping) return;
-    SFX.keyTap(); // bip inicial quando agente começa a "digitar"
-    const t = setInterval(() => {
-      setPhase(p => (p + 1) % PHASES.length);
-      SFX.keyTap();
-    }, 900);
-    return () => clearInterval(t);
-  }, [isTyping]);
+// ─── FASE DE LOADING — só visual, zero áudio ────────────────────────────
+useEffect(() => {
+  if (!isTyping) return;
+  const t = setInterval(() => {
+    setPhase(p => (p + 1) % PHASES.length);
+    // ← SEM SFX aqui — o som vem do useEffect abaixo
+  }, 1400);
+  return () => clearInterval(t);
+}, [isTyping]);
+
+// ─── SOM SEMÂNTICO — 1 ping quando bot começa, 1 receive quando termina ─
+const prevTyping = useRef(false);
+useEffect(() => {
+  if (isTyping && !prevTyping.current) {
+    // Bot começou a "digitar" → ping suave único
+    SFX.keyTap();
+  }
+  if (!isTyping && prevTyping.current) {
+    // Bot terminou e entregou mensagem → receive
+    SFX.receive();
+  }
+  prevTyping.current = isTyping;
+}, [isTyping]);
 
   const addMsg = useCallback((msg) =>
     setMessages(prev => [...prev, { ...msg, id: Date.now() + Math.random() }]), []);
@@ -640,6 +677,18 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
       };
       setReportData(rd);
       addMsg({ sender: 'bot', type: 'report', data: rd });
+
+      await wait(900);
+      addMsg({
+        sender: 'bot',
+        type: 'guided_followup',
+        catName: cat.name,
+        ownerName: localData.ownerName,
+        text:
+          `${localData.ownerName ? `${localData.ownerName}, ` : ''}vejo que você cuida bem d${art(cat)} <b>${cat.name}</b>. ` +
+          `Antes de finalizarmos, me diga em uma frase o que mais te chama atenção agora: ` +
+          `<b>há quanto tempo isso começou</b>, <b>se está piorando</b> ou <b>se ${pron(cat)} ainda está comendo, bebendo água e usando a caixinha normalmente</b>?`
+      });
 
       setConsultDone(true);
       SFX.confirm();
@@ -826,9 +875,9 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
       }
 
       const res = await api.post('/igent/chat', payload);
-      setIsTyping(false);
-      SFX.receive();
-      addMsg({ sender: 'bot', type: 'text', text: res.data.text });
+setIsTyping(false);
+
+addMsg({ sender: 'bot', type: 'text', text: res.data.text });
 
       // Se consulta já terminou: pede confirmação se quer continuar
       if (consultDone) {
@@ -883,6 +932,58 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
       addMsg({ sender: 'bot', type: 'text', text: '⚠️ Permissão de microfone negada.' });
     }
   };
+
+  const buildReportHtml = (report) => {
+    const isUrgentStr = report.consultation.isUrgent ? '🔴 URGENTE' : '🟢 Monitoramento';
+    const careList = (report.consultation.care || []).map(c => `<li style="margin:4px 0">${c}</li>`).join('');
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Laudo IA iGentVet — ${report.pet?.name}</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; color: #222; }
+  h1 { color: #8B4AFF; font-size: 22px; margin-bottom: 4px; }
+  .badge { display:inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; background: ${report.consultation.isUrgent ? '#fee2e2' : '#dcfce7'}; color: ${report.consultation.isUrgent ? '#b91c1c' : '#15803d'}; }
+  .section { margin-top: 20px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; }
+  .label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #9ca3af; letter-spacing: .1em; margin-bottom: 6px; }
+  .footer { margin-top: 32px; font-size: 10px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 16px; }
+</style>
+</head>
+<body>
+<h1>iGentVet — Laudo da IA</h1>
+<p style="color:#6b7280;font-size:13px">${report.reportId || ''} · ${report.consultation.date} às ${report.consultation.time}</p>
+<div class="section">
+  <div class="label">Paciente</div>
+  <b>${report.pet?.name}</b> · ${report.pet?.breed || 'SRD'} · ${report.pet?.gender === 'FEMALE' ? 'Fêmea' : 'Macho'} · ${report.pet?.ageYears || '?'} anos${report.pet?.weight ? ' · ' + report.pet.weight + 'kg' : ''}${report.pet?.neutered ? ' · Castrado(a)' : ''}
+</div>
+<div class="section">
+  <div class="label">Consulta</div>
+  <b>Sintoma:</b> ${report.consultation.symptom}<br/>
+  <span class="badge">${isUrgentStr}</span>
+</div>
+<div class="section">
+  <div class="label">Análise da IA</div>
+  ${report.consultation.analysisText}
+</div>
+<div class="section">
+  <div class="label">Recomendações</div>
+  <ul style="margin:0;padding-left:20px">${careList}</ul>
+</div>
+${report.consultation.ownerResponse ? '<div class="section"><div class="label">Resposta do Tutor</div>' + report.consultation.ownerResponse + '</div>' : ''}
+<div class="footer">
+  Gerado por iGentVet IA — Gatedo · Este laudo é orientativo e não substitui consulta veterinária presencial.
+</div>
+</body></html>`;
+  };
+
+  const blobToDataUrl = (blob) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
 
   // Salva histórico no perfil do gato + grava IgentSession para IA preditiva
   const handleSaveHistory = async () => {
@@ -946,6 +1047,31 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
 
       // Busca dados do prontuário para disponibilizar download
       try {
+        const previewReport = {
+          reportId: `IGV-PRE-${Date.now()}`,
+          pet: {
+            name: cat?.name,
+            breed: cat?.breed || 'SRD',
+            gender: cat?.gender,
+            ageYears: cat?.ageYears,
+            weight: cat?.weight,
+            neutered: cat?.neutered,
+          },
+          consultation: {
+            date: new Date().toLocaleDateString('pt-BR'),
+            time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            symptom: symptom.label,
+            isUrgent: reportMsg?.data?.isUrgent || false,
+            analysisText: reportMsg?.data?.analysisText || analysisMsg?.text || '',
+            care: reportMsg?.data?.care || [],
+            ownerResponse: tutorResponses.join(' | '),
+          },
+        };
+
+        const html = buildReportHtml(previewReport);
+        const htmlBlob = new Blob([html], { type: 'text/html' });
+        const htmlBase64 = await blobToDataUrl(htmlBlob);
+
         const reportRes = await api.post('/igent/report', {
           petId: cat.id,
           symptomLabel: symptom.label,
@@ -953,10 +1079,14 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
           care: reportMsg?.data?.care || [],
           isUrgent: reportMsg?.data?.isUrgent || false,
           ownerResponse: tutorResponses.join(' | '),
+          pdfBase64: htmlBase64,
+          pdfFilename: `laudo-ia-${cat?.name?.toLowerCase().replace(/\s+/g, '-') || 'gato'}-${new Date().toISOString().split('T')[0]}.html`,
+          pdfMimeType: 'text/html',
+          saveToDocuments: true,
         });
         setReportData(prev => ({ ...prev, _report: reportRes.data }));
       } catch (e) {
-        console.warn('Prontuário não gerado:', e);
+        console.warn('Laudo da IA não gerado/salvo:', e);
       }
 
       addMsg({
@@ -974,54 +1104,14 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
     }
   };
 
-  // Download prontuário como HTML → tutor pode imprimir como PDF
+  // Download laudo da IA como HTML
   const downloadProntuario = (report) => {
-    const isUrgentStr = report.consultation.isUrgent ? '🔴 URGENTE' : '🟢 Monitoramento';
-    const careList = (report.consultation.care || []).map(c => `<li style="margin:4px 0">${c}</li>`).join('');
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8"/>
-<title>Prontuário iGentVet — ${report.pet?.name}</title>
-<style>
-  body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; color: #222; }
-  h1 { color: #6158ca; font-size: 22px; margin-bottom: 4px; }
-  .badge { display:inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; background: ${report.consultation.isUrgent ? '#fee2e2' : '#dcfce7'}; color: ${report.consultation.isUrgent ? '#b91c1c' : '#15803d'}; }
-  .section { margin-top: 20px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; }
-  .label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #9ca3af; letter-spacing: .1em; margin-bottom: 6px; }
-  .footer { margin-top: 32px; font-size: 10px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 16px; }
-</style>
-</head>
-<body>
-<h1>iGentVet — Prontuário de Atendimento</h1>
-<p style="color:#6b7280;font-size:13px">${report.reportId || ''} · ${report.consultation.date} às ${report.consultation.time}</p>
-<div class="section">
-  <div class="label">Paciente</div>
-  <b>${report.pet?.name}</b> · ${report.pet?.breed || 'SRD'} · ${report.pet?.gender === 'FEMALE' ? 'Fêmea' : 'Macho'} · ${report.pet?.ageYears || '?'} anos${report.pet?.weight ? ' · ' + report.pet.weight + 'kg' : ''}${report.pet?.neutered ? ' · Castrado(a)' : ''}
-</div>
-<div class="section">
-  <div class="label">Consulta</div>
-  <b>Sintoma:</b> ${report.consultation.symptom}<br/>
-  <span class="badge">${isUrgentStr}</span>
-</div>
-<div class="section">
-  <div class="label">Análise da IA</div>
-  ${report.consultation.analysisText}
-</div>
-<div class="section">
-  <div class="label">Recomendações</div>
-  <ul style="margin:0;padding-left:20px">${careList}</ul>
-</div>
-${report.consultation.ownerResponse ? '<div class="section"><div class="label">Resposta do Tutor</div>' + report.consultation.ownerResponse + '</div>' : ''}
-<div class="footer">
-  Gerado por iGentVet IA — Gatedo · Este prontuário é um pré-diagnóstico e não substitui consulta veterinária presencial.
-</div>
-</body></html>`;
+    const html = buildReportHtml(report);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `prontuario-igentvet-${report.pet?.name?.toLowerCase().replace(/\s/g,'-')}-${new Date().toISOString().split('T')[0]}.html`;
+    a.download = `laudo-ia-igentvet-${report.pet?.name?.toLowerCase().replace(/\s/g,'-')}-${new Date().toISOString().split('T')[0]}.html`;
     a.click();
     URL.revokeObjectURL(url);
     touch('success');
@@ -1030,6 +1120,11 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
   // Agenda notificação nativa do dispositivo para medicação
   const handleScheduleNotification = async ({ hours, medName, catName, ownerName }) => {
     try {
+      // iOS Safari não suporta Notification API — sai silenciosamente
+      if (typeof Notification === 'undefined') {
+        console.warn('[iGentVet] Notifications não suportadas neste dispositivo');
+        return;
+      }
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         setNotifGranted(true);
@@ -1055,7 +1150,8 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col h-full bg-[#F4F3FF] max-w-[800px] w-full mx-auto"
+      className="flex flex-col bg-[#F4F3FF] max-w-[800px] w-full mx-auto"
+      style={{ height: '100svh' }}
     >
       {/* Header */}
       <div className="pt-10 pb-3 px-4 rounded-b-[32px] shadow-md z-30 shrink-0 relative"
@@ -1106,7 +1202,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4 space-y-3 pb-36 smooth-scroll">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4 space-y-3 pb-[260px] smooth-scroll">
         <AnimatePresence initial={false}>
           {messages.map(msg => (
             <motion.div key={msg.id}
@@ -1140,12 +1236,16 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
 
         {/* Botão download — após salvo */}
         {saved && reportData?._report && (
+          <div className="text-center mt-3 mb-2 text-[11px] font-bold text-gray-400">Laudo da IA salvo nos documentos d{art(cat)} {cat.name}.</div>
+        )}
+
+        {saved && reportData?._report && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="flex justify-center py-1">
             <button onClick={() => downloadProntuario(reportData._report)}
               className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-sm border-2"
               style={{ borderColor: C.purple, color: C.purple, background: 'white' }}>
-              <Download size={15} /> Baixar Prontuário PDF
+              <Download size={15} /> Baixar Laudo da IA
             </button>
           </motion.div>
         )}
@@ -1213,7 +1313,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
       {/* ── Input — hidden quando sessão encerrada ── */}
       {!sessionClosed && (
         <div className="fixed left-0 right-0 px-3 z-40"
-          style={{ maxWidth: 'min(800px, 100vw)', margin: '0 auto', bottom: '112px' }}>
+          style={{ maxWidth: 'min(800px, 100vw)', margin: '0 auto', bottom: 'calc(132px + env(safe-area-inset-bottom, 0px))' }}>
 
           {/* Preview de mídia anexada */}
           <AnimatePresence>
@@ -1288,7 +1388,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
       {/* Botão salvar — só após tutor dizer "não tenho mais dúvidas" */}
       {sessionClosed && !saved && (
         <div className="fixed left-0 right-0 px-4 z-40"
-          style={{ maxWidth: 'min(800px, 100vw)', margin: '0 auto', bottom: '148px' }}>
+          style={{ maxWidth: 'min(800px, 100vw)', margin: '0 auto', bottom: 'calc(168px + env(safe-area-inset-bottom, 0px))' }}>
           <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: 'spring', stiffness: 300, damping: 22 }}>
             <p className="text-center text-[11px] font-bold text-gray-400 mb-2">
@@ -1325,7 +1425,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
         </div>
       )}
       {msg.text && (
-        <div className="bg-[#6158ca] text-white px-4 py-2.5 rounded-2xl rounded-tr-sm shadow-sm text-sm font-medium">
+        <div className="bg-[#8B4AFF] text-white px-4 py-2.5 rounded-2xl rounded-tr-sm shadow-sm text-sm font-medium">
           {msg.text}
         </div>
       )}
@@ -1380,12 +1480,12 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
       )}
       <div className="mt-3 flex gap-2 flex-wrap">
         <div className="history-chip rounded-xl px-3 py-1.5 flex items-center gap-1.5">
-          <TrendingUp size={12} className="text-[#6158ca]" />
-          <span className="text-[10px] font-black text-[#6158ca]">IA Preditiva</span>
+          <TrendingUp size={12} className="text-[#8B4AFF]" />
+          <span className="text-[10px] font-black text-[#8B4AFF]">IA Preditiva</span>
         </div>
         <div className="history-chip rounded-xl px-3 py-1.5 flex items-center gap-1.5">
-          <ShieldCheck size={12} className="text-[#6158ca]" />
-          <span className="text-[10px] font-black text-[#6158ca]">{msg.hasHistory ? `${msg.recordCount} registros` : 'Novo prontuário'}</span>
+          <ShieldCheck size={12} className="text-[#8B4AFF]" />
+          <span className="text-[10px] font-black text-[#8B4AFF]">{msg.hasHistory ? `${msg.recordCount} registros` : 'Novo prontuário'}</span>
         </div>
       </div>
     </div>
@@ -1394,8 +1494,8 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
   if (msg.type === 'analysis') return (
     <div className="w-full bg-white rounded-[20px] p-4 shadow-sm border border-indigo-50">
       <div className="flex items-center gap-2 mb-2">
-        <Zap size={14} className="text-[#6158ca]" />
-        <p className="text-[9px] font-black uppercase tracking-wider text-[#6158ca]">Análise iGentVet · {msg.symptomLabel}</p>
+        <Zap size={14} className="text-[#8B4AFF]" />
+        <p className="text-[9px] font-black uppercase tracking-wider text-[#8B4AFF]">Análise iGentVet · {msg.symptomLabel}</p>
       </div>
       <p className="text-gray-700 text-sm leading-relaxed"
         dangerouslySetInnerHTML={{ __html: msg.text?.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') }} />
@@ -1404,14 +1504,14 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
 
   // ── Perguntas de triagem clínica ─────────────────────────────────────────
   if (msg.type === 'triage_questions') return (
-    <div className="w-full bg-white rounded-[20px] p-4 shadow-sm border border-[#6158ca20]">
+    <div className="w-full bg-white rounded-[20px] p-4 shadow-sm border border-[#8B4AFF20]">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0" style={{ background: C.purple }}>
           <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
         </div>
         <div>
           <p className="font-black text-gray-800 text-sm leading-none">iGentVet</p>
-          <p className="text-[9px] text-[#6158ca] font-black uppercase tracking-wider">Triagem Clínica</p>
+          <p className="text-[9px] text-[#8B4AFF] font-black uppercase tracking-wider">Triagem Clínica</p>
         </div>
       </div>
       <p className="text-sm text-gray-600 mb-3">
@@ -1515,7 +1615,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
               <ul className="space-y-1.5">
                 {d.care.map((c, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-[#6158ca] font-black mt-0.5">•</span> {c}
+                    <span className="text-[#8B4AFF] font-black mt-0.5">•</span> {c}
                   </li>
                 ))}
               </ul>
@@ -1524,8 +1624,8 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
 
           {/* Quando ir ao vet */}
           {d.whenToVet && (
-            <div className="mb-4 bg-[#F4F3FF] rounded-xl px-3 py-2.5 border border-[#6158ca15]">
-              <p className="text-[9px] font-black text-[#6158ca] uppercase tracking-wider mb-1">
+            <div className="mb-4 bg-[#F4F3FF] rounded-xl px-3 py-2.5 border border-[#8B4AFF15]">
+              <p className="text-[9px] font-black text-[#8B4AFF] uppercase tracking-wider mb-1">
                 🏥 Consulta Presencial
               </p>
               <p className="text-xs text-gray-700 font-medium leading-snug">{d.whenToVet}</p>
@@ -1612,20 +1712,46 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
 
           {/* Ações */}
           <div className="space-y-2">
+            <div className="rounded-[16px] px-3 py-2 border border-[#8B4AFF15]" style={{ background: '#FAF8FF' }}>
+              <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: C.purple }}>
+                Próximo passo sugerido
+              </p>
+              <p className="text-xs text-gray-600 leading-snug">
+                Responda no chat com <b>mais 1 detalhe importante</b> para eu refinar a orientação antes de salvar o laudo da IA.
+              </p>
+            </div>
             <a href="https://www.google.com/maps/search/veterinario/" target="_blank" rel="noreferrer"
               className="w-full py-3 rounded-[16px] font-black text-sm flex items-center justify-center gap-2"
               style={{ background: '#F4F3FF', color: C.purple }}>
               <MapPin size={15} /> Vets Próximos
             </a>
             <button onClick={() => onShare(d)}
-              className="w-full py-3 bg-[#25D366] text-white rounded-[16px] font-black text-sm flex items-center justify-center gap-2">
-              <Share2 size={15} /> Enviar no WhatsApp
+              className="w-full py-3 rounded-[16px] font-black text-sm flex items-center justify-center gap-2 border"
+              style={{ background: '#ffffff', color: '#25D366', borderColor: '#25D36633' }}>
+              <Share2 size={15} /> Compartilhar Resumo
             </button>
           </div>
         </div>
       </div>
     );
   }
+
+  if (msg.type === 'guided_followup') return (
+    <div className="w-full bg-white rounded-[22px] p-4 shadow-sm border"
+      style={{ borderColor: `${C.purple}18`, background: '#FCFBFF' }}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{ background: C.purple }}>
+          <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
+        </div>
+        <div>
+          <p className="font-black text-gray-800 text-sm leading-none">iGentVet</p>
+          <p className="text-[9px] text-gray-400 font-bold">Refinando a análise</p>
+        </div>
+      </div>
+      <p className="text-gray-700 text-sm leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: msg.text?.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') }} />
+    </div>
+  );
 
   if (msg.type === 'med_chips') {
     return (
@@ -1638,14 +1764,14 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
             <button key={i}
               onClick={() => onSetMedAlert({ medName: med, ownerName: msg.ownerName, catName: msg.catName })}
               className="flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all active:scale-95"
-              style={{ background: '#F4F3FF', border: '1.5px solid #6158ca30' }}>
+              style={{ background: '#F4F3FF', border: '1.5px solid #8B4AFF30' }}>
               <div className="flex items-center gap-2">
                 <span className="text-base">💊</span>
                 <span className="text-sm font-bold text-gray-700">{med}</span>
               </div>
               <div className="flex items-center gap-1">
-                <Clock size={12} className="text-[#6158ca]" />
-                <span className="text-[10px] font-black text-[#6158ca]">Agendar</span>
+                <Clock size={12} className="text-[#8B4AFF]" />
+                <span className="text-[10px] font-black text-[#8B4AFF]">Agendar</span>
               </div>
             </button>
           ))}
@@ -1667,7 +1793,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
         <p className="font-black text-gray-800 text-sm leading-none">iGentVet</p>
       </div>
       <p className="text-gray-700 text-sm leading-relaxed mb-4">
-        Ficou com alguma dúvida sobre <b>{msg.catName}</b>? Posso continuar ajudando ou podemos finalizar e salvar na ficha médica.
+        Quer que eu refine mais a orientação sobre <b>{msg.catName}</b> ou já posso fechar e salvar o laudo da IA na área de documentos e na ficha médica.
       </p>
       {!msg.answered && (
         <div className="flex gap-2">
@@ -1681,13 +1807,13 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
             onClick={() => msg.onNo?.()}
             className="flex-1 py-3 rounded-[16px] font-black text-sm text-white transition-all active:scale-95"
             style={{ background: C.purple }}>
-            ✓ Não, pode salvar
+            ✓ Fechar e salvar
           </button>
         </div>
       )}
       {msg.answered && (
         <p className="text-[11px] font-bold text-gray-400 text-center">
-          {msg.answeredYes ? '💬 Pode perguntar!' : '✓ Preparando para salvar...'}
+          {msg.answeredYes ? '💬 Perfeito — me diga mais um detalhe importante.' : '✓ Preparando o laudo da IA para salvar...'}
         </p>
       )}
     </div>
@@ -1939,7 +2065,7 @@ export default function IGentVet() {
       <div className="fixed inset-0 pointer-events-none"
         style={{ background: 'linear-gradient(160deg,#5B4FD6 0%,#7B6EF5 40%,#9D8FFF 70%,#C5BCFF 100%)', zIndex: -1 }} />
       <div className="flex flex-col igent-root"
-        style={{ height: 'min(100dvh, 100vh)', overflow: 'hidden', position: 'relative' }}>
+        style={{ height: '100svh', overflow: 'hidden', position: 'relative' }}>
         <AnimatePresence mode="wait">
 
           {/* PASSO 0 — Seleção */}

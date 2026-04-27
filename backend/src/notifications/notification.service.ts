@@ -332,7 +332,11 @@ export class NotificationService {
       igentTipsShared,
       studioCreations:    user.studioCreations.length,
       healthStreak:       0, // TODO: calcular streak real
-      isFounder:          user.plan === 'FOUNDER' || user.badges?.includes('FOUNDER'),
+      isFounder:
+        user.plan === 'FOUNDER_EARLY' ||
+        user.plan === 'FOUNDER' ||
+        user.badges?.includes('FOUNDER_EARLY') ||
+        user.badges?.includes('FOUNDER'),
     };
   }
 

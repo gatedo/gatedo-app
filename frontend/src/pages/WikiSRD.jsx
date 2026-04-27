@@ -55,7 +55,7 @@ export default function WikiSRD() {
   const touch = useSensory();
 
   return (
-    <div className="min-h-screen bg-[#F8F9FE] pb-32 pt-6 px-5 font-sans">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-32 pt-6 px-5 font-sans">
       
       {/* Header com Navegação */}
       <div className="flex items-center gap-4 mb-6">
@@ -64,7 +64,7 @@ export default function WikiSRD() {
         </button>
         <div className="flex-1">
             <div className="flex items-center gap-2">
-                <span className="bg-[#ebfc66] text-[#6158ca] text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">Especial</span>
+                <span className="bg-[#ebfc66] text-[#8B4AFF] text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">Especial</span>
             </div>
             <h1 className="text-xl font-black text-gray-800">
                 Gatos <span className="text-[#FF9F43]">SRD</span>

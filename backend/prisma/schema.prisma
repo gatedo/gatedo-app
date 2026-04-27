@@ -28,37 +28,37 @@ model User {
   emailVerifyToken       String?                @unique
   resetPasswordExpires   DateTime?
   resetPasswordToken     String?                @unique
-  level                  Int    @default(1)
-  xpt                    Int    @default(0)
-  gatedoPoints Int       @default(0)
-  founderGrantedAt       DateTime?
+  level                  Int                    @default(1)
   founderBonusMonthsPaid Int                    @default(0)
+  founderGrantedAt       DateTime?
+  gatedoPoints           Int                    @default(0)
+  xpt                    Int                    @default(0)
   balanceActionsMade     BalanceAdjustmentLog[] @relation("BalanceActor")
   balanceLogs            BalanceAdjustmentLog[] @relation("BalanceTarget")
   comments               Comment[]
   targetCoupons          Coupon[]               @relation("CouponTarget")
   couponRedemptions      CouponRedemption[]
+  documents              Document[]
   memorialTributes       MemorialTribute[]
   notifications          Notification[]
   orders                 Order[]
   pets                   Pet[]
+  petAchievements        PetAchievement[]       @relation("PetAchievementGrantedByUser")
   posts                  Post[]
   postLikes              PostLike[]
   postSaves              PostSave[]
   productShares          ProductShare[]
+  rewardEvents           RewardEvent[]
   socialFollows          SocialFollow[]         @relation("SocialFollowFollower")
   petFollowers           SocialFollow[]         @relation("SocialFollowPetOwner")
   studioCreations        StudioCreation[]
   subscription           Subscription?
   tutorPoints            TutorPoints?
   achievements           UserAchievement[]
-  petAchievements        PetAchievement[]       @relation("PetAchievementGrantedByUser")
   credits                UserCredits?
   vetProfile             VetPartner?
   vetRecommendations     VetRecommendation[]
   noticeReads            NoticeRead[]
-  rewardEvents           RewardEvent[]
-  documents              Document[]
 }
 
 model Pet {
@@ -99,8 +99,6 @@ model Pet {
   isMemorial            Boolean             @default(false)
   showInHome            Boolean             @default(true)
   level                 Int                 @default(1)
-  xpg                   Int                 @default(0)
-  badges                String[]            @default([])
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   bio                   String?
@@ -116,56 +114,57 @@ model Pet {
   riskAreaAccess        Boolean             @default(false)
   deathCause            String?
   pedigreeBackUrl       String?
+  badges                String[]            @default([])
+  xpg                   Int                 @default(0)
+  arrivalNotes          String?
+  arrivalType           String?
+  coatType              String?
+  coexistsWith          String[]            @default([])
+  feedFrequencyMode     String?
+  feedFrequencyNotes    String?
+  hasBehaviorIssues     Boolean             @default(false)
+  hasTraumaHistory      Boolean             @default(false)
+  preExistingConditions String[]            @default([])
   diaryEntries          DiaryEntry[]
   documents             Document[]
   healthRecords         HealthRecord[]
   igentSessions         IgentSession[]
   memorial              MemorialTribute?
   owner                 User                @relation(fields: [ownerId], references: [id])
+  achievements          PetAchievement[]
   posts                 Post[]
+  rewardEvents          RewardEvent[]
   followers             SocialFollow[]
   studioCreations       StudioCreation[]
   treatments            TreatmentSchedule[]
-  rewardEvents          RewardEvent[]
-  achievements          PetAchievement[]
-  arrivalType           String?
-  arrivalNotes          String?
-  coatType              String?
-  preExistingConditions String[]            @default([])
-  feedFrequencyMode     String?
-  feedFrequencyNotes    String?
-  coexistsWith          String[]            @default([])
-  hasBehaviorIssues     Boolean             @default(false)
-  hasTraumaHistory      Boolean             @default(false)
 }
 
 model HealthRecord {
-  id            String     @id @default(uuid())
-  petId         String
-  type          HealthType
-  title         String
-  date          DateTime
-  nextDueDate   DateTime?
-  batchNumber   String?
-  veterinarian  String?
-  clinic        String?
-  notes         String?
-  attachmentUrl String?
-  clinicName          String?
-  clinicPhone         String?
-  clinicAddress       String?
-  ongoing             Boolean   @default(false)
-  active              Boolean   @default(false)
-  prescription        Boolean   @default(false)
-  isControlled        Boolean   @default(false)
-
-  reason              String?
-  appointmentMode     String?   // CLINICAL | SPECIALIST
-  specialty           String?
-  recommendedRecheck  Boolean   @default(false)
-  recheckDate         DateTime?
-  prescriptionDocId   String?
-  pet           Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
+  id                 String     @id @default(uuid())
+  petId              String
+  type               HealthType
+  title              String
+  date               DateTime
+  nextDueDate        DateTime?
+  batchNumber        String?
+  veterinarian       String?
+  clinic             String?
+  notes              String?
+  attachmentUrl      String?
+  active             Boolean    @default(false)
+  appointmentMode    String?
+  clinicAddress      String?
+  clinicName         String?
+  clinicPhone        String?
+  isControlled       Boolean    @default(false)
+  ongoing            Boolean    @default(false)
+  prescription       Boolean    @default(false)
+  prescriptionDocId  String?
+  reason             String?
+  recheckDate        DateTime?
+  recommendedRecheck Boolean    @default(false)
+  specialty          String?
+  pet                Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
 model IgentSession {
@@ -189,32 +188,27 @@ model IgentSession {
 }
 
 model Document {
-  id             String   @id @default(uuid())
-  petId          String
-  ownerId        String
-
-  title          String
-  category       String   // RECEITA | EXAME | LAUDO | PEDIGREE | VACINACAO | OFICIAL | OUTROS
-  type           String?  // PDF | IMAGE | DOC | OTHER
-  fileUrl        String
-  fileName       String?
-  mimeType       String?
-  size           Int?
-
-  isPrivate      Boolean  @default(true)
-  isVetShared    Boolean  @default(false)
-  isFavorite     Boolean  @default(false)
-
-  cloudProvider  String?  // GOOGLE_DRIVE | ICLOUD | FILES | DROPBOX | null
-  cloudPath      String?
+  id              String    @id @default(uuid())
+  petId           String
+  type            String?
+  category        String
   cloudExportedAt DateTime?
-
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  pet            Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
-  owner          User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  cloudPath       String?
+  cloudProvider   String?
+  createdAt       DateTime  @default(now())
+  fileName        String?
+  fileUrl         String
+  isFavorite      Boolean   @default(false)
+  isPrivate       Boolean   @default(true)
+  isVetShared     Boolean   @default(false)
+  metadata        Json?
+  mimeType        String?
+  ownerId         String
+  size            Int?
+  title           String
+  updatedAt       DateTime  @updatedAt
+  owner           User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@index([petId])
   @@index([ownerId])
@@ -233,10 +227,10 @@ model MemorialTribute {
   photoUrl    String?
   candleCount Int      @default(0)
   createdAt   DateTime @default(now())
+  isPublic    Boolean  @default(true)
+  title       String?
   pet         Pet?     @relation(fields: [petId], references: [id])
   user        User     @relation(fields: [userId], references: [id])
-  title       String?
-  isPublic    Boolean  @default(true)
 }
 
 model Post {
@@ -260,7 +254,7 @@ model Post {
   studioCreationId String?
   comments         Comment[]
   pet              Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
-  studioCreation   StudioCreation? @relation(fields: [studioCreationId], references: [id], onDelete: SetNull)
+  studioCreation   StudioCreation? @relation(fields: [studioCreationId], references: [id])
   user             User            @relation(fields: [userId], references: [id])
   likedBy          PostLike[]
   savedBy          PostSave[]
@@ -324,21 +318,20 @@ model PostSave {
 
 model Achievement {
   id          String               @id @default(uuid())
-  code        String               @unique
   title       String
   description String
   iconUrl     String?
-  category    String?
-  rarity      String?              @default("common")
-  ownerType   AchievementOwnerType
-  xptReward   Int                  @default(0)
-  xpgReward   Int                  @default(0)
-  pointReward Int                  @default(0)
   condition   String
   active      Boolean              @default(true)
-
-  users UserAchievement[]
-  pets  PetAchievement[]
+  category    String?
+  code        String               @unique
+  pointReward Int                  @default(0)
+  rarity      String?              @default("common")
+  ownerType   AchievementOwnerType
+  xpgReward   Int                  @default(0)
+  xptReward   Int                  @default(0)
+  pets        PetAchievement[]
+  users       UserAchievement[]
 }
 
 model UserAchievement {
@@ -346,9 +339,9 @@ model UserAchievement {
   userId        String
   achievementId String
   unlockedAt    DateTime    @default(now())
+  meta          Json?
   rarity        String?
   source        String?
-  meta          Json?
   achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -357,18 +350,17 @@ model UserAchievement {
 }
 
 model PetAchievement {
-  id              String   @id @default(uuid())
+  id              String      @id @default(uuid())
   petId           String
   achievementId   String
   grantedByUserId String?
-  unlockedAt      DateTime @default(now())
+  unlockedAt      DateTime    @default(now())
   rarity          String?
   source          String?
   meta            Json?
-
-  pet           Pet         @relation(fields: [petId], references: [id], onDelete: Cascade)
-  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
-  grantedByUser User?       @relation("PetAchievementGrantedByUser", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  achievement     Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  grantedByUser   User?       @relation("PetAchievementGrantedByUser", fields: [grantedByUserId], references: [id])
+  pet             Pet         @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@unique([petId, achievementId])
   @@index([petId, unlockedAt])
@@ -386,33 +378,27 @@ model DiaryEntry {
 }
 
 model StudioCreation {
-  id     String  @id @default(uuid())
-  userId String
-  petId  String?
-
-  type        StudioType
-  moduleKey   String?
-  moduleLabel String?
-
-  prompt           String?
-  originalPhotoUrl String?
-  sourceImageUrls  String[] @default([])
-  outputImageUrl   String?
-  outputVideoUrl   String?
-  previewUrl       String?
-
-  status   StudioCreationStatus @default(COMPLETED)
-  metadata Json?
-
+  id                  String               @id @default(uuid())
+  userId              String
+  type                StudioType
+  originalPhotoUrl    String?
+  createdAt           DateTime             @default(now())
+  petId               String?
   addedToPetGalleryAt DateTime?
+  metadata            Json?
+  moduleKey           String?
+  moduleLabel         String?
+  outputImageUrl      String?
+  outputVideoUrl      String?
+  previewUrl          String?
+  prompt              String?
   publishedAt         DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  socialPosts Post[]
-  pet         Pet?   @relation(fields: [petId], references: [id], onDelete: SetNull)
-  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceImageUrls     String[]             @default([])
+  status              StudioCreationStatus @default(COMPLETED)
+  updatedAt           DateTime             @updatedAt
+  socialPosts         Post[]
+  pet                 Pet?                 @relation(fields: [petId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([userId, status, createdAt])
@@ -569,25 +555,25 @@ model TutorPoints {
 }
 
 model TreatmentSchedule {
-  id            String          @id @default(uuid())
-  petId         String
-  userId        String
-  title         String
-  notes         String?
-  veterinarian              String?
-  clinicName                String?
-  clinicPhone               String?
-  clinicAddress             String?
-  originHealthRecordId      String?
+  id                           String          @id @default(uuid())
+  petId                        String
+  userId                       String
+  title                        String
+  notes                        String?
+  intervalHours                Int
+  startDate                    DateTime
+  endDate                      DateTime?
+  active                       Boolean         @default(true)
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
+  clinicAddress                String?
+  clinicName                   String?
+  clinicPhone                  String?
+  originHealthRecordId         String?
   originPrescriptionDocumentId String?
-  intervalHours Int
-  startDate     DateTime
-  endDate       DateTime?
-  active        Boolean         @default(true)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  doses         TreatmentDose[]
-  pet           Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
+  veterinarian                 String?
+  doses                        TreatmentDose[]
+  pet                          Pet             @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
 model TreatmentDose {
@@ -696,6 +682,7 @@ model Subscription {
   status     String
   startedAt  DateTime  @default(now())
   expiresAt  DateTime?
+  autoRenew  Boolean   @default(false)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -752,9 +739,8 @@ model RewardEvent {
   badgeGranted String?
   metadata     Json?
   createdAt    DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  pet  Pet? @relation(fields: [petId], references: [id], onDelete: SetNull)
+  pet          Pet?     @relation(fields: [petId], references: [id])
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([petId, createdAt])
@@ -762,22 +748,21 @@ model RewardEvent {
 }
 
 model Prospect {
-  id            String    @id @default(cuid())
+  id            String            @id @default(cuid())
   phone         String
   name          String?
   note          String?
-  status        String    @default("pending")
-  column        String    @default("pending")
-  score         Int       @default(0)
+  status        String            @default("pending")
+  column        String            @default("pending")
+  score         Int               @default(0)
   tags          String[]
   sentAt        DateTime?
   repliedAt     DateTime?
   lastReply     String?
   lastMessageId String?
   scriptId      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
   messages      ProspectMessage[]
 
   @@index([phone])
@@ -785,15 +770,14 @@ model Prospect {
 }
 
 model ProspectMessage {
-  id           String   @id @default(cuid())
-  prospectId   String
-  direction    String
-  body         String
-  imageUrl     String?
-  waMessageId  String?
-  sentAt       DateTime @default(now())
-
-  prospect     Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  prospectId  String
+  direction   String
+  body        String
+  imageUrl    String?
+  waMessageId String?
+  sentAt      DateTime @default(now())
+  prospect    Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@index([prospectId])
 }
@@ -801,9 +785,9 @@ model ProspectMessage {
 enum Role {
   USER
   ADMIN
+  VET
   FOUNDER
   TESTER_VIP
-  VET
 }
 
 enum Gender {

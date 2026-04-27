@@ -63,7 +63,7 @@ export const feedData = [
         likes: 230,
         comments: 56,
         time: "1d atrás",
-        tag: { label: "Evento", color: "bg-[#6158ca] text-white" },
+        tag: { label: "Evento", color: "bg-[#8B4AFF] text-white" },
         isVerified: false
     }
 ];

@@ -55,7 +55,7 @@ export default function WikiBreeds() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8F9FE] pb-32 pt-6 px-5 font-sans">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-32 pt-6 px-5 font-sans">
       
       {/* 1. HEADER */}
       <div className="flex items-center gap-4 mb-6">
@@ -64,7 +64,7 @@ export default function WikiBreeds() {
         </button>
         <div className="flex-1">
             <h1 className="text-xl font-black text-gray-800 flex items-center gap-2">
-                Almanaque <span className="text-[#6158ca]">de Raças</span>
+                Almanaque <span className="text-[#8B4AFF]">de Raças</span>
             </h1>
             <p className="text-xs text-gray-400 font-bold">Conheça a origem do seu gato.</p>
         </div>
@@ -129,9 +129,9 @@ export default function WikiBreeds() {
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                         />
                         {/* Overlay sutil */}
-                        <div className="absolute inset-0 bg-[#6158ca]/0 group-hover:bg-[#6158ca]/10 transition-colors" />
+                        <div className="absolute inset-0 bg-[#8B4AFF]/0 group-hover:bg-[#8B4AFF]/10 transition-colors" />
                     </div>
-                    <h3 className="font-black text-gray-700 text-sm leading-tight group-hover:text-[#6158ca] transition-colors">
+                    <h3 className="font-black text-gray-700 text-sm leading-tight group-hover:text-[#8B4AFF] transition-colors">
                         {breed.name}
                     </h3>
                     <p className="text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-wide">
@@ -160,12 +160,12 @@ const FilterCard = ({ label, type, active, onClick, img }) => (
         onClick={onClick}
         className={`relative rounded-[20px] overflow-hidden h-24 border-2 transition-all ${
             active 
-            ? 'border-[#6158ca] shadow-md scale-105 z-10' 
+            ? 'border-[#8B4AFF] shadow-md scale-105 z-10' 
             : 'border-transparent opacity-60 hover:opacity-80 scale-100 grayscale'
         }`}
     >
         <img src={img} className="absolute inset-0 w-full h-full object-cover" />
-        <div className={`absolute inset-0 flex items-end justify-center pb-2 ${active ? 'bg-gradient-to-t from-[#6158ca]/90 to-transparent' : 'bg-black/40'}`}>
+        <div className={`absolute inset-0 flex items-end justify-center pb-2 ${active ? 'bg-gradient-to-t from-[#8B4AFF]/90 to-transparent' : 'bg-black/40'}`}>
             <span className="text-white text-[10px] font-black uppercase tracking-wide">
                 {label}
             </span>

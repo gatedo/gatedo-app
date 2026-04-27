@@ -6,17 +6,20 @@ import './index.css'
 
 // IMPORTAMOS O PROVEDOR DE AUTENTICAÇÃO
 import { AuthProvider } from './context/AuthContext'
+import { AppSettingsProvider } from './context/AppSettingsContext'
 // GAMIFICAÇÃO GLOBAL — XP, badges, streak, toasts
 import { GamificationProvider } from './context/GamificationContext'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <GamificationProvider>
-          <App />
-        </GamificationProvider>
-      </AuthProvider>
+      <AppSettingsProvider>
+        <AuthProvider>
+          <GamificationProvider>
+            <App />
+          </GamificationProvider>
+        </AuthProvider>
+      </AppSettingsProvider>
     </BrowserRouter>
   </React.StrictMode>,
 )

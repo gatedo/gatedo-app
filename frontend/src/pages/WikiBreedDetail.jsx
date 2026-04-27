@@ -67,12 +67,12 @@ export default function WikiBreedDetail() {
   const data = BREED_DATA[breedKey] || BREED_DATA['default'];
 
   return (
-    <div className="min-h-screen bg-[#F8F9FE] pb-32 font-sans relative">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-32 font-sans relative">
       
       {/* 1. HERO IMAGE (CAPA) */}
       <div className="relative h-80">
         <img src={data.img} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#F8F9FE] via-transparent to-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[var(--gatedo-light-bg)] via-transparent to-black/30" />
         
         {/* Botão Voltar Flutuante */}
         <button 
@@ -83,9 +83,9 @@ export default function WikiBreedDetail() {
         </button>
 
         {/* Título na Capa */}
-        <div className="absolute bottom-0 left-0 w-full px-5 pb-8 pt-20 bg-gradient-to-t from-[#F8F9FE] to-transparent">
+        <div className="absolute bottom-0 left-0 w-full px-5 pb-8 pt-20 bg-gradient-to-t from-[var(--gatedo-light-bg)] to-transparent">
             <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-                <span className="bg-[#ebfc66] text-[#6158ca] text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider mb-2 inline-block">
+                <span className="bg-[#ebfc66] text-[#8B4AFF] text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider mb-2 inline-block">
                     Raça Oficial
                 </span>
                 <h1 className="text-4xl font-black text-gray-800 leading-none mb-1">{data.name}</h1>
@@ -106,7 +106,7 @@ export default function WikiBreedDetail() {
         {/* 3. SOBRE */}
         <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100">
             <h3 className="font-black text-gray-800 text-lg mb-3 flex items-center gap-2">
-                <Info size={20} className="text-[#6158ca]" /> Sobre
+                <Info size={20} className="text-[#8B4AFF]" /> Sobre
             </h3>
             <p className="text-sm text-gray-600 leading-relaxed font-medium">
                 {data.desc}

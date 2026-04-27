@@ -57,6 +57,10 @@ export class IgentController {
       care: string[];
       isUrgent: boolean;
       ownerResponse?: string;
+      pdfBase64?: string;
+      pdfFilename?: string;
+      pdfMimeType?: string;
+      saveToDocuments?: boolean;
     },
   ) {
     return this.igentService.generateReport(
@@ -66,6 +70,12 @@ export class IgentController {
       body.care,
       body.isUrgent,
       body.ownerResponse || '',
+      {
+        pdfBase64: body.pdfBase64,
+        pdfFilename: body.pdfFilename,
+        pdfMimeType: body.pdfMimeType,
+        saveToDocuments: body.saveToDocuments,
+      },
     );
   }
 

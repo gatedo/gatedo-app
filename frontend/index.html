@@ -1,16 +1,69 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- viewport-fit=cover obrigatório para safe-area-inset funcionar no iPhone -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- ── Ícones ──────────────────────────────────────────────────────────── -->
     <link rel="icon" type="image/svg+xml" href="/gatedo-icon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
+    <link rel="apple-touch-icon" href="/assets/icons/icon-192.png" />
+
+    <!-- ── PWA: Android / Chrome ──────────────────────────────────────────── -->
+    <meta name="theme-color" content="#8B4AFF" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- ── PWA: iOS / Safari ──────────────────────────────────────────────── -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Gatedo" />
+
     <title>Gatedo - Gestão Felina</title>
-    
-    <meta name="theme-color" content="#ffffff" />
+
+    <!-- ── Meta Pixel ─────────────────────────────────────────────────────── -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {
+        if(f.fbq)return;
+        n=f.fbq=function(){
+          n.callMethod
+          ? n.callMethod.apply(n,arguments)
+          : n.queue.push(arguments)
+        };
+        if(!f._fbq)f._fbq=n;
+        n.push=n;
+        n.loaded=!0;
+        n.version='2.0';
+        n.queue=[];
+        t=b.createElement(e);
+        t.async=!0;
+        t.src=v;
+        s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)
+      }(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+
+      fbq('init', '907010302201174');
+      fbq('track', 'PageView');
+    </script>
+    <!-- End Meta Pixel Code -->
+
   </head>
+
   <body>
     <div id="root"></div>
+
+    <!-- Meta Pixel noscript fallback (obrigatório dentro do body) -->
+    <noscript>
+      <img
+        height="1"
+        width="1"
+        style="display:none"
+        src="https://www.facebook.com/tr?id=907010302201174&ev=PageView&noscript=1"
+      />
+    </noscript>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

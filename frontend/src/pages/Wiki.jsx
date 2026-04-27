@@ -123,10 +123,10 @@ export default function Wiki() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FE] pb-32 pt-6 px-5 font-sans relative">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-32 pt-6 px-5 font-sans relative">
       
       {/* HEADER */}
-      <div className="flex items-center gap-4 mb-6 sticky top-0 bg-[#F8F9FE] z-20 py-2">
+      <div className="flex items-center gap-4 mb-6 sticky top-0 bg-[var(--gatedo-light-bg)] z-20 py-2">
         <button onClick={() => { 
             if(readingArticle) setReadingArticle(null);
             else if(selectedCategory) closeCategory();
@@ -136,7 +136,7 @@ export default function Wiki() {
         </button>
         <div className="flex-1">
             <h1 className="text-xl font-black text-gray-800 flex items-center gap-2">
-                {readingArticle ? 'Lendo Artigo' : <>Gatedo <span className="text-[#6158ca]">Pédia</span> <BookOpen size={20} className="text-[#6158ca]"/></>}
+                {readingArticle ? 'Lendo Artigo' : <>Gatedo <span className="text-[#8B4AFF]">Pédia</span> <BookOpen size={20} className="text-[#8B4AFF]"/></>}
             </h1>
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function Wiki() {
                 className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-            <span className="absolute bottom-4 left-6 bg-[#6158ca] text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
+            <span className="absolute bottom-4 left-6 bg-[#8B4AFF] text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
                 {readingArticle.category}
             </span>
         </div>
@@ -206,7 +206,7 @@ export default function Wiki() {
                 </div>
                 <div>
                     <p className="text-xs font-bold text-gray-500 uppercase">Escrito por</p>
-                    <p className="text-sm font-bold text-[#6158ca]">{readingArticle.author || "Equipe Gatedo"}</p>
+                    <p className="text-sm font-bold text-[#8B4AFF]">{readingArticle.author || "Equipe Gatedo"}</p>
                 </div>
                 <div className="ml-auto text-xs font-bold text-gray-400">
                     {new Date(readingArticle.createdAt).toLocaleDateString()}
@@ -265,15 +265,15 @@ export default function Wiki() {
                         <motion.button
                             key={idx}
                             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}
-                            className="w-full bg-white p-4 rounded-[20px] border border-gray-100 flex items-center justify-between group hover:border-[#6158ca]/30 transition-all shadow-sm"
+                            className="w-full bg-white p-4 rounded-[20px] border border-gray-100 flex items-center justify-between group hover:border-[#8B4AFF]/30 transition-all shadow-sm"
                             onClick={() => openArticle(article)}
                         >
                             <div className="text-left">
                                 <span className="font-bold text-gray-700 text-sm block">{article.title}</span>
                                 {/* Badge Novo para artigos do Banco */}
-                                {!article.isStatic && <span className="text-[9px] bg-[#6158ca] text-white px-1.5 py-0.5 rounded uppercase font-bold">Novo</span>}
+                                {!article.isStatic && <span className="text-[9px] bg-[#8B4AFF] text-white px-1.5 py-0.5 rounded uppercase font-bold">Novo</span>}
                             </div>
-                            <ChevronRight size={18} className="text-gray-300 group-hover:text-[#6158ca]" />
+                            <ChevronRight size={18} className="text-gray-300 group-hover:text-[#8B4AFF]" />
                         </motion.button>
                     ))}
                     {selectedCategory.articles.length === 0 && (
@@ -293,7 +293,7 @@ export default function Wiki() {
                 {/* Hero Cards */}
                 <div className="grid grid-cols-2 gap-3 mb-8">
                     <HeroCard 
-                        title="Almanaque" subtitle="Descubra raças." icon={Dna} colorFrom="#6158ca" colorTo="#8a84e2" 
+                        title="Almanaque" subtitle="Descubra raças." icon={Dna} colorFrom="#8B4AFF" colorTo="#8a84e2" 
                         onClick={() => { touch(); navigate('/wiki-breeds'); }} bgIcon={Dna} 
                     />
                     <HeroCard 
@@ -315,7 +315,7 @@ export default function Wiki() {
                     <div className="absolute -right-6 -bottom-8 opacity-10"><Shield size={100} className="text-green-600"/></div>
                 </motion.button>
 
-                <h3 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2"><BookOpen size={20} className="text-[#6158ca]" /> Biblioteca</h3>
+                <h3 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2"><BookOpen size={20} className="text-[#8B4AFF]" /> Biblioteca</h3>
 
                 <div className="grid grid-cols-2 gap-3">
                     {categories.map((cat, idx) => (

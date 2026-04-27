@@ -7,21 +7,31 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      },
       manifest: {
         name: 'Gatedo',
         short_name: 'Gatedo',
         description: 'Seu app de gestão felina',
-        theme_color: '#7865DA', // Cor da barra de status no mobile
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        theme_color: '#8B4AFF', // Cor da barra de status no mobile
+        background_color: '#eeeeff',
         icons: [
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            bg_color: '#823fff' // Cor de fundo do ícone no Android
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            bg_color: '#823fff' // Cor de fundo do ícone no Android
           }
         ]
       }

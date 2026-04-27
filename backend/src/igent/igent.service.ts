@@ -475,17 +475,7 @@ ${sp.triageQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
         })
         .join('\n') || '  - Nenhuma medicacao ativa nos ultimos 90 dias';
 
-    const docs =
-      (pet.documents || [])
-        .slice(0, 3)
-        .map((d: any) => {
-          const label = d.title || d.fileName || 'Documento';
-          const when = d.createdAt
-            ? new Date(d.createdAt).toLocaleDateString('pt-BR')
-            : 'sem data';
-          return `  - ${label} (${when})`;
-        })
-        .join('\n') || null;
+    const docs = this.summarizeDocuments(pet.documents || []) || null;
 
     const dietParts = [
       pet.foodBrand ? `marca: ${pet.foodBrand}` : null,
@@ -556,6 +546,103 @@ ${sp.triageQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
       .filter(Boolean)
       .join('\n');
   }
+
+
+  private normalizeDocumentCategory(category?: string) {
+    const raw = String(category || '').trim().toUpperCase();
+    if (!raw) return 'OUTROS';
+    if (['LAUDO', 'LAUDOS', 'LAUDOS_MEDICOS', 'LAUDOS MÉDICOS', 'PRONTUARIO', 'PRONTUARIOS', 'PRONTUÁRIO', 'PRONTUÁRIOS'].includes(raw)) {
+      return 'LAUDOS_MEDICOS';
+    }
+    if (['LAUDOS_IA', 'LAUDOS IA', 'IA_REPORT', 'AI_REPORT', 'IGENT', 'IGENT_REPORT'].includes(raw)) {
+      return 'LAUDOS_IA';
+    }
+    if (['EXAME', 'EXAMES'].includes(raw)) return 'EXAMES';
+    if (['RECEITA', 'RECEITAS', 'PRESCRIPTION', 'PRESCRIPTIONS'].includes(raw)) return 'RECEITAS';
+    return raw;
+  }
+
+  private summarizeDocuments(documents: any[] = []) {
+    const normalized = documents.map((d) => ({
+      ...d,
+      normalizedCategory: this.normalizeDocumentCategory(d?.category),
+    }));
+
+    const groups = {
+      LAUDOS_MEDICOS: normalized.filter((d) => d.normalizedCategory === 'LAUDOS_MEDICOS').slice(0, 3),
+      LAUDOS_IA: normalized.filter((d) => d.normalizedCategory === 'LAUDOS_IA').slice(0, 3),
+      EXAMES: normalized.filter((d) => d.normalizedCategory === 'EXAMES').slice(0, 3),
+      RECEITAS: normalized.filter((d) => d.normalizedCategory === 'RECEITAS').slice(0, 3),
+    };
+
+    const section = (title: string, items: any[]) =>
+      items.length
+        ? `${title}:\n${items
+            .map((d) => {
+              const label = d.title || d.fileName || 'Documento';
+              const when = d.createdAt ? new Date(d.createdAt).toLocaleDateString('pt-BR') : 'sem data';
+              return `  - ${label} (${when})`;
+            })
+            .join('\n')}`
+        : null;
+
+    return [
+      section('LAUDOS MEDICOS', groups.LAUDOS_MEDICOS),
+      section('LAUDOS IA', groups.LAUDOS_IA),
+      section('EXAMES', groups.EXAMES),
+      section('RECEITAS', groups.RECEITAS),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
+  private ensureQuestionEnding(text: string, petName: string) {
+    const safe = (text || '').trim();
+    if (!safe) return `Pode me contar mais um detalhe sobre ${petName} para eu te orientar melhor?`;
+    if (/[?؟]\s*$/.test(safe)) return safe;
+    return `${safe}
+
+O que você observou depois disso em ${petName}?`;
+  }
+
+  private maybeBondingLine(pet: any, ownerName?: string, force = false) {
+    const prep = pet?.gender === 'FEMALE' ? 'da' : 'do';
+    if (!force) return '';
+    return ownerName
+      ? `Vejo que você cuida bem ${prep} ${pet?.name}, ${ownerName}.`
+      : `Vejo que você cuida bem ${prep} ${pet?.name}.`;
+  }
+
+  private buildContextualOpening(pet: any, ownerName?: string, symptomLabel?: string, userMessage?: string) {
+    const ownerFirst = (ownerName || '').trim().split(' ')[0] || '';
+    const msg = String(userMessage || '').toLowerCase();
+    const symptom = String(symptomLabel || '').toLowerCase();
+
+    const isDigestive = ['vom', 'diarre', 'fezes', 'estom', 'ração', 'racao', 'comida', 'apetite'].some(k => msg.includes(k) || symptom.includes(k));
+    const isHairball = ['bola de pelo', 'bolas de pelo', 'engasgo', 'vomitou pelo', 'vomita pelo'].some(k => msg.includes(k) || symptom.includes(k));
+    const isEye = ['olho', 'lágrima', 'lacrime', 'secreção', 'conjunt'].some(k => msg.includes(k) || symptom.includes(k));
+
+    const lines: string[] = [];
+
+    if (ownerFirst) {
+      if (isDigestive) lines.push(`Sua dúvida é importante, ${ownerFirst}. A alimentação de ${pet?.name} pode sim influenciar esse quadro.`);
+      else if (isEye) lines.push(`Sua dúvida é importante, ${ownerFirst}. Quando o olho de ${pet?.name} muda, vale observar a evolução bem de perto.`);
+      else lines.push(`Sua dúvida é importante, ${ownerFirst}.`);
+    }
+
+    if (isHairball && /persa|maine coon|himalaio|noruegues/i.test(String(pet?.breed || ''))) {
+      lines.push(`Gatos de pelagem mais longa, como ${pet?.breed}, podem vomitar bolas de pelo com mais frequência, mas isso precisa ser separado de irritação gástrica ou alimentação desregulada.`);
+    }
+
+    if (!lines.length && Math.random() < 0.22) {
+      const bond = this.maybeBondingLine(pet, ownerFirst || undefined, true);
+      if (bond) lines.push(bond);
+    }
+
+    return lines.join(' ');
+  }
+
+
 
   // ─── MÉTODO 1: ANÁLISE INICIAL ──────────────────────────────────────────────
   async analyzeSymptom(
@@ -650,13 +737,14 @@ Responda APENAS com este JSON valido:
     symptomId?: string,
     clinicalContext?: any,
   ) {
-    const pet = await this.prisma.pet.findUnique({
-      where: { id: petId },
-      include: {
-        healthRecords: { orderBy: { date: 'desc' }, take: 50 },
-        documents: { orderBy: { createdAt: 'desc' }, take: 5 },
-      },
-    });
+   const pet = await this.prisma.pet.findUnique({
+  where: { id: petId },
+  include: {
+    owner: true,
+    healthRecords: { orderBy: { date: 'desc' }, take: 50 },
+    documents: { orderBy: { createdAt: 'desc' }, take: 5 },
+  },
+});
 
     if (!pet) {
       throw new HttpException('Gato não encontrado', HttpStatus.NOT_FOUND);
@@ -696,10 +784,11 @@ REGRAS DE OURO:
         temperature: 0.4,
       });
       this.logger.log(`chatWithVet OK via ${provider}`);
-      return { text, sender: 'bot' };
+      const opening = this.buildContextualOpening(pet, pet?.owner?.name, symptomLabel, message);
+      return { text: this.ensureQuestionEnding(`${opening} ${text}`.trim(), pet.name), sender: 'bot' };
     } catch (err) {
       this.logger.error('Erro chatWithVet:', err);
-      return { text: 'Conexão instável com a IA. Pode repetir?', sender: 'bot' };
+      return { text: `Conexão instável com a IA. Pode repetir o que você observou em ${pet.name} para eu seguir te orientando melhor?`, sender: 'bot' };
     }
   }
 
@@ -711,20 +800,32 @@ REGRAS DE OURO:
     care: string[],
     isUrgent: boolean,
     ownerResponse: string,
+    persist?: {
+      pdfBase64?: string;
+      pdfFilename?: string;
+      pdfMimeType?: string;
+      saveToDocuments?: boolean;
+    },
   ) {
     const pet = await this.prisma.pet.findUnique({
       where: { id: petId },
       include: {
         owner: true,
         healthRecords: { orderBy: { date: 'desc' }, take: 3 },
+        documents: { orderBy: { createdAt: 'desc' }, take: 6 },
       },
     });
 
-    const now = new Date();
+    if (!pet) {
+      throw new HttpException('Gato não encontrado', HttpStatus.NOT_FOUND);
+    }
 
-    return {
+    const now = new Date();
+    const reportId = `IGV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 9000 + 1000)}`;
+
+    const reportPayload = {
       generatedAt: now.toISOString(),
-      reportId: `IGV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 9000 + 1000)}`,
+      reportId,
       pet: {
         name: pet?.name,
         breed: pet?.breed || 'SRD',
@@ -747,12 +848,104 @@ REGRAS DE OURO:
         }),
         symptom: symptomLabel,
         isUrgent,
-        analysisText,
+        analysisText: this.ensureQuestionEnding(`${this.buildContextualOpening(pet, pet?.owner?.name, symptomLabel, ownerResponse)} ${analysisText}`.trim(), pet.name),
         care,
         ownerResponse,
         source: 'iGentVet IA — Gatedo',
       },
-    };
+      documentIntent: {
+        title: `Laudo IA - ${pet.name} - ${symptomLabel}`,
+        category: 'LAUDOS_IA',
+        suggestedFilename:
+          persist?.pdfFilename ||
+          `${reportId.toLowerCase()}-${pet.name.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-laudo-ia.pdf`,
+        mimeType: persist?.pdfMimeType || 'application/pdf',
+        shouldPersist: Boolean(persist?.saveToDocuments && persist?.pdfBase64),
+      },
+      contextSnapshot: {
+        recentDocumentsSummary: this.summarizeDocuments(pet.documents || []),
+      },
+    } as any;
+
+    if (persist?.saveToDocuments && persist?.pdfBase64) {
+      const title = reportPayload.documentIntent.title;
+      const filename = reportPayload.documentIntent.suggestedFilename;
+      const fileUrl = await this.persistBase64Document({
+        petId,
+        ownerId: pet.ownerId,
+        title,
+        category: 'LAUDOS_IA',
+        filename,
+        mimeType: reportPayload.documentIntent.mimeType,
+        base64: persist.pdfBase64,
+        metadata: {
+          source: 'IGENT',
+          type: 'REPORT',
+          reportId,
+          symptomLabel,
+          isUrgent,
+          confidenceLevel: isUrgent ? 'HIGH_ALERT' : 'GUIDED',
+          triageLevel: isUrgent ? 'URGENT' : 'MONITOR',
+          generatedAt: now.toISOString(),
+        },
+      });
+
+      reportPayload.document = {
+        saved: true,
+        category: 'LAUDOS_IA',
+        fileUrl,
+      };
+    } else {
+      reportPayload.document = {
+        saved: false,
+        category: 'LAUDOS_IA',
+      };
+    }
+
+    return reportPayload;
+  }
+
+  private async persistBase64Document(data: {
+    petId: string;
+    ownerId: string;
+    title: string;
+    category: string;
+    filename: string;
+    mimeType: string;
+    base64: string;
+    metadata?: any;
+  }) {
+    const { mkdir, writeFile } = await import('fs/promises');
+    const { join, extname } = await import('path');
+
+    const raw = (data.base64 || '').includes(',') ? data.base64.split(',').pop() || '' : data.base64 || '';
+    const buffer = Buffer.from(raw, 'base64');
+    const ext = extname(data.filename || '') || (data.mimeType.includes('pdf') ? '.pdf' : '.bin');
+    const safeName = `${Date.now()}-${Math.round(Math.random() * 1e5)}${ext}`;
+    const targetDir = join(process.cwd(), 'uploads', 'documents');
+    await mkdir(targetDir, { recursive: true });
+    const fullPath = join(targetDir, safeName);
+    await writeFile(fullPath, buffer);
+
+    const document = await this.prisma.document.create({
+      data: {
+        title: data.title,
+        category: data.category,
+        type: data.mimeType?.toLowerCase().includes('pdf') ? 'PDF' : 'OTHER',
+        fileUrl: `/uploads/documents/${safeName}`,
+        fileName: safeName,
+        mimeType: data.mimeType,
+        size: buffer.length,
+        petId: data.petId,
+        ownerId: data.ownerId,
+        metadata: data.metadata ?? undefined,
+        isPrivate: true,
+        isVetShared: false,
+        isFavorite: false,
+      },
+    });
+
+    return document.fileUrl;
   }
 
   // ─── MÉTODO 4: CRIAR IGENTSESSION ───────────────────────────────────────────

@@ -1,25 +1,18 @@
 import React from "react";
-// CORREÇÃO: O ficheiro está na mesma pasta
-import CatIdentityCard, { CARD_GRADIENTS } from "./CatIdentityCard";
-import useSensory from "../../hooks/useSensory";
+import { useNavigate } from "react-router-dom";
+import CatIdentityCard from "./CatIdentityCard";
 
-// ... resto do componente ProfileCardSection
+export default function ProfileCardSection({ cat, tutor }) {
+  const navigate = useNavigate();
 
-export default function ProfileCardSection({ cat, isFlipped, setIsFlipped, gradientIdx, setGradientIdx }) {
-  const touch = useSensory();
+  if (!cat) return null;
 
   return (
-    <div style={{ aspectRatio: '1.586/1' }} className="w-full max-w-lg mx-auto mb-6 relative">
-      <CatIdentityCard 
-        cat={cat} 
-        gradientIndex={gradientIdx}
-        isFlipped={isFlipped}
-        onFlip={() => setIsFlipped(!isFlipped)}
-        onPaletteClick={() => { 
-          touch(); 
-          setGradientIdx(prev => (prev + 1) % CARD_GRADIENTS.length); 
-        }}
-        onQrClick={() => console.log("Abrir ficha médica")}
+    <div className="w-full max-w-lg mx-auto px-4 mb-4" style={{ height: '220px' }}>
+      <CatIdentityCard
+        cat={cat}
+        tutor={tutor || cat.owner}
+        onOpenVets={(currentCat) => navigate(`/gato/${currentCat.id}?tab=saude`)}
       />
     </div>
   );

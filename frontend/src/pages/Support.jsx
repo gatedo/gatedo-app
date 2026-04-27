@@ -41,7 +41,7 @@ export default function Support() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FE] px-6 pt-12 pb-32 font-sans">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] px-6 pt-12 pb-32 font-sans">
       <div className="flex items-center gap-4 mb-8">
         <button onClick={() => navigate(-1)} className="p-2 bg-white rounded-2xl shadow-sm text-gray-400 active:scale-90 transition-transform">
           <ChevronLeft size={20} />

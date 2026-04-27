@@ -47,7 +47,7 @@ export default function CatCard({ pet, onClick, hasUrgency }) {
         
         <div className="flex flex-col gap-0.5">
           <p className={`text-[10px] font-black uppercase tracking-wider truncate 
-            ${isInMemoriam ? 'text-gray-400' : 'text-[#6158ca]'}`}>
+            ${isInMemoriam ? 'text-gray-400' : 'text-[#8B4AFF]'}`}>
             {isInMemoriam ? '✨ Em Memória' : (pet.breed || 'SRD')}
           </p>
           

@@ -5,36 +5,111 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Configuração Global */
-html, body, #root{
+:root {
+  --gatedo-light-bg: #eeeeff;
+  --gatedo-app-bg: #eeeeff;
+}
 
-  font-family: 'Nunito', sans-serif;
-  -webkit-font-smoothing: antialiased;
-min-height: 100vh;
+/* Configuração global */
+html,
+body,
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
   height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #F4F3FF; /* Garante que a cor base cubra tudo */
+  font-family: 'Nunito', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--gatedo-app-bg);
+  overscroll-behavior-y: none;
 }
 
-/* Remove a barra de rolagem feia no mobile/desktop mas mantém o scroll */
+html {
+  background: var(--gatedo-app-bg);
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: env(safe-area-inset-bottom, 0px);
+  background: var(--gatedo-app-bg);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Box sizing global */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Remove a barra de rolagem feia, mas mantém o scroll */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #F4F3FF;
+  background: var(--gatedo-light-bg);
   border-radius: 10px;
 }
 
-.igent-hero-bg {
-  background: linear-gradient(160deg, #5B4FD6 0%, #7B6EF5 40%, #9D8FFF 70%, #C5BCFF 100%) !important;
-  background-attachment: fixed; /* Trava o fundo para não aparecer branco no scroll */
-  background-size: cover;
-  min-height: 100vh;
+.gatedo-scroll-target {
+  scroll-margin-top: 132px;
 }
 
-/* TESTE DE DEBUG: Pinta tudo de vermelho para ver quem está sobrando 
+.gatedo-target-pulse {
+  animation: gatedoTargetPulse 1.6s ease-out 1;
+}
+
+@keyframes gatedoTargetPulse {
+  0% {
+    outline: 0 solid rgba(139, 74, 255, 0);
+    filter: saturate(1);
+  }
+  18% {
+    outline: 4px solid rgba(139, 74, 255, 0.42);
+    outline-offset: 5px;
+    filter: saturate(1.12);
+  }
+  100% {
+    outline: 0 solid rgba(139, 74, 255, 0);
+    outline-offset: 12px;
+    filter: saturate(1);
+  }
+}
+
+/* Fundo especial */
+.igent-hero-bg {
+  min-height: 100vh;
+  background: linear-gradient(
+    160deg,
+    #5b4fd6 0%,
+    #7b6ef5 40%,
+    #9d8fff 70%,
+    #c5bcff 100%
+  ) !important;
+  background-attachment: fixed;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* Debug visual opcional */
+/*
 * {
   outline: 1px solid rgba(255, 0, 0, 0.336);
-}*/
+}
+*/

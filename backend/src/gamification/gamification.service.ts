@@ -6,6 +6,7 @@ import {
   calcTutorLevelMeta,
   calcCatLevelMeta,
 } from './gamification.constants';
+import { canBypassPlanCosts } from '../membership/membership.constants';
 
 @Injectable()
 export class GamificationService {
@@ -29,15 +30,7 @@ export class GamificationService {
       throw new NotFoundException('Usuário não encontrado');
     }
 
-    const badges = Array.isArray(user.badges) ? user.badges : [];
-
-    const isBypassUser =
-      user.role === 'ADMIN' ||
-      user.plan === 'FOUNDER' ||
-      user.plan === 'TESTER_VIP' ||
-      badges.includes('FOUNDER') ||
-      badges.includes('FOUNDING_MEMBER') ||
-      badges.includes('TESTER_VIP');
+    const isBypassUser = canBypassPlanCosts(user);
 
     if (isBypassUser) {
       return {
@@ -135,15 +128,7 @@ export class GamificationService {
       throw new NotFoundException('O gato não pertence ao usuário informado');
     }
 
-    const badges = Array.isArray(user.badges) ? user.badges : [];
-
-    const isBypassUser =
-      user.role === 'ADMIN' ||
-      user.plan === 'FOUNDER' ||
-      user.plan === 'TESTER_VIP' ||
-      badges.includes('FOUNDER') ||
-      badges.includes('FOUNDING_MEMBER') ||
-      badges.includes('TESTER_VIP');
+    const isBypassUser = canBypassPlanCosts(user);
 
     if (isBypassUser) {
       return {

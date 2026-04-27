@@ -1,127 +1,649 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, Camera, ChevronRight, ChevronLeft, Check, AlertTriangle,
-  ChevronDown, Plus, Award, Heart, Zap, Moon, Sun,
-  Music, Smile, Star, Activity, Home, Lock
+  ArrowLeft,
+  Camera,
+  ChevronRight,
+  Check,
+  AlertTriangle,
+  Award,
+  Heart,
+  Zap,
+  Moon,
+  Sun,
+  Music,
+  Smile,
+  Star,
+  Home,
+  MapPin,
+  FileText,
+  X,
+  Hash,
+  Download,
+  ShieldPlus,
+  Activity,
+  Dog,
+  Cat,
+  Sparkles,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import { CAT_THEMES, resolveCatTheme } from '../config/catThemes';
+import { parseDateOnly } from '../utils/catAge';
 
-// ─── DADOS ────────────────────────────────────────────────────────────────────
+const EXTRA_THEMES = [
+  { id: 'amber', label: 'Âmbar', fromHex: '#F59E0B', toHex: '#FBBF24', accent: '#FFF7CC', back: '#7C4A03' },
+  { id: 'emerald', label: 'Esmeralda', fromHex: '#10B981', toHex: '#34D399', accent: '#D1FAE5', back: '#065F46' },
+  { id: 'rose', label: 'Rosé', fromHex: '#F43F5E', toHex: '#FB7185', accent: '#FFE4EA', back: '#881337' },
+  { id: 'sky', label: 'Sky', fromHex: '#0EA5E9', toHex: '#38BDF8', accent: '#E0F2FE', back: '#0C4A6E' },
+  { id: 'slate', label: 'Slate', fromHex: '#475569', toHex: '#64748B', accent: '#E2E8F0', back: '#1E293B' },
+  { id: 'indigo', label: 'Indigo', fromHex: '#6366F1', toHex: '#818CF8', accent: '#E0E7FF', back: '#312E81' },
+];
+
+const CARD_GRADIENTS = [
+  ...CAT_THEMES.map((t) => ({
+    id: t.id,
+    label: t.label,
+    from: t.fromHex,
+    to: t.toHex,
+    accent: t.accent,
+    back: t.back,
+  })),
+  ...EXTRA_THEMES.map((t) => ({
+    id: t.id,
+    label: t.label,
+    from: t.fromHex,
+    to: t.toHex,
+    accent: t.accent,
+    back: t.back,
+  })),
+];
+
+const CIDADES_BR = [
+  'São Paulo, SP','Rio de Janeiro, RJ','Belo Horizonte, MG','Salvador, BA','Fortaleza, CE',
+  'Manaus, AM','Curitiba, PR','Recife, PE','Porto Alegre, RS','Belém, PA',
+  'Goiânia, GO','Guarulhos, SP','Campinas, SP','São Luís, MA','São Gonçalo, RJ',
+  'Maceió, AL','Natal, RN','Teresina, PI','Campo Grande, MS','João Pessoa, PB',
+  'Osasco, SP','Santo André, SP','São Bernardo do Campo, SP','Ribeirão Preto, SP',
+  'Uberlândia, MG','Contagem, MG','Sorocaba, SP','Aracaju, SE','Feira de Santana, BA',
+  'Cuiabá, MT','Joinville, SC','Juiz de Fora, MG','Londrina, PR','Florianópolis, SC',
+  'Caxias do Sul, RS','Niterói, RJ','Porto Velho, RO','Serra, ES','Vitória, ES',
+  'Santos, SP','São José dos Campos, SP','Campina Grande, PB','Piracicaba, SP','Jundiaí, SP',
+  'Montes Claros, MG','Anápolis, GO','São José do Rio Preto, SP','Rio Branco, AC',
+  'Boa Vista, RR','Palmas, TO','Blumenau, SC','Pelotas, RS','Canoas, RS',
+  'Maringá, PR','Cascavel, PR','Foz do Iguaçu, PR','Caruaru, PE','Petrolina, PE',
+];
 
 const CAT_BREEDS = [
-  "Persa", "Siamês", "Maine Coon", "Angorá", "Sphynx",
-  "Ragdoll", "British Shorthair", "Exótico", "Bengal", "Outra Raça",
+  '(SRD) Sem raça definida',
+  'Persa',
+  'Siamês',
+  'Maine Coon',
+  'Angorá',
+  'Sphynx',
+  'Ragdoll',
+  'British Shorthair',
+  'Exótico',
+  'Bengal',
+  'Norueguês da Floresta',
+  'Scottish Fold',
+  'Abissínio',
+  'Bombay',
+  'Birmanês',
+  'Burmese',
+  'Chartreux',
+  'Cornish Rex',
+  'Devon Rex',
+  'Himalaio',
+  'Munchkin',
+  'Ocicat',
+  'Oriental Shorthair',
+  'Russian Blue',
+  'Savannah',
+  'Selkirk Rex',
+  'Somali',
+  'Tonquinês',
+  'Turkish Angora',
+  'Turkish Van',
+  'American Curl',
+  'American Bobtail',
+  'Balinês',
+  'Havana Brown',
+  'LaPerm',
+  'Manx',
 ];
 
-const BEHAVIORS = [
-  { id: 'calmo',        label: 'Calmo',       icon: Moon,          color: 'bg-blue-50 text-blue-600' },
-  { id: 'eletrico',     label: 'Elétrico',    icon: Zap,           color: 'bg-yellow-50 text-yellow-600' },
-  { id: 'carinhoso',    label: 'Grude',       icon: Heart,         color: 'bg-pink-50 text-pink-600' },
-  { id: 'independente', label: 'Rei/Rainha',  icon: Star,          color: 'bg-purple-50 text-purple-600' },
-  { id: 'falante',      label: 'Mia Muito',   icon: Music,         color: 'bg-green-50 text-green-600' },
-  { id: 'comilao',      label: 'Comilão',     icon: Smile,         color: 'bg-orange-50 text-orange-600' },
-  { id: 'medroso',      label: 'Assustado',   icon: AlertTriangle, color: 'bg-red-50 text-red-600' },
-  { id: 'cacador',      label: 'Caçador',     icon: Sun,           color: 'bg-teal-50 text-teal-600' },
+const DISEASE_OPTIONS = [
+  'Renal',
+  'FIV',
+  'FeLV',
+  'Diabetes',
+  'Obesidade',
+  'Dermatite',
+  'Cardíaca',
+  'Respiratória',
+  'Digestiva',
+  'Outra',
 ];
 
-const PROFILE_COLORS = [
-  'bg-[#FFF5E6]', 'bg-[#E6FDFF]', 'bg-[#F5D8E8]', 'bg-[#EFFFDE]',
-  'bg-[#F0F0F0]', 'bg-[#E6E6FA]', 'bg-[#FFFACD]', 'bg-[#FFE4E1]',
-  'bg-[#ffebee]', 'bg-[#f3e5f5]', 'bg-[#e8eaf6]', 'bg-[#e0f7fa]',
+const FEED_BRANDS = [
+  'Royal Canin',
+  'Premier',
+  'Hill’s',
+  'N&D',
+  'Golden',
+  'Quatree',
+  'Guabi Natural',
+  'Purina Pro Plan',
+  'Whiskas',
+  'Outra',
 ];
 
-// ─── TOGGLE ───────────────────────────────────────────────────────────────────
+const FEED_FREQUENCY_OPTIONS = ['Livre', '2x ao dia', '3x ao dia', '4x ao dia', 'Outra'];
+const ARRIVAL_TYPES = ['Adoção', 'Presente', 'Compra', 'Gatil', 'Encontrado na rua', 'Resgatado'];
+const COEXIST_OPTIONS = ['Nenhum', 'Gatos', 'Cachorros', 'Ambos'];
+const HOUSING_TYPES = ['Apartamento', 'Casa', 'Sítio', 'Gatil', 'Outro'];
 
-function Toggle({ value, onChange, color = 'green' }) {
-  const bg = value
-    ? color === 'red' ? 'bg-red-500' : 'bg-green-500'
-    : 'bg-gray-300';
+const ADD_CAT_DRAFT_VERSION = 1;
+
+function getAddCatDraftKey(userId) {
+  return userId ? `gatedo_add_cat_draft_v${ADD_CAT_DRAFT_VERSION}_${userId}` : null;
+}
+
+function serializeAddCatDraft(data) {
+  const { avatarFile, avatarPreview, pedigreeFile, pedigreeBackFile, ...serializable } = data;
+  return serializable;
+}
+
+function restoreAddCatDraft(data) {
+  return {
+    ...data,
+    avatarFile: null,
+    avatarPreview: null,
+    pedigreeFile: null,
+    pedigreeBackFile: null,
+  };
+}
+
+function normalizeGenderedLabel(id, gender) {
+  const female = gender === 'FEMALE';
+  const labels = {
+    calmo: female ? 'Calminha' : 'Calminho',
+    eletrico: female ? 'Elétrica' : 'Elétrico',
+    carinhoso: female ? 'Carinhosa' : 'Carinhoso',
+    independente: 'Independente',
+    falante: 'Falante',
+    comilao: female ? 'Comilona' : 'Comilão',
+    medroso: female ? 'Medrosa' : 'Medroso',
+    cacador: female ? 'Caçadora' : 'Caçador',
+    curiosa: female ? 'Curiosa' : 'Curioso',
+    brincalhao: female ? 'Brincalhona' : 'Brincalhão',
+    territorial: 'Territorial',
+    sociavel: 'Sociável',
+  };
+  return labels[id] || id;
+}
+
+const BEHAVIOR_OPTIONS = [
+  { id: 'calmo', icon: Moon, color: 'bg-blue-50 text-blue-600' },
+  { id: 'eletrico', icon: Zap, color: 'bg-yellow-50 text-yellow-600' },
+  { id: 'carinhoso', icon: Heart, color: 'bg-pink-50 text-pink-600' },
+  { id: 'independente', icon: Star, color: 'bg-purple-50 text-purple-600' },
+  { id: 'falante', icon: Music, color: 'bg-green-50 text-green-600' },
+  { id: 'comilao', icon: Smile, color: 'bg-orange-50 text-orange-600' },
+  { id: 'medroso', icon: AlertTriangle, color: 'bg-red-50 text-red-600' },
+  { id: 'cacador', icon: Sun, color: 'bg-teal-50 text-teal-600' },
+  { id: 'curiosa', icon: Sparkles, color: 'bg-fuchsia-50 text-fuchsia-600' },
+  { id: 'brincalhao', icon: Activity, color: 'bg-lime-50 text-lime-700' },
+  { id: 'territorial', icon: ShieldPlus, color: 'bg-slate-50 text-slate-700' },
+  { id: 'sociavel', icon: Heart, color: 'bg-rose-50 text-rose-600' },
+];
+
+function onlyNumbers(v) {
+  return String(v || '').replace(/\D/g, '');
+}
+
+function joinList(arr) {
+  return Array.isArray(arr) && arr.length ? arr.join(', ') : '';
+}
+
+function downloadFichaTecnicaHTML(payload) {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Ficha Técnica - ${payload.name}</title>
+<style>
+body { font-family: Arial, sans-serif; max-width: 820px; margin: 30px auto; color: #222; padding: 0 16px; }
+h1 { margin-bottom: 2px; color: #4f46e5; }
+h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .1em; color: #6b7280; margin-top: 28px; }
+.card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin-top: 8px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.item { padding: 10px 12px; border-radius: 12px; background: #f9fafb; }
+.label { font-size: 10px; text-transform: uppercase; font-weight: 700; color: #6b7280; margin-bottom: 6px; }
+.value { font-size: 14px; font-weight: 700; color: #111827; white-space: pre-line; }
+.footer { margin-top: 32px; font-size: 11px; color: #6b7280; text-align: center; }
+img { width: 180px; height: 180px; object-fit: cover; border-radius: 18px; display: block; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<h1>Ficha Técnica do Gato</h1>
+<p>Documento gerado pelo GATEDO</p>
+${payload.avatarPreview ? `<img src="${payload.avatarPreview}" alt="${payload.name}" />` : ''}
+<h2>Identificação</h2>
+<div class="card">
+  <div class="row">
+    <div class="item"><div class="label">Nome</div><div class="value">${payload.name || '-'}</div></div>
+    <div class="item"><div class="label">Apelidos carinhosos</div><div class="value">${payload.nicknames || '-'}</div></div>
+    <div class="item"><div class="label">Raça</div><div class="value">${payload.displayBreed || '-'}</div></div>
+    <div class="item"><div class="label">Sexo</div><div class="value">${payload.genderLabel || '-'}</div></div>
+    <div class="item"><div class="label">Cidade de origem</div><div class="value">${payload.city || '-'}</div></div>
+    <div class="item"><div class="label">Microchip</div><div class="value">${payload.microchipDisplay || 'Não'}</div></div>
+  </div>
+</div>
+<h2>Origem</h2>
+<div class="card">
+  <div class="item"><div class="label">Como chegou até você</div><div class="value">${payload.arrivalType || '-'}</div></div>
+  <div class="item"><div class="label">Informações adicionais</div><div class="value">${payload.arrivalNotes || '-'}</div></div>
+</div>
+<h2>Saúde & Nutrição</h2>
+<div class="card">
+  <div class="row">
+    <div class="item"><div class="label">Peso</div><div class="value">${payload.weight || '-'}</div></div>
+    <div class="item"><div class="label">Castrado</div><div class="value">${payload.neutered ? 'Sim' : 'Não'}</div></div>
+    <div class="item"><div class="label">Doenças pré-existentes</div><div class="value">${payload.preExistingConditions || '-'}</div></div>
+    <div class="item"><div class="label">Resumo</div><div class="value">${payload.healthSummary || '-'}</div></div>
+    <div class="item"><div class="label">Marca da ração</div><div class="value">${payload.foodBrand || '-'}</div></div>
+    <div class="item"><div class="label">Tipo de alimentação</div><div class="value">${payload.foodTypes || '-'}</div></div>
+    <div class="item"><div class="label">Frequência</div><div class="value">${payload.feedFrequencyMode || '-'}</div></div>
+    <div class="item"><div class="label">Detalhe da frequência</div><div class="value">${payload.feedFrequencyNotes || '-'}</div></div>
+  </div>
+</div>
+<h2>Comportamento & Ambiente</h2>
+<div class="card">
+  <div class="row">
+    <div class="item"><div class="label">Temperamento</div><div class="value">${payload.personality || '-'}</div></div>
+    <div class="item"><div class="label">Convive com</div><div class="value">${payload.coexistsWith || '-'}</div></div>
+    <div class="item"><div class="label">Problemas de comportamento</div><div class="value">${payload.behaviorIssues || '-'}</div></div>
+    <div class="item"><div class="label">Traumas</div><div class="value">${payload.traumaHistory || '-'}</div></div>
+    <div class="item"><div class="label">Habitat</div><div class="value">${payload.habitat || '-'}</div></div>
+    <div class="item"><div class="label">Moradia</div><div class="value">${payload.housingType || '-'}</div></div>
+  </div>
+</div>
+<div class="footer">
+Documento técnico inicial. Pode ser salvo como PDF pelo navegador via impressão.
+</div>
+</body>
+</html>`;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `ficha-tecnica-${(payload.name || 'gato').toLowerCase().replace(/\s+/g, '-')}.html`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function CitySearch({ value, onChange }) {
+  const [query, setQuery] = useState(value || '');
+  const [results, setResults] = useState([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    setQuery(value || '');
+  }, [value]);
+
+  useEffect(() => {
+    if (query.length < 2) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    const filtered = CIDADES_BR.filter((c) =>
+      c.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 6);
+    setResults(filtered);
+    setOpen(filtered.length > 0);
+  }, [query]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const select = (city) => {
+    setQuery(city);
+    onChange(city);
+    setOpen(false);
+  };
+
   return (
-    <div onClick={() => onChange(!value)}
-      className={`w-11 h-6 rounded-full flex items-center p-0.5 cursor-pointer transition-colors ${bg}`}>
-      <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${value ? 'translate-x-5' : 'translate-x-0'}`} />
+    <div className="relative" ref={ref}>
+      <div className="relative">
+        <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <input
+          className="w-full bg-gray-50 rounded-xl p-3 pl-8 text-sm outline-none placeholder-gray-400"
+          placeholder="Digite a cidade de origem..."
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            onChange(e.target.value);
+          }}
+          onFocus={() => query.length >= 2 && results.length > 0 && setOpen(true)}
+        />
+        {query && (
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300"
+            onClick={() => {
+              setQuery('');
+              onChange('');
+            }}
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="absolute z-50 w-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
+          >
+            {results.map((city) => (
+              <button
+                key={city}
+                onClick={() => select(city)}
+                className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-purple-50 flex items-center gap-2 border-b border-gray-50 last:border-0"
+              >
+                <MapPin size={11} className="text-[#8B4AFF] flex-shrink-0" />
+                {city}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+function PedigreeSlot({ label, file, onSelect, onClear }) {
+  const inputRef = useRef(null);
+  const [preview, setPreview] = useState(null);
+
+  useEffect(() => {
+    if (!file) setPreview(null);
+  }, [file]);
+
+  const handleFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    onSelect(f);
+    setPreview(f.type.startsWith('image/') ? URL.createObjectURL(f) : 'pdf');
+    e.target.value = '';
+  };
+
+  const clear = () => {
+    setPreview(null);
+    onClear();
+  };
+
+  return (
+    <div className="flex-1">
+      <input ref={inputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFile} />
+      <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5 ml-1">{label}</p>
+      {preview ? (
+        <div className="relative rounded-2xl overflow-hidden border border-green-200 bg-green-50 h-24">
+          {preview === 'pdf' ? (
+            <div className="h-full flex flex-col items-center justify-center gap-1">
+              <FileText size={20} className="text-green-600" />
+              <span className="text-[10px] font-black text-green-700">PDF ✓</span>
+            </div>
+          ) : (
+            <img src={preview} className="w-full h-full object-cover" />
+          )}
+          <button onClick={clear} className="absolute top-1.5 right-1.5 bg-white rounded-full p-1 shadow">
+            <X size={10} className="text-gray-600" />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => inputRef.current?.click()}
+          className="w-full h-24 border-2 border-dashed border-[#8B4AFF]/30 rounded-2xl flex flex-col items-center justify-center gap-1.5 bg-[#8B4AFF]/5 active:bg-[#8B4AFF]/10 transition-all"
+        >
+          <div className="w-8 h-8 bg-[#8B4AFF]/10 rounded-full flex items-center justify-center">
+            <FileText size={16} className="text-[#8B4AFF]" />
+          </div>
+          <p className="text-[10px] font-black text-[#8B4AFF]">Enviar</p>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PedigreeUpload({ onChangeFront, onChangeBack, frontFile, backFile }) {
+  return (
+    <div className="flex gap-3">
+      <PedigreeSlot label="Frente" file={frontFile} onSelect={onChangeFront} onClear={() => onChangeFront(null)} />
+      <PedigreeSlot label="Verso" file={backFile} onSelect={onChangeBack} onClear={() => onChangeBack(null)} />
+    </div>
+  );
+}
+
+function VerticalCardPreview({
+  gradient,
+  name,
+  breed,
+  gender,
+  avatarPreview,
+  generatedId,
+  city,
+  ageLabel,
+  weight,
+}) {
+  return (
+    <div
+      className="rounded-[30px] overflow-hidden shadow-2xl"
+      style={{ background: `linear-gradient(180deg, ${gradient.from} 0%, ${gradient.to} 100%)` }}
+    >
+      <div className="p-4">
+        <div className="rounded-[24px] overflow-hidden bg-white/10 border border-white/15">
+          {avatarPreview ? (
+            <img src={avatarPreview} className="w-full h-64 object-cover" />
+          ) : (
+            <div className="w-full h-64 flex flex-col items-center justify-center gap-2 bg-black/10">
+              <Camera size={34} className="text-white/80" />
+              <span className="text-xs font-black uppercase tracking-widest text-white/75">
+                Foto principal
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/65">RG Gatedo</p>
+          <h3 className="text-2xl font-black text-white leading-tight mt-1">
+            {name || 'Seu gatinho'}
+          </h3>
+          <p className="text-sm font-bold mt-1" style={{ color: gradient.accent }}>
+            {breed || 'SRD'} · {gender === 'MALE' ? 'Macho' : gender === 'FEMALE' ? 'Fêmea' : 'N/I'}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-5">
+          <div className="rounded-[18px] bg-black/15 border border-white/10 p-3">
+            <p className="text-[9px] uppercase tracking-widest text-white/45 font-black">Origem</p>
+            <p className="text-sm font-black text-white mt-1">{city || '—'}</p>
+          </div>
+          <div className="rounded-[18px] bg-black/15 border border-white/10 p-3">
+            <p className="text-[9px] uppercase tracking-widest text-white/45 font-black">Idade</p>
+            <p className="text-sm font-black text-white mt-1">{ageLabel || '—'}</p>
+          </div>
+          <div className="rounded-[18px] bg-black/15 border border-white/10 p-3">
+            <p className="text-[9px] uppercase tracking-widest text-white/45 font-black">Peso</p>
+            <p className="text-sm font-black text-white mt-1">{weight || '—'}</p>
+          </div>
+          <div className="rounded-[18px] bg-black/15 border border-white/10 p-3">
+            <p className="text-[9px] uppercase tracking-widest text-white/45 font-black">ID</p>
+            <p className="text-sm font-black text-white mt-1">#{generatedId}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-[16px] px-4 py-3 bg-black/15 border border-white/10 flex items-center justify-between">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/55">
+            Documento técnico
+          </span>
+          <span className="text-[10px] font-black" style={{ color: gradient.accent }}>
+            gatedo.com
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Toggle({ value, onChange, color = 'green' }) {
+  const bg = value ? (color === 'red' ? 'bg-red-500' : 'bg-green-500') : 'bg-gray-300';
+  return (
+    <div onClick={() => onChange(!value)} className={`w-11 h-6 rounded-full flex items-center p-0.5 cursor-pointer transition-colors ${bg}`}>
+      <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform ${value ? 'translate-x-5' : 'translate-x-0'}`} />
+    </div>
+  );
+}
 
 export default function AddCat() {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const avatarRef = useRef(null);
 
-  const [step, setStep]               = useState(1);
-  const [loading, setLoading]         = useState(false);
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [generatedId, setGeneratedId] = useState('');
-  const [colorIndex, setColorIndex]   = useState(0);
-  const VISIBLE_COLORS = 5;
+  const [generatedPetPayload, setGeneratedPetPayload] = useState(null);
 
   const [formData, setFormData] = useState({
-    // IDENTIDADE
-    name:            '',
-    nicknames:       '',
-    gender:          'MALE',
-    catType:         'SRD',    // controle de UI apenas
-    breed:           'SRD',
-    adoptionStory:   '',
-    hasAwards:       false,
-    awardsDetail:    '',
-    microchip:       '',
-    city:            '',
+    name: '',
+    nicknames: '',
+    gender: 'MALE',
+    catType: 'SRD',
+    breed: 'SRD',
+    coatType: '',
 
-    // IDADE
-    birthDate:       '',
-    ageYears:        '',
-    ageMonths:       '',
+    arrivalType: '',
+    arrivalNotes: '',
+
+    hasAwards: false,
+    awardsDetail: '',
+    hasMicrochip: false,
+    microchip: '',
+    city: '',
+
+    birthDate: '',
+    ageYears: '',
+    ageMonths: '',
     isDateEstimated: false,
 
-    // SAÚDE
-    weight:          '',
-    neutered:        false,
+    weight: '',
+    neutered: false,
     neuterIntention: '',
-    healthSummary:   '',
 
-    // NUTRIÇÃO
-    foodType:        [],
-    foodBrand:       '',
-    foodFreq:        '',
+    preExistingConditions: [],
+    healthSummary: '',
 
-    // COMPORTAMENTO
-    personality:     [],        // behaviors do UI → personality no schema
-    activityLevel:   'Média',
-    socialOtherPets: '',
-    behaviorIssues:  '',
-    traumaHistory:   '',
+    foodType: [],
+    foodBrand: '',
+    foodBrandOther: '',
+    feedFrequencySelector: '',
+    foodFreq: '',
 
-    // AMBIENTE
-    habitat:         'Interno',
-    housingType:     '',
-    streetAccess:    false,
-    riskAreaAccess:  false,
+    personality: [],
+    activityLevel: 'Média',
+    coexistsWith: [],
+    hasBehaviorIssues: false,
+    behaviorIssues: '',
+    hasTraumaHistory: false,
+    traumaHistory: '',
 
-    // ESTÉTICA
-    themeColor:      'bg-[#FFF5E6]',  // color do UI → themeColor no schema
-    avatarFile:      null,
-    avatarPreview:   null,
+    habitat: 'Interno',
+    housingType: '',
+    streetAccess: false,
+    riskAreaAccess: false,
+
+    themeColor: 'violet',
+    avatarFile: null,
+    avatarPreview: null,
+    pedigreeFile: null,
+    pedigreeBackFile: null,
   });
+  const draftKey = useMemo(() => getAddCatDraftKey(user?.id), [user?.id]);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   useEffect(() => {
     setGeneratedId(Math.floor(100000 + Math.random() * 900000).toString());
   }, []);
 
-  // ─── HELPERS ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!draftKey) {
+      setDraftLoaded(false);
+      return;
+    }
 
-  const set = (key, value) => setFormData(prev => ({ ...prev, [key]: value }));
+    setDraftLoaded(false);
+
+    try {
+      const rawDraft = localStorage.getItem(draftKey);
+      if (rawDraft) {
+        const parsedDraft = JSON.parse(rawDraft);
+        const savedFormData = parsedDraft?.formData;
+        if (savedFormData && typeof savedFormData === 'object') {
+          setFormData((current) => ({
+            ...current,
+            ...restoreAddCatDraft(savedFormData),
+          }));
+        }
+      }
+    } catch (error) {
+      console.warn('Nao foi possivel restaurar o rascunho do cadastro do gato.', error);
+      localStorage.removeItem(draftKey);
+    } finally {
+      setDraftLoaded(true);
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey || !draftLoaded || showSuccess) return;
+
+    const timeoutId = window.setTimeout(() => {
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            updatedAt: new Date().toISOString(),
+            formData: serializeAddCatDraft(formData),
+          })
+        );
+      } catch (error) {
+        console.warn('Nao foi possivel salvar o rascunho do cadastro do gato.', error);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [draftKey, draftLoaded, formData, showSuccess]);
+
+  const set = (key, value) => setFormData((p) => ({ ...p, [key]: value }));
 
   const toggleArray = (key, id) =>
-    setFormData(prev => {
-      const arr = prev[key];
-      return { ...prev, [key]: arr.includes(id) ? arr.filter(v => v !== id) : [...arr, id] };
-    });
+    setFormData((p) => ({
+      ...p,
+      [key]: p[key].includes(id) ? p[key].filter((v) => v !== id) : [...p[key], id],
+    }));
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
@@ -130,536 +652,847 @@ export default function AddCat() {
     set('avatarPreview', URL.createObjectURL(file));
   };
 
-  // ─── SUBMIT ────────────────────────────────────────────────────────────────
+  const baseTheme = resolveCatTheme(formData.themeColor);
+  const activeGradient = {
+    ...baseTheme,
+    from: baseTheme.fromHex,
+    to: baseTheme.toHex,
+  };
+
+  const activeBtn = (active) => ({
+    className: `flex-1 py-3 rounded-2xl text-sm font-black border-2 transition-all ${
+      active ? 'border-transparent text-white' : 'border-gray-100 text-gray-400 bg-gray-50'
+    }`,
+    style: active ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {},
+  });
+
+  const ageLabel = useMemo(() => {
+    if (formData.isDateEstimated) {
+      const years = formData.ageYears ? `${formData.ageYears}a` : '';
+      const months = formData.ageMonths ? `${formData.ageMonths}m` : '';
+      return `${years} ${months}`.trim() || '—';
+    }
+
+    if (!formData.birthDate) return '—';
+
+    const birth = parseDateOnly(formData.birthDate);
+    if (!birth) return '—';
+    const today = new Date();
+    let years = today.getFullYear() - birth.getFullYear();
+    let months = today.getMonth() - birth.getMonth();
+
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    return `${years}a ${months}m`;
+  }, [formData.isDateEstimated, formData.ageYears, formData.ageMonths, formData.birthDate]);
+
+  const displayBreed = useMemo(() => {
+    if (formData.catType === 'SRD') {
+      return formData.coatType?.trim() ? `SRD · ${formData.coatType.trim()}` : 'SRD';
+    }
+    return formData.breed || 'SRD';
+  }, [formData.catType, formData.coatType, formData.breed]);
 
   const handleFinish = async () => {
-    if (!formData.name.trim()) { alert('Digite o nome do gato!'); return; }
-    setLoading(true);
-    try {
-      const data = new FormData();
+    if (!formData.name.trim()) {
+      alert('Digite o nome do gato.');
+      return;
+    }
 
-      // Campos simples
-      data.append('ownerId',         user?.id ?? '');
-      data.append('name',            formData.name);
-      data.append('nicknames',       formData.nicknames);
-      data.append('gender',          formData.gender);           // já em MALE/FEMALE
-      data.append('breed',           formData.breed);
-      data.append('city',            formData.city);
-      data.append('microchip',       formData.microchip);
-      data.append('weight',          String(formData.weight || 0));
-      data.append('neutered',        String(formData.neutered));
-      data.append('neuterIntention', formData.neuterIntention);
-      data.append('healthSummary',   formData.healthSummary);
-      data.append('foodBrand',       formData.foodBrand);
-      data.append('foodFreq',        formData.foodFreq);
-      data.append('activityLevel',   formData.activityLevel);
-      data.append('socialOtherPets', formData.socialOtherPets);
-      data.append('behaviorIssues',  formData.behaviorIssues);
-      data.append('traumaHistory',   formData.traumaHistory);
-      data.append('habitat',         formData.habitat);
-      data.append('housingType',     formData.housingType);
-      data.append('streetAccess',    String(formData.streetAccess));
-      data.append('riskAreaAccess',  String(formData.riskAreaAccess));
-      data.append('adoptionStory',   formData.adoptionStory);
-      data.append('hasAwards',       String(formData.hasAwards));
-      data.append('awardsDetail',    formData.awardsDetail);
-      data.append('themeColor',      formData.themeColor);
-      data.append('isDateEstimated', String(formData.isDateEstimated));
+    setLoading(true);
+
+    try {
+      const fd = new FormData();
+
+      const simple = {
+        ownerId: user?.id ?? '',
+        name: formData.name,
+        nicknames: formData.nicknames,
+        gender: formData.gender,
+        breed: formData.catType === 'SRD' ? 'SRD' : formData.breed,
+        coatType: formData.catType === 'SRD' ? formData.coatType : '',
+        city: formData.city,
+        microchip: formData.hasMicrochip ? formData.microchip : '',
+        arrivalType: formData.arrivalType,
+        arrivalNotes: formData.arrivalNotes,
+
+        weight: String(formData.weight || 0),
+        neutered: String(formData.neutered),
+        neuterIntention: formData.neutered ? '' : formData.neuterIntention,
+
+        healthSummary: formData.healthSummary,
+        foodBrand: formData.foodBrand === 'Outra' ? (formData.foodBrandOther || 'Outra') : formData.foodBrand,
+        feedFrequencyMode: formData.feedFrequencySelector,
+        feedFrequencyNotes: formData.foodFreq,
+
+        activityLevel: formData.activityLevel,
+        behaviorIssues: formData.hasBehaviorIssues ? formData.behaviorIssues : '',
+        traumaHistory: formData.hasTraumaHistory ? formData.traumaHistory : '',
+        habitat: formData.habitat,
+        housingType: formData.housingType,
+        streetAccess: String(formData.streetAccess),
+        riskAreaAccess: String(formData.riskAreaAccess),
+
+        adoptionStory: formData.arrivalType || '',
+        hasAwards: String(formData.hasAwards),
+        awardsDetail: formData.awardsDetail,
+        themeColor: formData.themeColor,
+        isDateEstimated: String(formData.isDateEstimated),
+        hasBehaviorIssues: String(formData.hasBehaviorIssues),
+        hasTraumaHistory: String(formData.hasTraumaHistory),
+      };
+
+      Object.entries(simple).forEach(([k, v]) => fd.append(k, v ?? ''));
 
       if (formData.isDateEstimated) {
-        data.append('ageYears',  String(formData.ageYears  || 0));
-        data.append('ageMonths', String(formData.ageMonths || 0));
+        fd.append('ageYears', String(formData.ageYears || 0));
+        fd.append('ageMonths', String(formData.ageMonths || 0));
       } else if (formData.birthDate) {
-        data.append('birthDate', formData.birthDate);
+        fd.append('birthDate', formData.birthDate);
       }
 
-      // Arrays — item por item para o backend receber String[]
-      formData.personality.forEach(p => data.append('personality', p));
-      formData.foodType.forEach(f    => data.append('foodType', f));
+      fd.append('personality', JSON.stringify(formData.personality || []));
+      fd.append('foodType', JSON.stringify(formData.foodType || []));
+      fd.append('preExistingConditions', JSON.stringify(formData.preExistingConditions || []));
+      fd.append('coexistsWith', JSON.stringify(formData.coexistsWith || []));
 
-      // Arquivo de avatar
-      if (formData.avatarFile) data.append('file', formData.avatarFile);
+      if (formData.avatarFile) fd.append('photo', formData.avatarFile);
+      if (formData.pedigreeFile) fd.append('pedigree', formData.pedigreeFile);
+      if (formData.pedigreeBackFile) fd.append('pedigreeBack', formData.pedigreeBackFile);
 
-      const response = await api.post('/pets', data);
-      if (response.status === 201 || response.status === 200) {
-        setShowSuccess(true);
-      }
-    } catch (error) {
-      console.error('Erro ao registrar gato:', error);
+      const res = await api.post('/pets', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const createdPetId = res.data?.id?.split('-').pop()?.toUpperCase() || generatedId;
+      setGeneratedId(createdPetId);
+
+      const payload = {
+        name: formData.name,
+        nicknames: formData.nicknames,
+        displayBreed,
+        genderLabel:
+          formData.gender === 'MALE' ? 'Macho' : formData.gender === 'FEMALE' ? 'Fêmea' : 'N/I',
+        city: formData.city,
+        microchipDisplay: formData.hasMicrochip ? formData.microchip : 'Não',
+        arrivalType: formData.arrivalType,
+        arrivalNotes: formData.arrivalNotes,
+        weight: formData.weight ? `${formData.weight} kg` : '',
+        neutered: formData.neutered,
+        preExistingConditions: joinList(formData.preExistingConditions),
+        healthSummary: formData.healthSummary,
+        foodBrand: formData.foodBrand === 'Outra' ? (formData.foodBrandOther || 'Outra') : formData.foodBrand,
+        foodTypes: joinList(formData.foodType),
+        feedFrequencyMode: formData.feedFrequencySelector,
+        feedFrequencyNotes: formData.foodFreq,
+        personality: joinList(formData.personality.map((p) => normalizeGenderedLabel(p, formData.gender))),
+        coexistsWith: joinList(formData.coexistsWith),
+        behaviorIssues: formData.hasBehaviorIssues ? formData.behaviorIssues : '',
+        traumaHistory: formData.hasTraumaHistory ? formData.traumaHistory : '',
+        habitat: formData.habitat,
+        housingType: formData.housingType,
+        avatarPreview: formData.avatarPreview,
+      };
+
+      setGeneratedPetPayload(payload);
+      downloadFichaTecnicaHTML(payload);
+      if (draftKey) localStorage.removeItem(draftKey);
+      setShowSuccess(true);
+    } catch (err) {
+      console.error(err);
       alert('Erro ao salvar. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
-  // ─── TELA DE SUCESSO ───────────────────────────────────────────────────────
-
   if (showSuccess) {
     return (
-      <div className="min-h-screen bg-[#6158ca] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-        <motion.div
-          initial={{ scale: 0.9, y: 30, opacity: 0 }}
-          animate={{ scale: 1, y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-          className="bg-white rounded-[45px] shadow-2xl w-full max-w-sm relative z-10"
-        >
-          {/* Faixa amarela */}
-          <div className="bg-[#ebfc66] h-32 relative overflow-hidden rounded-t-[45px]">
-            <img src="/assets/logo-fundo1.svg" className="absolute left-5 top-4 h-6 opacity-30 brightness-0" />
-            <div className="absolute top-4 right-5 flex items-center gap-1 text-[#6158ca] opacity-50">
-              <Lock size={11} /><span className="text-[9px] font-black tracking-widest">RG OFICIAL</span>
-            </div>
+      <div className="min-h-screen bg-[var(--gatedo-light-bg)] flex items-center justify-center p-6">
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-sm text-center space-y-6">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.1, type: 'spring' }}
+            className="w-24 h-24 rounded-full mx-auto shadow-xl flex items-center justify-center"
+            style={{ background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` }}
+          >
+            <span className="text-4xl">🐾</span>
+          </motion.div>
+
+          <div>
+            <h2 className="text-2xl font-black text-gray-800">Perfil criado com sucesso!</h2>
+            <p className="text-gray-500 text-sm mt-1">
+              ID <span className="font-black text-[#8B4AFF]">#{generatedId}</span> gerado para {formData.name}
+            </p>
           </div>
 
-          {/* Avatar — posicionado absolutamente na borda do card */}
-          <div className="absolute left-1/2 -translate-x-1/2" style={{top: '72px'}}>
-            <div className="w-28 h-28 rounded-full border-[5px] border-white shadow-lg bg-gray-100 overflow-hidden">
-              {formData.avatarPreview
-                ? <img src={formData.avatarPreview} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-gray-200"><Camera size={28}/></div>}
-            </div>
-          </div>
+          <VerticalCardPreview
+            gradient={activeGradient}
+            name={formData.name}
+            breed={displayBreed}
+            gender={formData.gender}
+            avatarPreview={formData.avatarPreview}
+            generatedId={generatedId}
+            city={formData.city}
+            ageLabel={ageLabel}
+            weight={formData.weight ? `${formData.weight} kg` : '—'}
+          />
 
-          {/* Conteúdo do cartão */}
-          <div className="flex flex-col items-center px-8 pb-8 pt-20">
-            <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight leading-none">{formData.name}</h2>
-            <span className="text-[10px] font-bold text-indigo-400 tracking-[3px] uppercase mt-1">ID #{generatedId}</span>
+          <div className="space-y-3">
+            <button
+              onClick={() => generatedPetPayload && downloadFichaTecnicaHTML(generatedPetPayload)}
+              className="w-full py-4 rounded-[22px] font-black uppercase tracking-widest text-sm border border-[#8B4AFF]/20 text-[#8B4AFF] bg-white shadow-sm flex items-center justify-center gap-2"
+            >
+              <Download size={16} />
+              Baixar ficha técnica
+            </button>
 
-            <div className="w-full grid grid-cols-2 gap-3 text-left border-t border-gray-100 mt-6 pt-5">
-              <div><p className="text-[9px] font-black text-gray-300 uppercase mb-1">Cidade</p><p className="font-bold text-xs text-gray-700">{formData.city || '—'}</p></div>
-              <div><p className="text-[9px] font-black text-gray-300 uppercase mb-1">Raça</p><p className="font-bold text-xs text-gray-700">{formData.breed || 'SRD'}</p></div>
-              <div><p className="text-[9px] font-black text-gray-300 uppercase mb-1">Sexo</p><p className="font-bold text-xs text-gray-700">{formData.gender === 'MALE' ? 'Macho' : 'Fêmea'}</p></div>
-              <div><p className="text-[9px] font-black text-gray-300 uppercase mb-1">Peso</p><p className="font-bold text-xs text-gray-700">{formData.weight ? `${formData.weight} kg` : '—'}</p></div>
-            </div>
-
-            <div className="flex gap-3 mt-6 w-full">
-              <button onClick={() => window.location.reload()}
-                className="flex-1 py-4 bg-gray-50 rounded-[20px] font-bold text-gray-500 text-xs flex items-center justify-center gap-1">
-                <Plus size={14}/> Outro Gatinho
-              </button>
-              <button onClick={() => navigate('/home')}
-                className="flex-1 py-4 bg-[#6158ca] text-white rounded-[20px] font-black text-xs">
-                Ir pro App
-              </button>
-            </div>
+            <button
+              onClick={() => navigate('/home')}
+              className="w-full py-5 rounded-[24px] font-black uppercase tracking-widest text-white text-sm shadow-xl"
+              style={{ background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` }}
+            >
+              Ir para Home 🏠
+            </button>
           </div>
         </motion.div>
       </div>
     );
   }
 
-  // ─── ESTILOS ───────────────────────────────────────────────────────────────
-
-  const inputClass   = "w-full bg-white border border-gray-100 focus:border-[#6158ca] rounded-[18px] px-4 py-3 text-gray-700 font-bold shadow-sm placeholder-gray-300 outline-none transition-all text-sm appearance-none";
-  const labelClass   = "text-xs font-black text-gray-500 ml-1 uppercase tracking-wide mb-1 block";
-  const sectionTitle = "text-base font-black text-gray-800 mb-3 mt-5 flex items-center gap-2";
-
-  // ─── RENDER PRINCIPAL ──────────────────────────────────────────────────────
+  const ic = 'w-full bg-gray-50 rounded-xl p-3 text-sm outline-none placeholder-gray-400';
+  const lc = 'text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5 block';
+  const sc = 'flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-400 mt-2';
+  const STEPS = ['Identidade', 'Saúde', 'Comportamento', 'Estilo'];
 
   return (
-    <div className="pb-40 min-h-screen bg-[#F8F9FE]">
-
-      {/* ── HEADER ── */}
-      <div className="bg-[#6158ca] h-44 rounded-b-[55px] relative w-full overflow-hidden mb-8 shadow-lg">
-        <img src="/assets/logo-fundo1.svg" className="absolute -top-16 -right-16 w-64 h-64 opacity-100 pointer-events-none rotate-12" />
-        <div className="absolute top-10 left-6 right-6 flex items-center justify-between z-20">
-          <button onClick={() => step === 1 ? navigate(-1) : setStep(s => s - 1)}
-            className="p-3 bg-white/10 backdrop-blur-md rounded-2xl text-white">
-            <ArrowLeft size={20} />
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-32">
+      <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+        <div className="flex items-center gap-3 py-4 px-4 max-w-lg mx-auto">
+          <button
+            onClick={() => (step === 1 ? navigate(-1) : setStep((s) => s - 1))}
+            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-gray-100 active:scale-90 transition-all"
+          >
+            <ArrowLeft size={18} className="text-gray-600" />
           </button>
-          <div className="flex gap-1.5">
-            {[1,2,3,4].map(i => (
-              <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${step >= i ? 'w-8 bg-[#ebfc66]' : 'w-2 bg-white/30'}`} />
-            ))}
+
+          <div className="flex-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Etapa {step} de 4 — {STEPS[step - 1]}
+            </p>
+            <div className="flex gap-1 mt-1.5">
+              {[1, 2, 3, 4].map((s) => (
+                <div
+                  key={s}
+                  className="h-1 rounded-full flex-1 transition-all duration-500"
+                  style={{ background: s <= step ? activeGradient.from : '#e5e7eb' }}
+                />
+              ))}
+            </div>
           </div>
-          <div className="w-11" />
-        </div>
-        <div className="absolute bottom-5 left-6 text-white">
-          <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mb-0.5">Etapa {step} de 4</p>
-          <h1 className="text-xl font-black leading-tight">
-            {step === 1 && 'Identidade & Origem'}
-            {step === 2 && 'Nutrição & Saúde'}
-            {step === 3 && 'Comportamento & Lar'}
-            {step === 4 && 'Galeria & Estilo'}
-          </h1>
         </div>
       </div>
 
-      <div className="px-5 space-y-4">
-
-        {/* ══════════ ETAPA 1: IDENTIDADE ══════════ */}
+      <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
         {step === 1 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+            <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
 
-            {/* Avatar */}
-            <label className="flex flex-col items-center cursor-pointer">
-              <div className="w-28 h-28 rounded-[36px] bg-white border-4 border-white shadow-xl overflow-hidden flex items-center justify-center relative group">
-                {formData.avatarPreview
-                  ? <img src={formData.avatarPreview} className="w-full h-full object-cover" />
-                  : <Camera size={30} className="text-gray-200" />}
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-[32px]">
-                  <Camera size={20} className="text-white" />
+            <div className="flex flex-col items-center pt-2 pb-2">
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => avatarRef.current?.click()} className="relative">
+                <div
+                  className="w-28 h-28 rounded-[32px] overflow-hidden border-4 border-white"
+                  style={{ boxShadow: `0 8px 32px ${activeGradient.from}40` }}
+                >
+                  {formData.avatarPreview ? (
+                    <img src={formData.avatarPreview} className="w-full h-full object-cover" />
+                  ) : (
+                    <div
+                      className="w-full h-full flex flex-col items-center justify-center gap-1"
+                      style={{ background: `linear-gradient(135deg, ${activeGradient.from}20, ${activeGradient.to}20)` }}
+                    >
+                      <Camera size={28} style={{ color: activeGradient.from }} />
+                      <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: activeGradient.from }}>
+                        Foto
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  className="absolute -bottom-2 -right-2 w-9 h-9 rounded-full flex items-center justify-center"
+                  style={{
+                    background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})`,
+                    border: '3px solid white',
+                  }}
+                >
+                  <Camera size={14} className="text-white" />
+                </div>
+              </motion.button>
+
+              <p className="text-[11px] text-gray-400 font-bold mt-4">
+                Toque para definir a foto destaque
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm space-y-4">
+              <div>
+                <label className={lc}>Nome do Gatinho *</label>
+                <input className={ic} placeholder="Como ele/ela se chama?" value={formData.name} onChange={(e) => set('name', e.target.value)} />
+              </div>
+
+              <div>
+                <label className={lc}>Apelidos Carinhosos</label>
+                <input className={ic} placeholder="Ex: Bolinha, Fofinho..." value={formData.nicknames} onChange={(e) => set('nicknames', e.target.value)} />
+              </div>
+
+              <div>
+                <label className={lc}>Gênero</label>
+                <div className="flex gap-2">
+                  {[
+                    ['MALE', 'Macho 🐱'],
+                    ['FEMALE', 'Fêmea 🐱'],
+                    ['UNKNOWN', 'N/I'],
+                  ].map(([v, l]) => (
+                    <button key={v} onClick={() => set('gender', v)} {...activeBtn(formData.gender === v)}>
+                      {l}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <span className="text-xs font-bold text-gray-400 mt-2">Toque para adicionar foto</span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-            </label>
 
-            {/* Nome e Apelido */}
-            <div>
-              <label className={labelClass}>Nome do Gato *</label>
-              <input className={inputClass} placeholder="Digite o nome..."
-                value={formData.name} onChange={e => set('name', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelClass}>Apelidos Carinhosos</label>
-              <input className={inputClass} placeholder="Ex: Fred, Dico..."
-                value={formData.nicknames} onChange={e => set('nicknames', e.target.value)} />
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                <span className="text-xs font-bold text-gray-600">Possui microchip?</span>
+                <Toggle
+                  value={formData.hasMicrochip}
+                  onChange={(v) => {
+                    set('hasMicrochip', v);
+                    if (!v) set('microchip', '');
+                  }}
+                />
+              </div>
+
+              {formData.hasMicrochip && (
+                <div>
+                  <label className={lc}>Número do microchip</label>
+                  <div className="flex items-center bg-gray-50 rounded-2xl px-4">
+                    <Hash size={14} className="text-gray-400 mr-2" />
+                    <input
+                      className="w-full py-4 bg-transparent font-bold outline-none text-gray-700 text-sm font-mono"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={formData.microchip}
+                      onChange={(e) => set('microchip', onlyNumbers(e.target.value))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className={lc}>Cidade de Origem</label>
+                <CitySearch value={formData.city} onChange={(v) => set('city', v)} />
+              </div>
             </div>
 
-            {/* Tipo: SRD ou Raça */}
-            <div>
-              <label className={labelClass}>Raça / Origem *</label>
-              <div className="flex bg-white p-1.5 rounded-[18px] shadow-sm mb-4">
-                {[['SRD','SRD (Vira-lata)'],['RACA','Raça Definida']].map(([val, label]) => (
-                  <button key={val}
-                    onClick={() => setFormData(p => ({ ...p, catType: val, breed: val === 'SRD' ? 'SRD' : '' }))}
-                    className={`flex-1 py-3 rounded-[14px] text-xs font-black uppercase tracking-wider transition-all ${
-                      formData.catType === val ? 'bg-[#6158ca] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'
-                    }`}>{label}</button>
+            <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm space-y-3">
+              <label className={lc}>Raça</label>
+
+              <div className="flex gap-2">
+                {[
+                  ['SRD', '(SRD) Sem raça definida'],
+                  ['PURO', 'Raça definida'],
+                ].map(([v, l]) => (
+                  <button
+                    key={v}
+                    onClick={() => {
+                      set('catType', v);
+                      if (v === 'SRD') set('breed', 'SRD');
+                    }}
+                    {...activeBtn(formData.catType === v)}
+                  >
+                    {l}
+                  </button>
                 ))}
               </div>
 
-              <AnimatePresence mode="wait">
-                {formData.catType === 'RACA' ? (
-                  <motion.div key="raca" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                    <div className="relative">
-                      <select className={inputClass} value={formData.breed} onChange={e => set('breed', e.target.value)}>
-                        <option value="" disabled>Selecione a raça...</option>
-                        {CAT_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+              {formData.catType === 'PURO' && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3 overflow-hidden">
+                  <div>
+                    <label className={lc}>Raça definida</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {CAT_BREEDS.filter((b) => b !== '(SRD) Sem raça definida').map((b) => (
+                        <button
+                          key={b}
+                          onClick={() => set('breed', b)}
+                          className={`py-2.5 px-3 rounded-xl text-xs font-bold border-2 text-left transition-all ${
+                            formData.breed === b ? 'border-transparent text-white' : 'border-gray-100 text-gray-500 bg-gray-50'
+                          }`}
+                          style={formData.breed === b ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {}}
+                        >
+                          {b}
+                        </button>
+                      ))}
                     </div>
-                    <div className="bg-white p-3 rounded-[16px] border border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-gray-600 flex items-center gap-2">
-                          <Award size={14}/> Participa de Eventos?
-                        </span>
-                        <Toggle value={formData.hasAwards} onChange={v => set('hasAwards', v)} />
-                      </div>
-                      {formData.hasAwards && (
-                        <input className="w-full bg-gray-50 rounded-xl px-3 py-2 text-xs mt-3 outline-none"
-                          placeholder="Quais prêmios?" value={formData.awardsDetail}
-                          onChange={e => set('awardsDetail', e.target.value)} />
-                      )}
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div key="srd" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-                    <div className="bg-orange-50 p-4 rounded-[20px] border border-orange-100 space-y-2">
-                      <label className="text-xs font-bold text-orange-800 flex items-center gap-2">
-                        <Heart size={14}/> História da Adoção
-                      </label>
-                      <textarea className="w-full bg-white rounded-xl p-3 text-sm border-none h-24 placeholder-orange-300 font-medium outline-none"
-                        placeholder="Conte a história dele..." value={formData.adoptionStory}
-                        onChange={e => set('adoptionStory', e.target.value)} />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                  </div>
 
-            {/* Sexo e Peso */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>Sexo</label>
-                <div className="flex bg-white rounded-[16px] p-1 border border-gray-100 shadow-sm h-[46px]">
-                  {[['MALE','Macho'],['FEMALE','Fêmea']].map(([val, label]) => (
-                    <button key={val} onClick={() => set('gender', val)}
-                      className={`flex-1 rounded-[12px] text-xs font-bold transition-all ${
-                        formData.gender === val ? 'bg-[#6158ca] text-white shadow-sm' : 'text-gray-400'
-                      }`}>{label}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Peso (kg)</label>
-                <input type="number" className={inputClass} placeholder="0.0"
-                  value={formData.weight} onChange={e => set('weight', e.target.value)} />
-              </div>
-            </div>
+                  <div>
+                    <label className={lc}>
+                      Pedigree <span className="text-gray-300 normal-case font-medium">(opcional)</span>
+                    </label>
+                    <PedigreeUpload
+                      frontFile={formData.pedigreeFile}
+                      backFile={formData.pedigreeBackFile}
+                      onChangeFront={(f) => set('pedigreeFile', f)}
+                      onChangeBack={(f) => set('pedigreeBackFile', f)}
+                    />
+                    <p className="text-[10px] text-gray-400 text-center mt-1.5">
+                      Aparecerá no módulo Documentos do perfil 📋
+                    </p>
+                  </div>
 
-            {/* Nascimento */}
-            <div className="bg-white p-4 rounded-[20px] shadow-sm border border-gray-100 space-y-4">
-              <div className="flex gap-4 border-b border-gray-50 pb-3">
-                <button onClick={() => set('isDateEstimated', false)}
-                  className={`text-xs font-bold ${!formData.isDateEstimated ? 'text-[#6158ca]' : 'text-gray-400'}`}>
-                  Data de Nascimento
-                </button>
-                <button onClick={() => set('isDateEstimated', true)}
-                  className={`text-xs font-bold ${formData.isDateEstimated ? 'text-[#6158ca]' : 'text-gray-400'}`}>
-                  Idade Aproximada
-                </button>
-              </div>
-              {!formData.isDateEstimated ? (
-                <input type="date" className={inputClass} value={formData.birthDate}
-                  onChange={e => set('birthDate', e.target.value)} />
-              ) : (
-                <div className="flex gap-3">
-                  <input type="number" className={inputClass} placeholder="Anos"
-                    value={formData.ageYears} onChange={e => set('ageYears', e.target.value)} />
-                  <input type="number" className={inputClass} placeholder="Meses"
-                    value={formData.ageMonths} onChange={e => set('ageMonths', e.target.value)} />
+                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100">
+                    <div className="flex items-center gap-2">
+                      <Award size={14} className="text-amber-600" />
+                      <span className="text-xs font-bold text-amber-700">Tem premiações?</span>
+                    </div>
+                    <Toggle value={formData.hasAwards} onChange={(v) => set('hasAwards', v)} />
+                  </div>
+
+                  {formData.hasAwards && (
+                    <input className={ic} placeholder="Descreva os prêmios..." value={formData.awardsDetail} onChange={(e) => set('awardsDetail', e.target.value)} />
+                  )}
+                </motion.div>
+              )}
+
+              {formData.catType === 'SRD' && (
+                <div>
+                  <label className={lc}>Qual tipo de pelagem?</label>
+                  <input
+                    className={ic}
+                    placeholder="Ex: laranjinha, frajola, pretinho..."
+                    value={formData.coatType}
+                    onChange={(e) => set('coatType', e.target.value)}
+                  />
                 </div>
               )}
             </div>
 
-            {/* Cidade e Microchip */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm space-y-4">
               <div>
-                <label className={labelClass}>Cidade</label>
-                <input className={inputClass} placeholder="Ex: São Paulo"
-                  value={formData.city} onChange={e => set('city', e.target.value)} />
+                <label className={lc}>Como chegou até você?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ARRIVAL_TYPES.map((opt) => (
+                    <button key={opt} onClick={() => set('arrivalType', opt)} {...activeBtn(formData.arrivalType === opt)}>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
               </div>
+
               <div>
-                <label className={labelClass}>Microchip</label>
-                <input className={inputClass} placeholder="Opcional"
-                  value={formData.microchip} onChange={e => set('microchip', e.target.value)} />
+                <label className={lc}>Informações adicionais</label>
+                <textarea
+                  className={`${ic} h-20`}
+                  placeholder="Conte algo importante sobre essa chegada..."
+                  value={formData.arrivalNotes}
+                  onChange={(e) => set('arrivalNotes', e.target.value)}
+                />
               </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm space-y-3">
+              <label className={lc}>Nascimento</label>
+
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                <span className="text-xs font-bold text-gray-600">Data estimada?</span>
+                <Toggle value={formData.isDateEstimated} onChange={(v) => set('isDateEstimated', v)} />
+              </div>
+
+              {formData.isDateEstimated ? (
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-gray-400 block mb-1">Anos</label>
+                    <input type="number" className={ic} placeholder="0" value={formData.ageYears} onChange={(e) => set('ageYears', e.target.value)} />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-gray-400 block mb-1">Meses</label>
+                    <input type="number" className={ic} placeholder="0" value={formData.ageMonths} onChange={(e) => set('ageMonths', e.target.value)} />
+                  </div>
+                </div>
+              ) : (
+                <input type="date" className={ic} value={formData.birthDate} onChange={(e) => set('birthDate', e.target.value)} />
+              )}
             </div>
           </motion.div>
         )}
 
-        {/* ══════════ ETAPA 2: NUTRIÇÃO & SAÚDE ══════════ */}
         {step === 2 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-
-            {/* Castração */}
-            <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-gray-700">Gato Castrado?</span>
-                <Toggle value={formData.neutered} onChange={v => set('neutered', v)} />
-              </div>
-              {!formData.neutered && (
-                <input className={inputClass} placeholder="Pretende castrar? (Sim / Não / Futuramente)"
-                  value={formData.neuterIntention} onChange={e => set('neuterIntention', e.target.value)} />
-              )}
-            </div>
-
-            {/* Alimentação */}
-            <h3 className={sectionTitle}><Star size={16}/> Alimentação</h3>
             <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm space-y-4">
               <div>
-                <label className={labelClass}>Tipo de Ração</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {['Seca','Úmida','Natural','Mista'].map(t => (
-                    <button key={t} onClick={() => toggleArray('foodType', t)}
-                      className={`py-2.5 rounded-[14px] text-xs font-bold border transition-all ${
-                        formData.foodType.includes(t)
-                          ? 'bg-[#6158ca]/10 border-[#6158ca] text-[#6158ca]'
-                          : 'border-gray-100 text-gray-500'
-                      }`}>{t}</button>
+                <label className={lc}>Peso atual (kg)</label>
+                <input type="number" step="0.1" className={ic} placeholder="Ex: 4.5" value={formData.weight} onChange={(e) => set('weight', e.target.value)} />
+              </div>
+
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                <span className="text-xs font-bold text-gray-600">Castrado(a)?</span>
+                <Toggle value={formData.neutered} onChange={(v) => set('neutered', v)} />
+              </div>
+
+              {!formData.neutered && (
+                <div>
+                  <label className={lc}>Intenção de castrar</label>
+                  <input className={ic} placeholder="Ex: Sim, nos próximos meses" value={formData.neuterIntention} onChange={(e) => set('neuterIntention', e.target.value)} />
+                </div>
+              )}
+
+              <div>
+                <label className={lc}>Doenças pré-existentes</label>
+                <div className="flex gap-2 flex-wrap">
+                  {DISEASE_OPTIONS.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => toggleArray('preExistingConditions', d)}
+                      className={`px-4 py-2 rounded-full text-xs font-black border-2 transition-all ${
+                        formData.preExistingConditions.includes(d) ? 'border-transparent text-white' : 'border-gray-100 text-gray-500 bg-gray-50'
+                      }`}
+                      style={formData.preExistingConditions.includes(d) ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {}}
+                    >
+                      {d}
+                    </button>
                   ))}
                 </div>
               </div>
+
               <div>
-                <label className={labelClass}>Marca da Ração</label>
-                <input className={inputClass} placeholder="Ex: Premier, Royal Canin..."
-                  value={formData.foodBrand} onChange={e => set('foodBrand', e.target.value)} />
-              </div>
-              <div>
-                <label className={labelClass}>Frequência de Alimentação</label>
-                <input className={inputClass} placeholder="Ex: 2x ao dia, à vontade..."
-                  value={formData.foodFreq} onChange={e => set('foodFreq', e.target.value)} />
+                <label className={lc}>Resumo de saúde</label>
+                <textarea
+                  className={`${ic} h-20`}
+                  placeholder="Sintomas frequentes, acompanhamento, observações..."
+                  value={formData.healthSummary}
+                  onChange={(e) => set('healthSummary', e.target.value)}
+                />
               </div>
             </div>
 
-            {/* Histórico de Saúde */}
-            <h3 className={sectionTitle}><Activity size={16}/> Histórico de Saúde</h3>
-            <textarea
-              className="w-full bg-white border border-gray-100 rounded-[18px] p-4 text-sm font-medium h-24 focus:border-[#6158ca] outline-none"
-              placeholder="Liste doenças crônicas, alergias, cirurgias..."
-              value={formData.healthSummary} onChange={e => set('healthSummary', e.target.value)} />
+            <h3 className={sc}>🍖 Nutrição</h3>
+
+            <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm space-y-4">
+              <div>
+                <label className={lc}>Tipo de alimentação</label>
+                <div className="flex gap-2 flex-wrap">
+                  {['Seca', 'Úmida', 'Natural', 'Mista'].map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => toggleArray('foodType', t)}
+                      className={`px-4 py-2 rounded-full text-xs font-black border-2 transition-all ${
+                        formData.foodType.includes(t) ? 'border-transparent text-white' : 'border-gray-100 text-gray-500'
+                      }`}
+                      style={formData.foodType.includes(t) ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {}}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className={lc}>Marca de ração</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {FEED_BRANDS.map((brand) => (
+                    <button
+                      key={brand}
+                      onClick={() => set('foodBrand', brand)}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border-2 text-left transition-all ${
+                        formData.foodBrand === brand ? 'border-transparent text-white' : 'border-gray-100 text-gray-500 bg-gray-50'
+                      }`}
+                      style={formData.foodBrand === brand ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {}}
+                    >
+                      {brand}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {formData.foodBrand === 'Outra' && (
+                <div>
+                  <label className={lc}>Outra marca</label>
+                  <input className={ic} placeholder="Digite a marca" value={formData.foodBrandOther} onChange={(e) => set('foodBrandOther', e.target.value)} />
+                </div>
+              )}
+
+              <div>
+                <label className={lc}>Frequência de alimentação</label>
+                <div className="flex gap-2 flex-wrap">
+                  {FEED_FREQUENCY_OPTIONS.map((freq) => (
+                    <button
+                      key={freq}
+                      onClick={() => set('feedFrequencySelector', freq)}
+                      className={`px-4 py-2 rounded-full text-xs font-black border-2 transition-all ${
+                        formData.feedFrequencySelector === freq ? 'border-transparent text-white' : 'border-gray-100 text-gray-500 bg-gray-50'
+                      }`}
+                      style={formData.feedFrequencySelector === freq ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {}}
+                    >
+                      {freq}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className={lc}>Detalhe da frequência</label>
+                <input className={ic} placeholder="Ex: 3x por dia / manhã e noite" value={formData.foodFreq} onChange={(e) => set('foodFreq', e.target.value)} />
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* ══════════ ETAPA 3: COMPORTAMENTO & LAR ══════════ */}
         {step === 3 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-
-            <h3 className={sectionTitle}>Comportamento</h3>
             <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm space-y-4">
-
-              {/* Temperamento */}
               <div>
-                <label className={labelClass}>Temperamento</label>
+                <label className={lc}>Temperamento</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {BEHAVIORS.map(b => {
+                  {BEHAVIOR_OPTIONS.map((b) => {
                     const active = formData.personality.includes(b.id);
+                    const Icon = b.icon;
                     return (
-                      <button key={b.id} onClick={() => toggleArray('personality', b.id)}
-                        className={`p-3 rounded-[14px] flex items-center gap-2 border transition-all text-left ${
-                          active
-                            ? 'border-[#6158ca] shadow-md ring-1 ring-[#6158ca]/20 bg-white'
-                            : 'border-transparent shadow-sm opacity-60 bg-white'
-                        }`}>
+                      <button
+                        key={b.id}
+                        onClick={() => toggleArray('personality', b.id)}
+                        className={`p-3 rounded-[14px] flex items-center gap-2 border-2 transition-all text-left ${
+                          active ? 'shadow-md' : 'border-gray-100 bg-white'
+                        }`}
+                        style={active ? { borderColor: activeGradient.from, background: `${activeGradient.from}10` } : {}}
+                      >
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${b.color}`}>
-                          <b.icon size={15}/>
+                          <Icon size={15} />
                         </div>
-                        <span className="text-xs font-bold text-gray-700">{b.label}</span>
+                        <span className="text-xs font-bold text-gray-700">
+                          {normalizeGenderedLabel(b.id, formData.gender)}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Nível de Atividade */}
               <div>
-                <label className={labelClass}>Nível de Atividade</label>
+                <label className={lc}>Nível de atividade</label>
                 <div className="flex gap-2">
-                  {['Baixa','Média','Alta'].map(l => (
-                    <button key={l} onClick={() => set('activityLevel', l)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold border ${
-                        formData.activityLevel === l
-                          ? 'bg-blue-100 border-blue-200 text-blue-700'
-                          : 'border-gray-100 text-gray-500'
-                      }`}>{l}</button>
+                  {['Baixa', 'Média', 'Alta'].map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => set('activityLevel', l)}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${
+                        formData.activityLevel === l ? 'border-transparent text-white' : 'border-gray-100 text-gray-500'
+                      }`}
+                      style={formData.activityLevel === l ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {}}
+                    >
+                      {l}
+                    </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className={labelClass}>Convive com outros animais?</label>
-                <input className={inputClass} placeholder="Ex: Sim, 2 gatos"
-                  value={formData.socialOtherPets} onChange={e => set('socialOtherPets', e.target.value)} />
+                <label className={lc}>Convive com animais?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {COEXIST_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => {
+                        if (opt === 'Nenhum') {
+                          set('coexistsWith', ['Nenhum']);
+                          return;
+                        }
+                        const next = formData.coexistsWith.includes(opt)
+                          ? formData.coexistsWith.filter((i) => i !== opt)
+                          : [...formData.coexistsWith.filter((i) => i !== 'Nenhum'), opt];
+                        set('coexistsWith', next);
+                      }}
+                      className={`p-3 rounded-[14px] flex items-center gap-2 border-2 transition-all text-left ${
+                        formData.coexistsWith.includes(opt) ? 'shadow-md text-white' : 'border-gray-100 bg-white text-gray-600'
+                      }`}
+                      style={formData.coexistsWith.includes(opt) ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})`, borderColor: 'transparent' } : {}}
+                    >
+                      {opt === 'Gatos' && <Cat size={14} />}
+                      {opt === 'Cachorros' && <Dog size={14} />}
+                      {opt === 'Ambos' && <Heart size={14} />}
+                      {opt === 'Nenhum' && <X size={14} />}
+                      <span className="text-xs font-bold">{opt}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div>
-                <label className={labelClass}>Problemas de Comportamento</label>
-                <textarea className="w-full bg-gray-50 rounded-xl p-3 text-sm h-16 outline-none placeholder-gray-400"
-                  placeholder="Ex: Destrói móveis, agressivo..."
-                  value={formData.behaviorIssues} onChange={e => set('behaviorIssues', e.target.value)} />
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                <span className="text-xs font-bold text-gray-600">Tem problemas de comportamento?</span>
+                <Toggle value={formData.hasBehaviorIssues} onChange={(v) => set('hasBehaviorIssues', v)} color="red" />
               </div>
+
+              {formData.hasBehaviorIssues && (
+                <div>
+                  <label className={lc}>Se sim, qual?</label>
+                  <textarea
+                    className={`${ic} h-16`}
+                    placeholder="Ex: Arranha sofá, morde, marca território..."
+                    value={formData.behaviorIssues}
+                    onChange={(e) => set('behaviorIssues', e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between p-2 bg-red-50 rounded-xl border border-red-100">
+                <span className="text-xs font-bold text-red-700">Tem traumas ou medos?</span>
+                <Toggle value={formData.hasTraumaHistory} onChange={(v) => set('hasTraumaHistory', v)} color="red" />
+              </div>
+
+              {formData.hasTraumaHistory && (
+                <div>
+                  <label className={lc}>Se sim, qual?</label>
+                  <textarea
+                    className={`${ic} h-20`}
+                    placeholder="Ex: medo de barulho, trauma com humanos, objetos, situações..."
+                    value={formData.traumaHistory}
+                    onChange={(e) => set('traumaHistory', e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
-            {/* Traumas */}
-            <div className="bg-red-50 p-4 rounded-[20px] border border-red-100">
-              <label className="text-xs font-bold text-red-800 flex items-center gap-2 mb-2">
-                <AlertTriangle size={14}/> Tem algum trauma ou medo?
-              </label>
-              <textarea className="w-full bg-white rounded-xl p-3 text-sm border-none h-20 placeholder-red-200 outline-none"
-                placeholder="Ex: Medo de vassoura, barulhos altos..."
-                value={formData.traumaHistory} onChange={e => set('traumaHistory', e.target.value)} />
-            </div>
+            <h3 className={sc}>
+              <Home size={16} />
+              Ambiente
+            </h3>
 
-            {/* Ambiente */}
-            <h3 className={sectionTitle}><Home size={16}/> Ambiente</h3>
             <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm space-y-4">
               <div>
-                <label className={labelClass}>Habitat</label>
+                <label className={lc}>Habitat</label>
                 <div className="flex gap-2">
-                  {['Interno','Externo','Misto'].map(h => (
-                    <button key={h} onClick={() => set('habitat', h)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold border ${
-                        formData.habitat === h
-                          ? 'bg-[#6158ca]/10 border-[#6158ca] text-[#6158ca]'
-                          : 'border-gray-100 text-gray-500'
-                      }`}>{h}</button>
+                  {['Interno', 'Externo', 'Misto'].map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => set('habitat', h)}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${
+                        formData.habitat === h ? 'border-transparent text-white' : 'border-gray-100 text-gray-500'
+                      }`}
+                      style={formData.habitat === h ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {}}
+                    >
+                      {h}
+                    </button>
                   ))}
                 </div>
               </div>
+
               <div>
-                <label className={labelClass}>Tipo de Moradia</label>
-                <input className={inputClass} placeholder="Casa, Apartamento..."
-                  value={formData.housingType} onChange={e => set('housingType', e.target.value)} />
+                <label className={lc}>Tipo de moradia</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {HOUSING_TYPES.map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => set('housingType', h)}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border-2 text-left transition-all ${
+                        formData.housingType === h ? 'border-transparent text-white' : 'border-gray-100 text-gray-500 bg-gray-50'
+                      }`}
+                      style={formData.housingType === h ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {}}
+                    >
+                      {h}
+                    </button>
+                  ))}
+                </div>
               </div>
+
               <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
                 <span className="text-xs font-bold text-gray-600">Acesso à rua?</span>
-                <Toggle value={formData.streetAccess} onChange={v => set('streetAccess', v)} color="red" />
+                <Toggle value={formData.streetAccess} onChange={(v) => set('streetAccess', v)} color="red" />
               </div>
+
               <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
                 <span className="text-xs font-bold text-gray-600">Acesso a área de risco?</span>
-                <Toggle value={formData.riskAreaAccess} onChange={v => set('riskAreaAccess', v)} color="red" />
+                <Toggle value={formData.riskAreaAccess} onChange={(v) => set('riskAreaAccess', v)} color="red" />
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* ══════════ ETAPA 4: GALERIA & ESTILO ══════════ */}
         {step === 4 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-
-            {/* Cor do Tema */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
             <div>
-              <label className={labelClass}>Cor do Tema</label>
-              <div className="flex items-center gap-2 bg-white p-2 rounded-[24px] shadow-sm">
-                <button
-                  onClick={() => setColorIndex(i => Math.max(0, i - 1))}
-                  disabled={colorIndex === 0}
-                  className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-[#6158ca] disabled:opacity-30">
-                  <ChevronLeft size={20} />
-                </button>
-                <div className="flex-1 flex justify-center gap-3 overflow-hidden">
-                  {PROFILE_COLORS.slice(colorIndex, colorIndex + VISIBLE_COLORS).map(color => (
-                    <button key={color} onClick={() => set('themeColor', color)}
-                      className={`w-8 h-8 rounded-full ${color} border border-gray-200 transition-all ${
-                        formData.themeColor === color ? 'scale-125 ring-2 ring-[#6158ca] ring-offset-2' : ''
-                      }`} />
-                  ))}
-                </div>
-                <button
-                  onClick={() => setColorIndex(i => Math.min(PROFILE_COLORS.length - VISIBLE_COLORS, i + 1))}
-                  disabled={colorIndex + VISIBLE_COLORS >= PROFILE_COLORS.length}
-                  className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-[#6158ca] disabled:opacity-30">
-                  <ChevronRight size={20} />
-                </button>
+              <label className={lc}>Cor do cartão RG</label>
+              <div className="grid grid-cols-5 gap-2 bg-white p-3 rounded-[24px] shadow-sm border border-gray-100">
+                {CARD_GRADIENTS.map((g) => (
+                  <button key={g.id} onClick={() => set('themeColor', g.id)} className="flex flex-col items-center gap-1.5">
+                    <div
+                      className={`w-11 h-11 rounded-[14px] flex items-center justify-center transition-all ${
+                        formData.themeColor === g.id ? 'scale-110' : ''
+                      }`}
+                      style={{
+                        background: `linear-gradient(135deg, ${g.from}, ${g.to})`,
+                        outline: formData.themeColor === g.id ? `3px solid ${g.from}` : 'none',
+                        outlineOffset: '2px',
+                        boxShadow: formData.themeColor === g.id ? `0 4px 14px ${g.from}60` : 'none',
+                      }}
+                    >
+                      {formData.themeColor === g.id && <Check size={14} className="text-white" strokeWidth={3} />}
+                    </div>
+                    <span className="text-[8px] font-black text-gray-400">{g.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Prévia do RG */}
             <div>
-              <label className={labelClass}>Prévia do RG</label>
-              <div className={`rounded-[28px] ${formData.themeColor} p-5 border border-white/50 shadow-inner flex items-center gap-4`}>
-                <div className="w-16 h-16 rounded-full bg-white shadow overflow-hidden flex-shrink-0">
-                  {formData.avatarPreview
-                    ? <img src={formData.avatarPreview} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-gray-200"><Camera size={20}/></div>}
-                </div>
-                <div>
-                  <p className="font-black text-gray-800 text-lg leading-none">{formData.name || 'Seu Gatinho'}</p>
-                  <p className="text-xs text-gray-500 font-bold mt-1">
-                    {formData.breed || 'SRD'} · {formData.gender === 'MALE' ? 'Macho' : 'Fêmea'}
-                  </p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">ID #{generatedId}</p>
-                </div>
-              </div>
+              <label className={lc}>Prévia da ficha principal</label>
+              <VerticalCardPreview
+                gradient={activeGradient}
+                name={formData.name}
+                breed={displayBreed}
+                gender={formData.gender}
+                avatarPreview={formData.avatarPreview}
+                generatedId={generatedId}
+                city={formData.city}
+                ageLabel={ageLabel}
+                weight={formData.weight ? `${formData.weight} kg` : '—'}
+              />
             </div>
 
-            <p className="text-xs text-center text-gray-400 font-bold px-4">
-              Você poderá adicionar mais fotos à galeria após salvar o perfil 🐾
-            </p>
+            <div className="bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm">
+              <p className="text-xs text-center text-gray-500 font-bold px-4">
+                Ao salvar, o perfil será criado e uma ficha técnica será gerada para download.
+              </p>
+            </div>
           </motion.div>
         )}
-
       </div>
 
-      {/* ── BOTÃO FLUTUANTE ── */}
       <div className="fixed bottom-8 left-0 right-0 px-6 flex justify-center z-[999]">
-        <button
-          onClick={step === 4 ? handleFinish : () => setStep(s => s + 1)}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={step === 4 ? handleFinish : () => setStep((s) => s + 1)}
           disabled={loading}
-          className="w-full max-w-[320px] bg-[#6158ca] text-white py-5 rounded-[28px] font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+          className="w-full max-w-[340px] py-5 rounded-[28px] font-black uppercase text-sm tracking-widest text-white shadow-xl disabled:opacity-70 flex items-center justify-center gap-2"
+          style={{ background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` }}
         >
-          {loading
-            ? 'Salvando...'
-            : step === 4
-              ? <><span>Gerar RG Gatedo 🐾</span><Check size={16} strokeWidth={3}/></>
-              : <><span>Próximo Passo</span><ChevronRight size={16} strokeWidth={3}/></>
-          }
-        </button>
+          {loading ? (
+            'Salvando...'
+          ) : step === 4 ? (
+            <>
+              <span>Salvar e gerar ficha</span>
+              <Download size={16} strokeWidth={3} />
+            </>
+          ) : (
+            <>
+              <span>Próximo passo</span>
+              <ChevronRight size={16} strokeWidth={3} />
+            </>
+          )}
+        </motion.button>
       </div>
-
     </div>
   );
 }

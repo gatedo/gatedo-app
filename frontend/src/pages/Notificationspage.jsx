@@ -10,7 +10,7 @@ import { AuthContext } from '../context/AuthContext';
 import useNotifications, { NOTIF_TYPES } from '../hooks/useNotifications';
 import useSensory from '../hooks/useSensory';
 
-const C = { purple: '#6158ca', accent: '#DFFF40', bg: '#F4F3FF' };
+const C = { purple: '#8B4AFF', accent: '#DFFF40', bg: '#F4F3FF' };
 
 // ─── HELPER tempo relativo ─────────────────────────────────────────────────────
 const timeAgo = (iso) => {

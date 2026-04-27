@@ -42,7 +42,7 @@ export default function AdminContent() {
         <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <h3 className="font-bold text-lg text-gray-700">{activeTab === 'wiki' ? `Artigos (${articles.length})` : 'Assets'}</h3>
-                <button onClick={() => { setEditingItem(null); setModalOpen(true); }} className="bg-[#6158ca] text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-[#5046b0]">
+                <button onClick={() => { setEditingItem(null); setModalOpen(true); }} className="bg-[#8B4AFF] text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-[#5046b0]">
                     <Plus size={18} /> Novo
                 </button>
             </div>
@@ -140,7 +140,7 @@ function ArticleModal({ activeTab, item, onClose, onSave }) {
                             <div className="relative">
                                 <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleImageUpload} className="hidden" id="upload-cover" />
                                 <label htmlFor="upload-cover" className={`w-full border border-dashed border-gray-300 rounded-xl p-2.5 flex items-center justify-center gap-2 cursor-pointer hover:bg-gray-50 ${uploading ? 'opacity-50' : ''}`}>
-                                    {uploading ? <Loader2 size={18} className="animate-spin text-[#6158ca]" /> : formData.imageUrl ? <span className="text-xs font-bold text-green-600">Imagem OK!</span> : <><Upload size={16} className="text-gray-400" /><span className="text-xs text-gray-500">Upload</span></>}
+                                    {uploading ? <Loader2 size={18} className="animate-spin text-[#8B4AFF]" /> : formData.imageUrl ? <span className="text-xs font-bold text-green-600">Imagem OK!</span> : <><Upload size={16} className="text-gray-400" /><span className="text-xs text-gray-500">Upload</span></>}
                                 </label>
                             </div>
                         </div>
@@ -150,7 +150,7 @@ function ArticleModal({ activeTab, item, onClose, onSave }) {
                     
                     <div className="pt-4 flex gap-3">
                         <button type="button" onClick={onClose} className="flex-1 py-3 font-bold text-gray-500 bg-gray-100 rounded-xl">Cancelar</button>
-                        <button type="submit" disabled={uploading} className="flex-1 py-3 font-bold text-white bg-[#6158ca] rounded-xl hover:brightness-110 disabled:opacity-70">Salvar</button>
+                        <button type="submit" disabled={uploading} className="flex-1 py-3 font-bold text-white bg-[#8B4AFF] rounded-xl hover:brightness-110 disabled:opacity-70">Salvar</button>
                     </div>
                 </form>
             </div>

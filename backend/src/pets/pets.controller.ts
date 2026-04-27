@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors, Req } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors, Req, Query } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service'; 
 import { CloudflareService } from '../cloudflare/cloudflare.service'; 
 import { JwtService } from '@nestjs/jwt';
 import { Express } from 'express'; 
 import 'multer'; 
+import { calcCatLevelMeta } from '../gamification/gamification.constants';
+import { getActiveCatsLimit, getMembershipRulesForUser } from '../membership/membership.constants';
 
 @Controller('pets')
 export class PetsController {
@@ -14,24 +16,78 @@ export class PetsController {
     private readonly jwtService: JwtService,
   ) {}
 
-  private getUserId(req: any): string | null {
+  private getAuthUser(req: any): { id: string | null; role: string | null } {
     try {
       const auth = req.headers?.authorization || '';
-      if (!auth.startsWith('Bearer ')) return null;
+      if (!auth.startsWith('Bearer ')) return { id: null, role: null };
       const token = auth.split(' ')[1];
       const payload: any = this.jwtService.verify(token, {
         secret: process.env.JWT_SECRET || 'CHAVE_SUPER_SECRETA_GATEDO',
       });
-      return payload.sub || null;
-    } catch { return null; }
+      return {
+        id: payload?.sub || payload?.id || null,
+        role: payload?.role || null,
+      };
+    } catch {
+      return { id: null, role: null };
+    }
+  }
+
+  private parseStringArray(value: any): string[] | undefined {
+    if (value === undefined) return undefined;
+    if (Array.isArray(value)) return value.filter(Boolean).map((item) => String(item));
+
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(Boolean).map((item) => String(item));
+        }
+      } catch {
+        return value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+    }
+
+    return [];
   }
 
   @Get()
-  async findAll(@Req() req: any) {
-    const ownerId = this.getUserId(req);
+  async findAll(@Req() req: any, @Query('scope') scope?: string) {
+    const authUser = this.getAuthUser(req);
+
+    if (authUser.role === 'ADMIN' && scope === 'admin') {
+      return this.prisma.pet.findMany({
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              photoUrl: true,
+              plan: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
     return this.prisma.pet.findMany({
-      where: ownerId ? { ownerId } : { id: 'none' },
-      include: { owner: true },
+      where: authUser.id ? { ownerId: authUser.id } : { id: 'none' },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            photoUrl: true,
+            plan: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -117,13 +173,23 @@ const booleanFields = [
 
     // Helpers de sanitização
     const toNullInt  = (v: any) => (v === '' || v === 'null' || v == null) ? null : (parseInt(v, 10) || null);
-    const toNullDate = (v: any) => (v === '' || v === 'null' || v == null) ? null : new Date(v);
+    const toNullDate = (v: any) => {
+      if (v === '' || v === 'null' || v == null) return null;
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return new Date(`${v}T12:00:00.000Z`);
+      return new Date(v);
+    };
     const toNullStr  = (v: any) => (v === '' || v === 'null' || v == null) ? null : String(v);
 
     // Números — trata string vazia e "null" como null
     dataToUpdate.weight    = dataToUpdate.weight    != null ? (parseFloat(dataToUpdate.weight) || null) : undefined;
     dataToUpdate.ageYears  = toNullInt(dataToUpdate.ageYears);
     dataToUpdate.ageMonths = toNullInt(dataToUpdate.ageMonths);
+
+    if (dataToUpdate.xpg !== undefined) {
+      const safeXpg = Math.max(0, Number(dataToUpdate.xpg || 0));
+      dataToUpdate.xpg = safeXpg;
+      dataToUpdate.level = calcCatLevelMeta(safeXpg).rank;
+    }
 
     // Datas — trata string vazia e "null" como null
     if ('birthDate' in dataToUpdate) dataToUpdate.birthDate = toNullDate(dataToUpdate.birthDate);
@@ -162,6 +228,11 @@ if (typeof body.coexistsWith === 'string') {
 } else if (Array.isArray(body.coexistsWith)) {
   dataToUpdate.coexistsWith = body.coexistsWith;
 }
+
+    const parsedBadges = this.parseStringArray(body.badges);
+    if (parsedBadges !== undefined) {
+      dataToUpdate.badges = parsedBadges;
+    }
 
     // Upload foto principal
     if (files?.file?.[0]) {
@@ -216,6 +287,46 @@ if (typeof body.coexistsWith === 'string') {
   ) {
     const petData: any = { ...body };
 
+    if (!petData.ownerId) {
+      throw new BadRequestException('ownerId é obrigatório para cadastrar um gato.');
+    }
+
+    const owner = await this.prisma.user.findUnique({
+      where: { id: String(petData.ownerId) },
+      select: {
+        id: true,
+        plan: true,
+        badges: true,
+      },
+    });
+
+    if (!owner) {
+      throw new BadRequestException('Tutor responsável não encontrado.');
+    }
+
+    const membership = getMembershipRulesForUser(owner);
+    const maxActiveCats = getActiveCatsLimit(owner);
+    const incomingIsMemorial =
+      petData.isMemorial === true || petData.isMemorial === 'true';
+    const incomingIsArchived =
+      petData.isArchived === true || petData.isArchived === 'true';
+
+    if (Number.isFinite(maxActiveCats) && !incomingIsMemorial && !incomingIsArchived) {
+      const activeCatsCount = await this.prisma.pet.count({
+        where: {
+          ownerId: owner.id,
+          isMemorial: false,
+          isArchived: false,
+        },
+      });
+
+      if (activeCatsCount >= maxActiveCats) {
+        throw new BadRequestException(
+          `O plano ${membership.label} permite até ${maxActiveCats} gatos ativos. Coloque um gato no memorial/arquivo ou faça upgrade para continuar.`,
+        );
+      }
+    }
+
     // Foto principal — aceita 'photo' ou 'file'
     const photoFile = files?.photo?.[0] || files?.file?.[0];
     if (photoFile) {
@@ -255,6 +366,7 @@ if (typeof body.coexistsWith === 'string') {
     const _toNullInt  = (v: any) => (v === '' || v === 'null' || v == null) ? null : (parseInt(v, 10) || null);
     const _toNullDate = (v: any) => {
       if (v === '' || v === 'null' || v == null) return null;
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return new Date(`${v}T12:00:00.000Z`);
       const d = new Date(v);
       return isNaN(d.getTime()) ? null : d;
     };
@@ -263,6 +375,11 @@ if (typeof body.coexistsWith === 'string') {
     petData.weight    = (petData.weight && parseFloat(petData.weight) !== 0) ? parseFloat(petData.weight) : null;
     petData.ageYears  = _toNullInt(petData.ageYears);
     petData.ageMonths = _toNullInt(petData.ageMonths);
+    if (petData.xpg !== undefined) {
+      const safeXpg = Math.max(0, Number(petData.xpg || 0));
+      petData.xpg = safeXpg;
+      petData.level = calcCatLevelMeta(safeXpg).rank;
+    }
 
     // Datas
     petData.birthDate = _toNullDate(petData.birthDate);
@@ -313,6 +430,11 @@ if (Array.isArray(body.coexistsWith)) {
 } else {
     petData.coexistsWith = [];
 }
+
+    const parsedBadges = this.parseStringArray(body.badges);
+    if (parsedBadges !== undefined) {
+      petData.badges = parsedBadges;
+    }
 
     // Remove campos que não existem no schema
     const unknownFields = [

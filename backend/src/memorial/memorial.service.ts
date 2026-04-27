@@ -11,6 +11,16 @@ type AuthUser = {
   role?: string;
 };
 
+function toDateOnlySafe(value: any): Date | null {
+  if (!value) return null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T12:00:00.000Z`);
+  }
+
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 @Injectable()
 export class MemorialService {
   constructor(private readonly prisma: PrismaService) {}
@@ -312,7 +322,7 @@ export class MemorialService {
         deathDate:
           body?.deathDate !== undefined
             ? body.deathDate
-              ? new Date(body.deathDate)
+              ? toDateOnlySafe(body.deathDate)
               : null
             : pet.deathDate,
       },

@@ -16,7 +16,7 @@ const ImageShareModal = ({ imageUrl, catName, onClose }) => (
         {/* OPÇÃO 1: COMUNIGATO */}
         <button 
           onClick={() => alert('Postado no Feed Comunigato!')}
-          className="flex flex-col items-center justify-center gap-3 bg-[#6158ca] p-6 rounded-[24px] text-white shadow-lg"
+          className="flex flex-col items-center justify-center gap-3 bg-[#8B4AFF] p-6 rounded-[24px] text-white shadow-lg"
         >
           <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
             <MessageCircle size={24} />
@@ -31,7 +31,7 @@ const ImageShareModal = ({ imageUrl, catName, onClose }) => (
               navigator.share({ title: `Veja o ${catName}`, url: imageUrl });
             }
           }}
-          className="flex flex-col items-center justify-center gap-3 bg-[#ebfc66] p-6 rounded-[24px] text-[#6158ca] shadow-lg"
+          className="flex flex-col items-center justify-center gap-3 bg-[#ebfc66] p-6 rounded-[24px] text-[#8B4AFF] shadow-lg"
         >
           <div className="w-12 h-12 bg-white/40 rounded-full flex items-center justify-center">
             <Share2 size={24} />

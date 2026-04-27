@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,148 +8,131 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
   Req,
-  BadRequestException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { DocumentsService } from './documents.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { extname } from 'path';
+import { DocumentsService } from './documents.service';
 
-function ensureUploadDir() {
-  const dir = join(process.cwd(), 'uploads', 'documents');
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
-}
-
-function safeName(name: string) {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9._-]/g, '-')
-    .replace(/-+/g, '-')
-    .toLowerCase();
-}
-
-@UseGuards(JwtAuthGuard)
 @Controller('documents')
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
-
-  @Post()
-  async create(
-    @Req() req: any,
-    @Body()
-    body: {
-      petId: string;
-      ownerId?: string;
-      title: string;
-      category: string;
-      type?: string;
-      fileUrl: string;
-      fileName?: string;
-      mimeType?: string;
-      size?: number;
-      isPrivate?: boolean;
-      isVetShared?: boolean;
-      isFavorite?: boolean;
-      cloudProvider?: string | null;
-      cloudPath?: string | null;
-      cloudExportedAt?: string | null;
-      metadata?: any;
-    },
-  ) {
-    const authUserId = req.user?.id || req.user?.sub;
-
-    if (!authUserId) throw new BadRequestException('Usuário não autenticado');
-    if (!body?.petId) throw new BadRequestException('petId obrigatório');
-    if (!body?.title?.trim()) throw new BadRequestException('title obrigatório');
-    if (!body?.category?.trim()) throw new BadRequestException('category obrigatório');
-    if (!body?.fileUrl?.trim()) throw new BadRequestException('fileUrl obrigatório');
-
-    return this.documentsService.create({
-      petId: body.petId,
-      ownerId: authUserId,
-      title: body.title.trim(),
-      category: body.category.trim().toUpperCase(),
-      type: body.type?.trim().toUpperCase() || 'OTHER',
-      fileUrl: body.fileUrl.trim(),
-      fileName: body.fileName?.trim(),
-      mimeType: body.mimeType?.trim(),
-      size: body.size ? Number(body.size) : undefined,
-      isPrivate: body.isPrivate ?? true,
-      isVetShared: body.isVetShared ?? false,
-      isFavorite: body.isFavorite ?? false,
-      cloudProvider: body.cloudProvider ?? null,
-      cloudPath: body.cloudPath ?? null,
-      cloudExportedAt: body.cloudExportedAt ? new Date(body.cloudExportedAt) : null,
-      metadata: body.metadata ?? {},
-    });
-  }
 
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          cb(null, ensureUploadDir());
-        },
-        filename: (_req, file, cb) => {
-          const ext = extname(file.originalname || '');
-          const base = safeName(file.originalname.replace(ext, '')) || 'documento';
-          const finalName = `${Date.now()}-${Math.floor(Math.random() * 100000)}-${base}${ext}`;
-          cb(null, finalName);
+        destination: './uploads/documents',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e5);
+          callback(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
-      limits: {
-        fileSize: 12 * 1024 * 1024,
-      },
     }),
   )
-  async upload(
-    @Req() req: any,
+  async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
-    @Body()
-    body: {
-      petId: string;
-      title?: string;
-      category: string;
-      isPrivate?: string | boolean;
-      isVetShared?: string | boolean;
-      isFavorite?: string | boolean;
-      metadata?: string;
-    },
+    @Body() body: any,
+    @Req() req: any,
   ) {
-    const authUserId = req.user?.id || req.user?.sub;
-
-    if (!authUserId) throw new BadRequestException('Usuário não autenticado');
-    if (!file) throw new BadRequestException('Arquivo obrigatório');
-    if (!body?.petId) throw new BadRequestException('petId obrigatório');
-    if (!body?.category?.trim()) throw new BadRequestException('category obrigatório');
+    if (!file) {
+      throw new BadRequestException('Arquivo não enviado.');
+    }
+    if (!body?.petId) {
+      throw new BadRequestException('petId é obrigatório.');
+    }
+    if (!body?.title) {
+      throw new BadRequestException('title é obrigatório.');
+    }
+    if (!body?.category) {
+      throw new BadRequestException('category é obrigatório.');
+    }
 
     const fileUrl = `/uploads/documents/${file.filename}`;
 
+    let ownerId = req?.user?.id || body?.ownerId || body?.userId || null;
+    if (!ownerId && body?.petId) {
+      const pet = await this.documentsService.getPetOwner(body.petId);
+      ownerId = pet?.ownerId || null;
+    }
+    if (!ownerId) {
+      throw new BadRequestException('ownerId não resolvido para o upload do documento.');
+    }
+
+    let metadata: any = null;
+    if (body?.metadata) {
+      try {
+        metadata = typeof body.metadata === 'string' ? JSON.parse(body.metadata) : body.metadata;
+      } catch {
+        metadata = null;
+      }
+    }
+
     return this.documentsService.create({
-      petId: body.petId,
-      ownerId: authUserId,
-      title: body.title?.trim() || file.originalname,
-      category: body.category.trim().toUpperCase(),
-      type: file.mimetype || 'OTHER',
+      title: body.title,
+      category: body.category,
+      filename: file.filename,
       fileUrl,
-      fileName: file.originalname,
       mimeType: file.mimetype,
       size: file.size,
-      isPrivate: String(body.isPrivate) === 'false' ? false : true,
-      isVetShared: String(body.isVetShared) === 'true',
-      isFavorite: String(body.isFavorite) === 'true',
-      metadata: body.metadata ? JSON.parse(body.metadata) : {},
+      petId: body.petId,
+      ownerId,
+      metadata,
+      isPrivate: String(body?.isPrivate ?? 'true') === 'true',
+      isVetShared: String(body?.isVetShared ?? 'false') === 'true',
+      isFavorite: String(body?.isFavorite ?? 'false') === 'true',
+    });
+  }
+
+
+  @Post('ingest-base64')
+  async ingestBase64(@Body() body: any, @Req() req: any) {
+    if (!body?.petId) {
+      throw new BadRequestException('petId é obrigatório.');
+    }
+    if (!body?.title) {
+      throw new BadRequestException('title é obrigatório.');
+    }
+    if (!body?.category) {
+      throw new BadRequestException('category é obrigatório.');
+    }
+    if (!body?.base64) {
+      throw new BadRequestException('base64 é obrigatório.');
+    }
+
+    let ownerId = req?.user?.id || body?.ownerId || body?.userId || null;
+    if (!ownerId && body?.petId) {
+      const pet = await this.documentsService.getPetOwner(body.petId);
+      ownerId = pet?.ownerId || null;
+    }
+    if (!ownerId) {
+      throw new BadRequestException('ownerId não resolvido para o documento gerado.');
+    }
+
+    let metadata: any = null;
+    if (body?.metadata) {
+      try {
+        metadata = typeof body.metadata === 'string' ? JSON.parse(body.metadata) : body.metadata;
+      } catch {
+        metadata = null;
+      }
+    }
+
+    return this.documentsService.createGeneratedFromBase64({
+      title: body.title,
+      category: body.category,
+      petId: body.petId,
+      ownerId,
+      filename: body.filename,
+      mimeType: body.mimeType,
+      base64: body.base64,
+      metadata,
+      isPrivate: String(body?.isPrivate ?? 'true') === 'true',
+      isVetShared: String(body?.isVetShared ?? 'false') === 'true',
+      isFavorite: String(body?.isFavorite ?? 'false') === 'true',
     });
   }
 
@@ -157,17 +141,16 @@ export class DocumentsController {
     @Query('petId') petId?: string,
     @Query('category') category?: string,
   ) {
-    if (!petId) throw new BadRequestException('petId obrigatório');
-
-    return this.documentsService.findAllByPet(
-      petId,
-      category ? category.toUpperCase() : undefined,
-    );
+    return this.documentsService.findAll({ petId, category });
   }
 
-  @Get('folders/:petId')
+  @Get('pet/:petId')
+  async findAllByPet(@Param('petId') petId: string) {
+    return this.documentsService.findAllByPet(petId);
+  }
+
+  @Get('summary/:petId')
   async getFolderSummary(@Param('petId') petId: string) {
-    if (!petId) throw new BadRequestException('petId obrigatório');
     return this.documentsService.getFolderSummary(petId);
   }
 
@@ -177,44 +160,8 @@ export class DocumentsController {
   }
 
   @Patch(':id')
-  async update(
-    @Param('id') id: string,
-    @Body()
-    body: {
-      title?: string;
-      category?: string;
-      type?: string;
-      fileUrl?: string;
-      fileName?: string;
-      mimeType?: string;
-      size?: number;
-      isPrivate?: boolean;
-      isVetShared?: boolean;
-      isFavorite?: boolean;
-      cloudProvider?: string | null;
-      cloudPath?: string | null;
-      cloudExportedAt?: string | null;
-      metadata?: any;
-    },
-  ) {
-    return this.documentsService.update(id, {
-      ...(body.title !== undefined ? { title: body.title.trim() } : {}),
-      ...(body.category !== undefined ? { category: body.category.trim().toUpperCase() } : {}),
-      ...(body.type !== undefined ? { type: body.type.trim().toUpperCase() } : {}),
-      ...(body.fileUrl !== undefined ? { fileUrl: body.fileUrl.trim() } : {}),
-      ...(body.fileName !== undefined ? { fileName: body.fileName.trim() } : {}),
-      ...(body.mimeType !== undefined ? { mimeType: body.mimeType.trim() } : {}),
-      ...(body.size !== undefined ? { size: Number(body.size) } : {}),
-      ...(body.isPrivate !== undefined ? { isPrivate: body.isPrivate } : {}),
-      ...(body.isVetShared !== undefined ? { isVetShared: body.isVetShared } : {}),
-      ...(body.isFavorite !== undefined ? { isFavorite: body.isFavorite } : {}),
-      ...(body.cloudProvider !== undefined ? { cloudProvider: body.cloudProvider } : {}),
-      ...(body.cloudPath !== undefined ? { cloudPath: body.cloudPath } : {}),
-      ...(body.cloudExportedAt !== undefined
-        ? { cloudExportedAt: body.cloudExportedAt ? new Date(body.cloudExportedAt) : null }
-        : {}),
-      ...(body.metadata !== undefined ? { metadata: body.metadata } : {}),
-    });
+  async update(@Param('id') id: string, @Body() body: any) {
+    return this.documentsService.update(id, body);
   }
 
   @Delete(':id')

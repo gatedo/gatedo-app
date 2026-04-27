@@ -1,345 +1,182 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Bell, Heart, MessageCircle, Share2, Plus,
-  Bookmark, Brain, Stethoscope, Sparkles, ChevronDown,
-  ChevronRight, Shield, Award, TrendingUp, Camera,
-  PawPrint, AlertCircle, CheckCircle, MoreHorizontal,
-  Zap, ThumbsUp, Send, X, Filter
+  Bookmark, Brain, Stethoscope, Sparkles, ChevronRight,
+  Shield, CheckCircle, MoreHorizontal, X, AlertCircle, Camera,
+  Copy, Download, Instagram, Facebook
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import { useGamification } from '../context/GamificationContext';
 import api from '../services/api';
 import useSensory from '../hooks/useSensory';
+import SocialPostComposerModal from '../components/social/SocialPostComposerModal';
+import CommunityCatsBar from '../components/social/CommunityCatsBar';
+import OfficialNoticesStack from '../components/social/OfficialNoticesStack';
 
-// ─── PALETA ──────────────────────────────────────────────────────────────────
 const C = {
-  purple:     '#6158ca',
-  purpleDark: '#4B40C6',
-  accent:     '#DFFF40',
-  bg:         '#F4F3FF',
+  purple: '#823fff',
+  accent: '#e5ff00',
+  bg: 'var(--gatedo-light-bg)',
 };
 
-// ─── GAMIFICAÇÃO DE COMPARTILHAMENTO ─────────────────────────────────────────
-const XP_TO_SHARE = 150;   // XP mínimo para desbloquear compartilhamento
-const XP_PER_SHARE = 25;   // XP ganho por compartilhar
-const BETA_KEY = 'gatedo_comunigato_beta_seen';
+const XP_TO_SHARE = 150;
+const XP_TO_PUBLISH = 100;
+const APP_FALLBACK_AVATAR = '/assets/App_gatedo_logo1.webp';
+const APP_FALLBACK_CAT = '/assets/App_gatedo_logo1.webp';
 
-// ─── TIPOS DE POST ────────────────────────────────────────────────────────────
-// Cada tipo carrega um contexto relacional diferente
 const POST_TYPES = {
-  PHOTO:       { label: 'Foto',         icon: Camera,       color: '#EC4899', bg: '#FDF2F8' },
-  IGENT_TIP:   { label: 'Dica iGent',   icon: Brain,        color: '#6158ca', bg: '#F4F3FF' },
-  HEALTH_WIN:  { label: 'Recuperação',  icon: CheckCircle,  color: '#16A34A', bg: '#F0FDF4' },
-  VET_REVIEW:  { label: 'Vet Indicado', icon: Stethoscope,  color: '#0EA5E9', bg: '#F0F9FF' },
-  QUESTION:    { label: 'Dúvida',       icon: AlertCircle,  color: '#D97706', bg: '#FFFBEB' },
-  MEME:        { label: 'Humor',        icon: Sparkles,     color: '#8B5CF6', bg: '#F5F3FF' },
+  PHOTO: { label: 'Foto', icon: Camera, color: '#EC4899', bg: '#FDF2F8' },
+  IGENT_TIP: { label: 'Dica iGent', icon: Brain, color: '#8B4AFF', bg: '#F4F3FF' },
+  HEALTH_WIN: { label: 'Recuperação', icon: CheckCircle, color: '#16A34A', bg: '#F0FDF4' },
+  VET_REVIEW: { label: 'Vet Indicado', icon: Stethoscope, color: '#0EA5E9', bg: '#F0F9FF' },
+  QUESTION: { label: 'Dúvida', icon: AlertCircle, color: '#D97706', bg: '#FFFBEB' },
+  MEME: { label: 'Humor', icon: Sparkles, color: '#8B5CF6', bg: '#F5F3FF' },
 };
 
-// ─── BADGES DE TUTOR ─────────────────────────────────────────────────────────
 const BADGES = {
-  'Gateiro Raiz':   { color: '#DFFF40', text: '#5A7000', icon: '🐾' },
-  'Veterinário':    { color: '#DBEAFE', text: '#1E40AF', icon: '🩺' },
-  'Resgatista':     { color: '#FCE7F3', text: '#9D174D', icon: '❤️' },
-  'Especialista IA':{ color: '#EDE9FE', text: '#6158ca', icon: '🤖' },
-  'Comunidade':     { color: '#D1FAE5', text: '#065F46', icon: '🌿' },
+  'Gateiro Raiz': { color: '#ebfc66', text: '#5A7000', icon: '🐾' },
+  Veterinário: { color: '#DBEAFE', text: '#1E40AF', icon: '🩺' },
+  Resgatista: { color: '#FCE7F3', text: '#9D174D', icon: '❤️' },
+  Comunidade: { color: '#D1FAE5', text: '#065F46', icon: '🌿' },
 };
-
-// ─── MOCK DATA — estrutura relacional real ────────────────────────────────────
-const STORIES = [
-  { id: 'add',    isAdd: true,  label: 'Seu Story' },
-  { id: 's1',    name: 'Paçoca', tutor: 'Aline',   img: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150&q=80',  active: true,  breed: 'Persa' },
-  { id: 's2',    name: 'Luna',   tutor: 'Marcos',  img: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=150&q=80', active: true,  breed: 'Siamês' },
-  { id: 's3',    name: 'Simba',  tutor: 'Carla',   img: 'https://images.unsplash.com/photo-1495360019602-e001922271aa?w=150&q=80', active: false, breed: 'SRD' },
-  { id: 's4',    name: 'Mimi',   tutor: 'Felipe',  img: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=150&q=80',  active: true,  breed: 'Maine Coon' },
-  { id: 's5',    name: 'Bob',    tutor: 'Tati',    img: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=150&q=80', active: false, breed: 'Ragdoll' },
-];
-
-const POSTS = [
-  // ── POST TIPO: IGENT_TIP ──────────────────────────────────────────────────
-  {
-    id: 'p1',
-    type: 'IGENT_TIP',
-    author: {
-      name: 'Carla Mendes',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b830?w=100&q=80',
-      badge: 'Gateiro Raiz',
-    },
-    // Vínculo relacional: gato específico
-    cat: { name: 'Simba', breed: 'SRD', age: '4a', img: 'https://images.unsplash.com/photo-1495360019602-e001922271aa?w=80&q=80' },
-    // Contexto da interação com a IA
-    igentContext: {
-      symptom: 'Coceira excessiva',
-      symptomId: 'skin',
-      analysisSnippet: 'Pode indicar dermatite atópica ou alergia alimentar. Frequência de coceira e localização são determinantes.',
-      care: ['Trocar proteína da ração por peixe', 'Adicionar ômega-3', 'Monitorar por 15 dias'],
-      isUrgent: false,
-      outcome: 'Funcionou! Em 2 semanas a coceira sumiu quase 100%.',
-      outcomePositive: true,
-    },
-    caption: 'Pessoal, o iGentVet salvou o Simba! Ele ficou coçando por meses, a IA identificou que era alergia à proteína da ração. Trocamos para ração de peixe e em 2 semanas melhorou demais 🐟✨',
-    image: 'https://images.unsplash.com/photo-1495360019602-e001922271aa?w=800&q=80',
-    likes: 247, comments: 34, saved: 89,
-    liked: false, bookmarked: false,
-    time: '3h', category: 'Saúde',
-  },
-
-  // ── POST TIPO: PHOTO ─────────────────────────────────────────────────────
-  {
-    id: 'p2',
-    type: 'PHOTO',
-    author: {
-      name: 'Aline & Paçoca',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80',
-      badge: 'Gateiro Raiz',
-    },
-    cat: { name: 'Paçoca', breed: 'Persa', age: '2a', img: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=80&q=80' },
-    caption: 'Alguém mais tem um gato que acha que é planta? 🌱😂 O Paçoca não sai desse vaso! #GatoJardineiro #Humor',
-    image: 'https://images.unsplash.com/photo-1513360371669-4adf3dd7dff8?w=800&q=80',
-    likes: 124, comments: 18, saved: 31,
-    liked: true, bookmarked: false,
-    time: '5h', category: 'Humor',
-  },
-
-  // ── POST TIPO: HEALTH_WIN ─────────────────────────────────────────────────
-  {
-    id: 'p3',
-    type: 'HEALTH_WIN',
-    author: {
-      name: 'Felipe Rocha',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80',
-      badge: 'Gateiro Raiz',
-    },
-    cat: { name: 'Mimi', breed: 'Maine Coon', age: '6a', img: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=80&q=80' },
-    igentContext: {
-      symptom: 'Vômito frequente',
-      symptomId: 'digestion',
-      care: ['Ração úmida 2x ao dia', 'Comedouro lento', 'Ausência de petiscos'],
-      outcome: 'Veterinário confirmou gastrite leve. Protocolo da IA foi certeiro.',
-      outcomePositive: true,
-    },
-    // Referência ao vet que confirmou
-    vetRef: { name: 'Dr. Ricardo Silva', clinic: 'Gatos & Cia', verified: true },
-    caption: 'Mimi vomitava todo dia por quase 2 meses. O iGentVet sugeriu comedouro lento e ração úmida antes de qualquer exame. Dr. Ricardo confirmou gastrite leve e disse que a abordagem foi perfeita! 💪',
-    likes: 512, comments: 67, saved: 145,
-    liked: false, bookmarked: true,
-    time: '1d', category: 'Saúde',
-  },
-
-  // ── POST TIPO: QUESTION ───────────────────────────────────────────────────
-  {
-    id: 'p4',
-    type: 'QUESTION',
-    author: {
-      name: 'Tati Lima',
-      avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=100&q=80',
-      badge: 'Gateiro Raiz',
-    },
-    cat: { name: 'Bob', breed: 'Ragdoll', age: '1a', img: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=80&q=80' },
-    question: 'Bob começou a beber muita água essa semana. Isso é sinal de algum problema? Alguém passou por isso? Ainda não consultei o iGentVet mas vou fazer isso hoje!',
-    caption: 'Bob começou a beber muita água essa semana. Isso é sinal de algum problema? Alguém passou por isso? Ainda não consultei o iGentVet mas vou fazer isso hoje!',
-    topAnswer: {
-      author: 'Dr. Ana Vet',
-      badge: 'Veterinária',
-      text: 'Polidipsia em gatos jovens merece atenção. Pode ser desde estresse térmico até início de diabetes. Consulte urgente!',
-    },
-    likes: 88, comments: 41, saved: 22,
-    liked: false, bookmarked: false,
-    time: '2h', category: 'Dúvidas',
-  },
-
-  // ── POST TIPO: VET_REVIEW ─────────────────────────────────────────────────
-  {
-    id: 'p5',
-    type: 'VET_REVIEW',
-    author: {
-      name: 'Marcos Souza',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80',
-      badge: 'Gateiro Raiz',
-    },
-    cat: { name: 'Luna', breed: 'Siamês', age: '3a', img: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=80&q=80' },
-    vetRef: { name: 'Clínica VetLife 24h', clinic: 'VetLife Hospital', verified: true, rating: 5, dist: '3.2km' },
-    caption: 'Luna deu uma convulsão às 2h da manhã e a VetLife nos atendeu em 15 minutos. Diagnóstico de epilepsia idiopática, já está medicada e estável. Muito obrigado à equipe! 🙏',
-    likes: 334, comments: 29, saved: 78,
-    liked: false, bookmarked: false,
-    time: '2d', category: 'Vets',
-  },
-];
 
 const FILTERS = [
-  { id: 'Todos',  emoji: '✨' },
-  { id: 'Saúde',  emoji: '💊' },
-  { id: 'Humor',  emoji: '😂' },
-  { id: 'Dúvidas',emoji: '❓' },
-  { id: 'Vets',   emoji: '🩺' },
+  { id: 'Todos', emoji: '✨' },
+  { id: 'Saúde', emoji: '💊' },
+  { id: 'Humor', emoji: '😂' },
+  { id: 'Dúvidas', emoji: '❓' },
+  { id: 'Vets', emoji: '🩺' },
 ];
 
-// ─── STORY BUBBLE ─────────────────────────────────────────────────────────────
-function StoryBubble({ story, onPress }) {
-  if (story.isAdd) {
-    return (
-      <button onClick={onPress} className="flex flex-col items-center gap-1.5 min-w-[60px]">
-        <div className="w-14 h-14 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center bg-white">
-          <Plus size={20} className="text-gray-400" />
-        </div>
-        <span className="text-[9px] font-bold text-gray-400 truncate w-14 text-center">Seu Story</span>
-      </button>
-    );
+function safeImg(url, fallback = APP_FALLBACK_AVATAR) {
+  return url && String(url).trim() ? url : fallback;
+}
+
+function isMemorialPet(pet) {
+  if (!pet) return false;
+
+  const memorialFlag =
+    pet.isMemorial === true ||
+    pet.isMemorial === 'true' ||
+    pet.isMemorial === 1 ||
+    pet.isMemorial === '1' ||
+    pet.memorial === true ||
+    pet.memorial === 'true' ||
+    pet.memorial === 1 ||
+    pet.memorial === '1' ||
+    pet.status === 'MEMORIAL' ||
+    pet.profileStatus === 'MEMORIAL';
+
+  const hasDeathDate =
+    !!pet.deathDate &&
+    String(pet.deathDate).trim() !== '' &&
+    String(pet.deathDate).trim().toLowerCase() !== 'null';
+
+  return memorialFlag || hasDeathDate;
+}
+
+function AppImage({
+  src,
+  alt = '',
+  className = '',
+  fallback = APP_FALLBACK_AVATAR,
+  style,
+}) {
+  const [imgSrc, setImgSrc] = useState(safeImg(src, fallback));
+
+  useEffect(() => {
+    setImgSrc(safeImg(src, fallback));
+  }, [src, fallback]);
+
+  return (
+    <img
+      src={imgSrc}
+      alt={alt}
+      className={className}
+      style={style}
+      onError={() => {
+        if (imgSrc !== fallback) setImgSrc(fallback);
+      }}
+    />
+  );
+}
+
+function mapCategory(type) {
+  if (type === 'HEALTH_WIN' || type === 'IGENT_TIP') return 'Saúde';
+  if (type === 'MEME') return 'Humor';
+  if (type === 'QUESTION') return 'Dúvidas';
+  if (type === 'VET_REVIEW') return 'Vets';
+  return 'Todos';
+}
+
+function buildShareUrl(post) {
+  if (post?.cat?.id) {
+    return `${window.location.origin}/gato/${post.cat.id}`;
   }
-  return (
-    <button onClick={onPress} className="flex flex-col items-center gap-1.5 min-w-[60px] group">
-      <div className={`w-14 h-14 rounded-full p-[2.5px] ${story.active ? 'bg-gradient-to-tr from-[#DFFF40] to-[#6158ca]' : 'bg-gray-200'}`}>
-        <div className="w-full h-full rounded-full border-[2.5px] border-white overflow-hidden">
-          <img src={story.img} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={story.name} />
-        </div>
-      </div>
-      <span className="text-[9px] font-bold text-gray-500 truncate w-14 text-center">{story.name}</span>
-    </button>
-  );
+  return window.location.href;
 }
 
-// ─── MINI CAT CHIP ────────────────────────────────────────────────────────────
-function CatChip({ cat, color = C.purple }) {
-  if (!cat) return null;
-  return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
-      style={{ background: `${color}12`, border: `1px solid ${color}25` }}>
-      <div className="w-5 h-5 rounded-full overflow-hidden border border-white/50">
-        <img src={cat.img} className="w-full h-full object-cover" alt={cat.name} />
-      </div>
-      <span className="text-[10px] font-black" style={{ color }}>
-        {cat.name}
-      </span>
-      <span className="text-[9px] text-gray-400 font-bold">
-        · {cat.breed} · {cat.age}
-      </span>
-    </div>
-  );
+function buildShareCaption(post) {
+  const catName = post?.cat?.name || 'meu gato';
+  const base = post?.caption?.trim() || `Olha esse momento do ${catName} no GATEDO 🐾`;
+  return `${base}\n\nVeja mais no GATEDO: ${buildShareUrl(post)}`;
 }
 
-// ─── AUTHOR BADGE ─────────────────────────────────────────────────────────────
 function AuthorBadge({ badge }) {
   const b = BADGES[badge];
   if (!b) return null;
+
   return (
-    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md"
-      style={{ background: b.color, color: b.text }}>
+    <span
+      className="text-[8px] font-black px-1.5 py-0.5 rounded-md"
+      style={{ background: b.color, color: b.text }}
+    >
       {b.icon} {badge}
     </span>
   );
 }
 
-// ─── TIPO BADGE ───────────────────────────────────────────────────────────────
 function TypeBadge({ type }) {
   const t = POST_TYPES[type];
   if (!t) return null;
   const Icon = t.icon;
+
   return (
-    <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-1 rounded-full"
-      style={{ background: t.bg, color: t.color, border: `1px solid ${t.color}30` }}>
+    <span
+      className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-1 rounded-full"
+      style={{ background: t.bg, color: t.color, border: `1px solid ${t.color}30` }}
+    >
       <Icon size={9} />
       {t.label}
     </span>
   );
 }
 
-// ─── IGENT CARD (expandível) ──────────────────────────────────────────────────
-function IgentCard({ igentContext, compact = false }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!igentContext) return null;
+function CatChip({ cat, navigate }) {
+  if (!cat) return null;
 
   return (
-    <div className="rounded-[18px] overflow-hidden border"
-      style={{ background: `${C.purple}06`, borderColor: `${C.purple}20` }}>
-
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left"
-      >
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: `${C.purple}15` }}>
-          <Brain size={16} style={{ color: C.purple }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-              style={{ background: `${C.purple}15`, color: C.purple }}>
-              iGentVet IA
-            </span>
-            {igentContext.isUrgent && (
-              <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">
-                🔴 Urgente
-              </span>
-            )}
-            {igentContext.outcomePositive && (
-              <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-green-50 text-green-600">
-                ✅ Funcionou
-              </span>
-            )}
-          </div>
-          <p className="text-xs font-black text-gray-700 mt-0.5">Sintoma: {igentContext.symptom}</p>
-        </div>
-        <ChevronDown size={14} className={`text-gray-300 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 pb-4 space-y-3">
-              {igentContext.analysisSnippet && (
-                <p className="text-[11px] text-gray-500 leading-relaxed bg-white rounded-xl px-3 py-2.5">
-                  "{igentContext.analysisSnippet}"
-                </p>
-              )}
-              {igentContext.care?.length > 0 && (
-                <div>
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-2">Recomendações</p>
-                  <div className="space-y-1.5">
-                    {igentContext.care.map((c, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                          style={{ background: `${C.purple}15` }}>
-                          <span className="text-[7px] font-black" style={{ color: C.purple }}>{i + 1}</span>
-                        </div>
-                        <p className="text-[11px] text-gray-600 font-bold leading-snug">{c}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {igentContext.outcome && (
-                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
-                  style={{ background: igentContext.outcomePositive ? '#F0FDF4' : '#FFF7ED' }}>
-                  <span className="text-sm">{igentContext.outcomePositive ? '🌟' : '⚠️'}</span>
-                  <p className="text-[11px] font-bold leading-snug"
-                    style={{ color: igentContext.outcomePositive ? '#15803d' : '#92400e' }}>
-                    {igentContext.outcome}
-                  </p>
-                </div>
-              )}
-              <button
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-black transition-all"
-                style={{ background: `${C.purple}10`, color: C.purple }}
-              >
-                <Zap size={11} />
-                Consultar iGentVet sobre isso
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <motion.div
+      whileTap={{ scale: 0.95 }}
+      onClick={() => navigate(`/gato/${cat.id}`)}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full cursor-pointer max-w-full"
+      style={{ background: `${C.purple}12`, border: `1px solid ${C.purple}25` }}
+    >
+      <div className="w-5 h-5 rounded-full overflow-hidden border border-white/50 bg-white flex-shrink-0">
+        <AppImage src={cat.img} fallback={APP_FALLBACK_CAT} className="w-full h-full object-cover" alt={cat.name} />
+      </div>
+      <span className="text-[10px] font-black truncate" style={{ color: C.purple }}>{cat.name}</span>
+      <span className="text-[9px] text-gray-400 font-bold truncate">· {cat.breed}</span>
+      <ChevronRight size={10} style={{ color: C.purple, opacity: 0.6 }} className="flex-shrink-0" />
+    </motion.div>
   );
 }
 
-// ─── VET REF CHIP ─────────────────────────────────────────────────────────────
 function VetRefChip({ vetRef }) {
   if (!vetRef) return null;
+
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-sky-50 border border-sky-100">
       <div className="w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center">
@@ -352,21 +189,12 @@ function VetRefChip({ vetRef }) {
         </div>
         <p className="text-[9px] text-sky-500 font-bold">{vetRef.clinic}</p>
       </div>
-      {vetRef.rating && (
-        <div className="flex items-center gap-0.5">
-          <span className="text-[10px]">⭐</span>
-          <span className="text-[9px] font-black text-sky-600">{vetRef.rating}</span>
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── POST CARD ────────────────────────────────────────────────────────────────
-function PostCard({ post, onLike, onSave, onShare, canShare = false }) {
-  const [showCommentInput, setShowCommentInput] = useState(false);
-  const [comment, setComment] = useState('');
-  const postType = POST_TYPES[post.type];
+function PostCard({ post, onLike, onSave, onShare, onMenu, onComments, navigate }) {
+  const postType = POST_TYPES[post.type] || POST_TYPES.PHOTO;
 
   return (
     <motion.article
@@ -374,20 +202,28 @@ function PostCard({ post, onLike, onSave, onShare, canShare = false }) {
       animate={{ opacity: 1, y: 0 }}
       className="bg-white rounded-[28px] overflow-hidden border border-gray-100 shadow-sm"
     >
-      {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <img src={post.author.avatar} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt={post.author.name} />
-            {/* Indicador do tipo de post */}
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center"
-              style={{ background: postType?.bg, border: `2px solid white` }}>
-              {postType && React.createElement(postType.icon, { size: 9, color: postType.color })}
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-100 bg-white">
+              <AppImage
+                src={post.author.avatar}
+                fallback={APP_FALLBACK_AVATAR}
+                className="w-10 h-10 rounded-full object-cover"
+                alt={post.author.name}
+              />
+            </div>
+            <div
+              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center"
+              style={{ background: postType.bg }}
+            >
+              {React.createElement(postType.icon, { size: 9, color: postType.color })}
             </div>
           </div>
-          <div>
+
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h4 className="text-sm font-black text-gray-800 leading-none">{post.author.name}</h4>
+              <h4 className="text-sm font-black text-gray-800 leading-none truncate">{post.author.name}</h4>
             </div>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <AuthorBadge badge={post.author.badge} />
@@ -396,51 +232,28 @@ function PostCard({ post, onLike, onSave, onShare, canShare = false }) {
             </div>
           </div>
         </div>
-        <button className="w-8 h-8 rounded-full hover:bg-gray-50 flex items-center justify-center transition-colors">
+
+        <button
+          onClick={() => onMenu(post)}
+          className="w-8 h-8 rounded-full hover:bg-gray-50 flex items-center justify-center transition-colors flex-shrink-0"
+        >
           <MoreHorizontal size={16} className="text-gray-400" />
         </button>
       </div>
 
-      {/* ── Cat Chip ── */}
       {post.cat && (
         <div className="px-4 pb-3">
-          <CatChip cat={post.cat} color={postType?.color || C.purple} />
+          <CatChip cat={post.cat} navigate={navigate} />
         </div>
       )}
 
-      {/* ── Imagem ── */}
       {post.image && (
         <div className="w-full aspect-[4/3] bg-gray-100 overflow-hidden">
-          <img src={post.image} className="w-full h-full object-cover" alt="" />
+          <AppImage src={post.image} fallback={APP_FALLBACK_CAT} className="w-full h-full object-cover" alt="" />
         </div>
       )}
 
-      {/* ── CARD QUESTION (sem imagem, texto destacado) ── */}
-      {post.type === 'QUESTION' && !post.image && (
-        <div className="mx-4 mb-3 px-5 py-5 rounded-[22px] bg-amber-50 border border-amber-100">
-          <div className="flex items-start gap-2 mb-3">
-            <AlertCircle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm font-bold text-gray-700 leading-relaxed">{post.question}</p>
-          </div>
-          {post.topAnswer && (
-            <div className="bg-white rounded-xl px-3 py-2.5 border border-amber-100">
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Stethoscope size={9} className="text-blue-600" />
-                </div>
-                <span className="text-[9px] font-black text-blue-600">{post.topAnswer.author}</span>
-                <AuthorBadge badge={post.topAnswer.badge} />
-              </div>
-              <p className="text-[11px] text-gray-600 leading-relaxed">{post.topAnswer.text}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Body ── */}
-      <div className="px-4 pt-3 pb-1 space-y-3">
-
-        {/* Caption */}
+      <div className="px-4 pt-3 pb-3 space-y-3">
         {post.caption && (
           <p className="text-sm text-gray-700 leading-relaxed">
             <span className="font-black text-gray-800 mr-1">{post.author.name}</span>
@@ -448,27 +261,13 @@ function PostCard({ post, onLike, onSave, onShare, canShare = false }) {
           </p>
         )}
 
-        {/* iGentVet card */}
-        {post.igentContext && (
-          <IgentCard igentContext={post.igentContext} />
-        )}
+        {post.vetRef && <VetRefChip vetRef={post.vetRef} />}
 
-        {/* Vet reference */}
-        {post.vetRef && (
-          <VetRefChip vetRef={post.vetRef} />
-        )}
-
-        {/* ── Ações ── */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-4">
-            {/* Like */}
-            <button
-              onClick={() => onLike(post.id)}
-              className="flex items-center gap-1.5 transition-all active:scale-90"
-            >
+            <button onClick={() => onLike(post)} className="flex items-center gap-1.5 transition-all active:scale-90">
               <Heart
                 size={22}
-                className="transition-all"
                 style={{
                   fill: post.liked ? '#EF4444' : 'none',
                   color: post.liked ? '#EF4444' : '#9CA3AF',
@@ -479,26 +278,18 @@ function PostCard({ post, onLike, onSave, onShare, canShare = false }) {
               </span>
             </button>
 
-            {/* Comentar */}
-            <button
-              onClick={() => setShowCommentInput(s => !s)}
-              className="flex items-center gap-1.5 transition-all active:scale-90"
-            >
-              <MessageCircle size={22} className="text-gray-400 hover:text-[#6158ca] transition-colors" />
+            <button onClick={() => onComments(post)} className="flex items-center gap-1.5 transition-all active:scale-90">
+              <MessageCircle size={22} className="text-gray-400" />
               <span className="text-xs font-black text-gray-400">{post.comments}</span>
             </button>
 
-            {/* Compartilhar — gateado por XP */}
             <button
-              onClick={() => onShare(post.id)}
+              onClick={() => onShare(post)}
               className="flex items-center gap-1.5 transition-all active:scale-90 relative"
-              title={!canShare ? `Precisa de ${XP_TO_SHARE} XP para compartilhar` : 'Compartilhar'}
+              title={!post.canShare ? `Precisa de ${XP_TO_SHARE} XP para compartilhar` : 'Compartilhar'}
             >
-              <Share2 size={22}
-                className="transition-colors"
-                style={{ color: canShare ? '#6158ca' : '#D1D5DB' }}
-              />
-              {!canShare && (
+              <Share2 size={22} style={{ color: post.canShare ? '#8B4AFF' : '#D1D5DB' }} />
+              {!post.canShare && (
                 <span className="absolute -top-1.5 -right-1 text-[7px] font-black px-1 py-0.5 rounded-full bg-gray-100 text-gray-400">
                   🔒
                 </span>
@@ -506,14 +297,9 @@ function PostCard({ post, onLike, onSave, onShare, canShare = false }) {
             </button>
           </div>
 
-          {/* Salvar */}
-          <button
-            onClick={() => onSave(post.id)}
-            className="transition-all active:scale-90"
-          >
+          <button onClick={() => onSave(post)} className="transition-all active:scale-90">
             <Bookmark
               size={22}
-              className="transition-all"
               style={{
                 fill: post.bookmarked ? C.purple : 'none',
                 color: post.bookmarked ? C.purple : '#9CA3AF',
@@ -522,264 +308,1127 @@ function PostCard({ post, onLike, onSave, onShare, canShare = false }) {
           </button>
         </div>
 
-        {/* Engajamento */}
-        <div className="pb-1">
-          {post.saved > 0 && (
+        <div>
+          {(post.saved || 0) > 0 && (
             <p className="text-[10px] text-gray-400 font-bold mb-1">
-              <span className="text-gray-600 font-black">{post.saved}</span> pessoas salvaram essa dica
+              <span className="text-gray-600 font-black">{post.saved}</span> pessoas salvaram esse conteúdo
             </p>
           )}
-          <button className="text-[10px] font-bold text-gray-400 hover:text-[#6158ca] transition-colors">
+          <button onClick={() => onComments(post)} className="text-[10px] font-bold text-gray-400">
             Ver todos os {post.comments} comentários
           </button>
         </div>
-
-        {/* Input de comentário */}
-        <AnimatePresence>
-          {showCommentInput && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="flex items-center gap-2 pb-2">
-                <div className="flex-1 flex items-center gap-2 bg-gray-50 rounded-2xl px-3 py-2 border border-gray-100">
-                  <input
-                    value={comment}
-                    onChange={e => setComment(e.target.value)}
-                    placeholder="Adicionar comentário..."
-                    className="flex-1 bg-transparent outline-none text-sm text-gray-700 font-medium placeholder-gray-300"
-                  />
-                </div>
-                <button
-                  disabled={!comment.trim()}
-                  className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90"
-                  style={{ background: comment.trim() ? C.purple : '#F3F4F6' }}
-                >
-                  <Send size={14} className={comment.trim() ? 'text-white' : 'text-gray-400'} />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </motion.article>
   );
 }
 
-// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+function FavoritesDrawer({ open, posts, onClose, onOpenPostMenu, onLike, onSave, onShare, onComments, navigate }) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[365] flex items-end justify-center p-3 sm:p-4"
+          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-[32px] pb-8"
+            style={{
+              background: '#fff',
+              maxHeight: '88vh',
+              overflowY: 'auto',
+              width: 'min(100%, 28rem)',
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-4" />
+
+            <div className="flex items-center justify-between px-5 mb-4">
+              <div>
+                <p className="font-black text-gray-800 text-sm">Favoritos salvos</p>
+                <p className="text-[10px] text-gray-400 font-bold mt-1">
+                  {posts.length} post{posts.length === 1 ? '' : 's'} salvos
+                </p>
+              </div>
+
+              <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                <X size={16} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="px-4 space-y-4">
+              {posts.length === 0 ? (
+                <div className="rounded-[18px] p-5 bg-gray-50 border border-gray-100 text-center">
+                  <p className="text-sm font-black text-gray-700">Nenhum favorito salvo ainda</p>
+                  <p className="text-[10px] text-gray-400 font-medium mt-2">
+                    Toque no ícone de marcador dos posts para salvar aqui.
+                  </p>
+                </div>
+              ) : (
+                posts.map((post) => (
+                  <PostCard
+                    key={`fav_${post.id}`}
+                    post={post}
+                    onLike={onLike}
+                    onSave={onSave}
+                    onShare={onShare}
+                    onMenu={onOpenPostMenu}
+                    onComments={onComments}
+                    navigate={navigate}
+                  />
+                ))
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function PostActionSheet({ post, onClose, onCopyLink, onFacebookShare, onInstagramPrep, onTikTokPrep, onOpenCard }) {
+  if (!post) return null;
+
+  const itemClass = 'w-full flex items-center gap-3 px-4 py-3 rounded-[16px] text-left border border-gray-100 bg-white';
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[370] flex items-end justify-center p-3 sm:p-4"
+        style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-md rounded-[32px] pb-8"
+          style={{
+            background: '#fff',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            width: 'min(100%, 28rem)',
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-4" />
+
+          <div className="flex items-center justify-between px-5 mb-4">
+            <div>
+              <p className="font-black text-gray-800 text-sm">Ações do post</p>
+              <p className="text-[10px] text-gray-400 font-bold mt-1">
+                Compartilhe ou prepare conteúdo para redes
+              </p>
+            </div>
+
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+              <X size={16} className="text-gray-400" />
+            </button>
+          </div>
+
+          <div className="px-5 space-y-3">
+            <button onClick={onCopyLink} className={itemClass}>
+              <Copy size={16} className="text-gray-600" />
+              <div>
+                <p className="text-sm font-black text-gray-800">Copiar link</p>
+                <p className="text-[10px] text-gray-400 font-medium">Copia o link do perfil/post para compartilhar</p>
+              </div>
+            </button>
+
+            <button onClick={onFacebookShare} className={itemClass}>
+              <Facebook size={16} className="text-blue-600" />
+              <div>
+                <p className="text-sm font-black text-gray-800">Compartilhar no Facebook</p>
+                <p className="text-[10px] text-gray-400 font-medium">Abre o fluxo externo com o link do GATEDO</p>
+              </div>
+            </button>
+
+            <button onClick={onInstagramPrep} className={itemClass}>
+              <Instagram size={16} className="text-pink-500" />
+              <div>
+                <p className="text-sm font-black text-gray-800">Preparar para Instagram</p>
+                <p className="text-[10px] text-gray-400 font-medium">Copia legenda e abre o card social pronto</p>
+              </div>
+            </button>
+
+            <button onClick={onTikTokPrep} className={itemClass}>
+              <Sparkles size={16} className="text-black" />
+              <div>
+                <p className="text-sm font-black text-gray-800">Preparar para TikTok</p>
+                <p className="text-[10px] text-gray-400 font-medium">Copia legenda e abre o card social pronto</p>
+              </div>
+            </button>
+
+            <button onClick={onOpenCard} className={itemClass}>
+              <Download size={16} className="text-purple-600" />
+              <div>
+                <p className="text-sm font-black text-gray-800">Abrir card social</p>
+                <p className="text-[10px] text-gray-400 font-medium">Preview do card com branding do GATEDO</p>
+              </div>
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function SocialCardModal({ post, onClose, onCopyCaption, onCopyLink }) {
+  if (!post) return null;
+
+  const image = post?.image || post?.cat?.img || APP_FALLBACK_CAT;
+  const catName = post?.cat?.name || 'Gato';
+  const author = post?.author?.name || 'Tutor';
+  const caption = post?.caption || `Meu gato também vive no GATEDO 🐾`;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[380] flex items-end justify-center p-3 sm:p-4"
+        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-md rounded-[32px] pb-8"
+          style={{
+            background: '#fff',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            width: 'min(100%, 28rem)',
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-4" />
+
+          <div className="flex items-center justify-between px-5 mb-4">
+            <div>
+              <p className="font-black text-gray-800 text-sm">Card social pronto</p>
+              <p className="text-[10px] text-gray-400 font-bold mt-1">
+                Preview para Instagram, Facebook ou TikTok
+              </p>
+            </div>
+
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+              <X size={16} className="text-gray-400" />
+            </button>
+          </div>
+
+          <div className="px-5">
+            <div
+              className="rounded-[28px] overflow-hidden shadow-xl border border-white/10"
+              style={{ background: 'linear-gradient(135deg, #171427 0%, #2D1567 55%, #823fff 100%)' }}
+            >
+              <div className="p-4 flex items-center justify-between">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15">
+                  <div className="w-6 h-6 rounded-full bg-[#e1ff00] flex items-center justify-center text-[10px] font-black text-[#1a1a00]">
+                    G
+                  </div>
+                  <span className="text-[10px] font-black text-white tracking-wide">GATEDO</span>
+                </div>
+
+                <span className="text-[10px] font-black px-2 py-1 rounded-full bg-white/10 text-white/90 border border-white/15">
+                  {post?.type || 'POST'}
+                </span>
+              </div>
+
+              <div className="px-4">
+                <div className="rounded-[22px] overflow-hidden bg-black/20 border border-white/10">
+                  <AppImage src={image} fallback={APP_FALLBACK_CAT} alt={catName} className="w-full aspect-square object-cover" />
+                </div>
+              </div>
+
+              <div className="p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/50 mb-2">
+                  Comunidade felina
+                </p>
+
+                <h3 className="text-2xl font-black text-white leading-tight mb-1">
+                  {catName}
+                </h3>
+
+                <p className="text-[11px] font-bold text-white/65 mb-3">
+                  por {author}
+                </p>
+
+                <p className="text-sm text-white/90 leading-relaxed mb-4">
+                  {caption}
+                </p>
+
+                <div className="rounded-[18px] px-4 py-3 bg-white/10 border border-white/10">
+                  <p className="text-[11px] font-black text-[#e1ff00] mb-1">
+                    Meu gato também vive no GATEDO 🐾
+                  </p>
+                  <p className="text-[10px] text-white/75 font-medium">
+                    Organização, memória, comunidade e conteúdo para quem vive com gatos de verdade.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <button
+                onClick={onCopyCaption}
+                className="py-3 rounded-[18px] font-black text-sm border border-gray-200 bg-white text-gray-700"
+              >
+                Copiar legenda
+              </button>
+
+              <button
+                onClick={onCopyLink}
+                className="py-3 rounded-[18px] font-black text-sm"
+                style={{ background: `linear-gradient(135deg, ${C.purple}, #8B5CF6)`, color: '#fff' }}
+              >
+                Copiar link
+              </button>
+            </div>
+
+            <div className="mt-3 rounded-[16px] p-3 bg-gray-50 border border-gray-100">
+              <p className="text-[10px] font-black text-gray-700">
+                Dica:
+              </p>
+              <p className="text-[10px] text-gray-500 font-medium mt-1">
+                O card já está pronto visualmente. Para publicação rápida, copie a legenda e compartilhe o link junto do print/card.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function CommentsDrawer({ open, post, onClose, onCommentAdded, showToast }) {
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [text, setText] = useState('');
+
+  const loadComments = useCallback(async () => {
+    if (!post?.id) return;
+    setLoading(true);
+
+    try {
+      const res = await api.get(`/social/posts/${post.id}/comments`);
+      setComments(Array.isArray(res.data?.comments) ? res.data.comments : []);
+    } catch (err) {
+      console.error('Erro ao carregar comentários:', err);
+      setComments([]);
+      showToast?.('Não foi possível carregar comentários', 'warn');
+    } finally {
+      setLoading(false);
+    }
+  }, [post?.id, showToast]);
+
+  useEffect(() => {
+    if (open && post?.id) {
+      loadComments();
+    } else {
+      setComments([]);
+      setText('');
+    }
+  }, [open, post?.id, loadComments]);
+
+  const handleSend = async () => {
+    const content = text.trim();
+    if (!content || !post?.id) return;
+
+    setSending(true);
+
+    try {
+      const res = await api.post(`/social/posts/${post.id}/comments`, { content });
+      const comment = res.data?.comment;
+      const nextCount = res.data?.commentsCount;
+
+      if (comment) {
+        setComments((prev) => [...prev, comment]);
+      }
+
+      setText('');
+      onCommentAdded?.(post.id, nextCount ?? (comments.length + 1));
+      showToast?.('Comentário publicado', 'success');
+      window.dispatchEvent(new CustomEvent('gatedo:xp-updated', {
+        detail: { amount: 2, source: 'comment' },
+      }));
+    } catch (err) {
+      console.error('Erro ao comentar:', err);
+      showToast?.(err?.response?.data?.message || 'Não foi possível comentar', 'warn');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-[390] flex items-end justify-center p-3 sm:p-4"
+          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ y: 24, opacity: 0.98 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 18, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 240, damping: 28, mass: 0.9 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-[32px] pb-6"
+            style={{
+              background: '#fff',
+              maxHeight: '88vh',
+              width: 'min(100%, 28rem)',
+              overflow: 'hidden',
+              willChange: 'transform',
+              transform: 'translateZ(0)',
+            }}
+          >
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-4" />
+
+            <div className="flex items-center justify-between px-5 mb-4">
+              <div>
+                <p className="font-black text-gray-800 text-sm">Comentários</p>
+                <p className="text-[10px] text-gray-400 font-bold mt-1">
+                  {post?.comments || 0} comentário{(post?.comments || 0) === 1 ? '' : 's'}
+                </p>
+              </div>
+
+              <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                <X size={16} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="px-5 mb-4">
+              <div className="rounded-[18px] border border-gray-100 bg-gray-50 p-3">
+                <p className="text-[10px] font-black text-gray-700 mb-1">
+                  {post?.author?.name}
+                </p>
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  {post?.caption || 'Post sem texto'}
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="px-5 space-y-3 overflow-y-auto"
+              style={{
+                maxHeight: '44vh',
+                overscrollBehavior: 'contain',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              {loading ? (
+                <div className="rounded-[18px] p-4 bg-gray-50 border border-gray-100 text-center">
+                  <p className="text-sm font-black text-gray-500">Carregando comentários...</p>
+                </div>
+              ) : comments.length === 0 ? (
+                <div className="rounded-[18px] p-4 bg-gray-50 border border-gray-100 text-center">
+                  <p className="text-sm font-black text-gray-700">Ainda não há comentários</p>
+                  <p className="text-[10px] text-gray-400 font-medium mt-1">
+                    Seja o primeiro a comentar.
+                  </p>
+                </div>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-white flex-shrink-0">
+                      <AppImage
+                        src={comment.author?.avatar}
+                        fallback={APP_FALLBACK_AVATAR}
+                        alt={comment.author?.name || 'Tutor'}
+                        className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 rounded-[18px] border border-gray-100 bg-white p-3 shadow-sm">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-[11px] font-black text-gray-800">
+                          {comment.author?.name || 'Tutor'}
+                        </p>
+                        {comment.isMine && (
+                          <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-[#823fff15] text-[#823fff]">
+                            você
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-600 leading-relaxed mt-1">
+                        {comment.content}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="px-5 mt-4">
+              <div className="flex items-end gap-2">
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                  placeholder="Escreva um comentário..."
+                  className="flex-1 resize-none rounded-[18px] border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 outline-none"
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={sending || !text.trim()}
+                  className="px-4 py-3 rounded-[18px] font-black text-sm"
+                  style={
+                    text.trim()
+                      ? { background: `linear-gradient(135deg, ${C.purple}, #8B5CF6)`, color: '#fff' }
+                      : { background: '#F3F4F6', color: '#9CA3AF' }
+                  }
+                >
+                  {sending ? '...' : 'Enviar'}
+                </button>
+              </div>
+
+              <p className="text-[10px] text-gray-400 font-medium mt-2">
+                {text.trim().length}/500 caracteres
+              </p>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function Comunigato() {
   const navigate = useNavigate();
   const touch = useSensory();
+  const { user: authUser } = useContext(AuthContext);
+  const { xpt, gpts, refreshGamification } = useGamification();
 
-  const [posts, setPosts]           = useState(POSTS);
+  const isAdmin = authUser?.role === 'ADMIN';
+
+  const [posts, setPosts] = useState([]);
+  const [fetchingPosts, setFetchingPosts] = useState(false);
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [userXP, setUserXP]         = useState(0);
-  const [realStories, setRealStories] = useState([]);
-  const [showBetaPopup, setShowBetaPopup] = useState(false);
-  const [shareToast, setShareToast] = useState(null);
+  const [userXP, setUserXP] = useState(0);
+  const [userPoints, setUserPoints] = useState(0);
+  const [communityCats, setCommunityCats] = useState([]);
+  const [showBetaPopup, setShowBetaPopup] = useState(true);
+  const [toast, setToast] = useState(null);
 
-  // Beta popup — só na primeira visita
-  useEffect(() => {
-    const seen = localStorage.getItem(BETA_KEY);
-    if (!seen) setShowBetaPopup(true);
+  const [showComposer, setShowComposer] = useState(false);
+  const [myCats, setMyCats] = useState([]);
+  const [selectedCat, setSelectedCat] = useState(null);
+
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [activeActionPost, setActiveActionPost] = useState(null);
+  const [socialCardPost, setSocialCardPost] = useState(null);
+
+  const [commentsPost, setCommentsPost] = useState(null);
+  const [showComments, setShowComments] = useState(false);
+
+  const [notices, setNotices] = useState([]);
+  const [loadingNotices, setLoadingNotices] = useState(false);
+
+  const dismissBeta = () => setShowBetaPopup(false);
+
+  const syncGamification = useCallback(async () => {
+    try {
+      await refreshGamification?.();
+      window.dispatchEvent(new CustomEvent('gatedo-gamification-refresh'));
+    } catch {}
+  }, [refreshGamification]);
+
+  const showToast = useCallback((msg, type = 'default') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 2500);
   }, []);
 
-  const dismissBeta = () => {
-    localStorage.setItem(BETA_KEY, '1');
-    setShowBetaPopup(false);
-  };
+  const normalizePost = useCallback((p) => ({
+    id: p.id,
+    type: p.type || 'PHOTO',
+    visibility: p.visibility || 'PUBLIC',
+    source: p.source || 'manual',
+    studioCreationId: p.studioCreationId || null,
+    author: {
+      name:
+        p.user?.name ||
+        p.author?.name ||
+        p.authorName ||
+        'Tutor',
+      avatar:
+        p.user?.photoUrl ||
+        p.author?.avatar ||
+        p.authorAvatar ||
+        APP_FALLBACK_AVATAR,
+      badge: p.author?.badge || 'Gateiro Raiz',
+    },
+    cat: p.pet ? {
+      id: p.pet.id,
+      name: p.pet.name,
+      breed: p.pet.breed || 'SRD',
+      img: p.pet.photoUrl || APP_FALLBACK_CAT,
+    } : null,
+    caption: p.content || p.caption || '',
+    image: p.imageUrl || p.image || null,
+    vetRef: p.vetRef || null,
+    likes: p.likesCount ?? (Array.isArray(p.likes) ? p.likes.length : p.likes || 0),
+    comments: p.commentsCount ?? (Array.isArray(p.comments) ? p.comments.length : p.comments || 0),
+    saved: p.savesCount ?? p.savedCount ?? (Array.isArray(p.saves) ? p.saves.length : p.saved || 0),
+    liked: !!(p.likedByMe || p.liked),
+    bookmarked: !!(p.savedByMe || p.bookmarked),
+    time: p.createdAt
+      ? (() => {
+          const d = Date.now() - new Date(p.createdAt).getTime();
+          const m = Math.floor(d / 60000);
+          const h = Math.floor(d / 3600000);
+          const dy = Math.floor(d / 86400000);
+          return dy > 0 ? `${dy}d` : h > 0 ? `${h}h` : m > 0 ? `${m}min` : 'agora';
+        })()
+      : 'agora',
+    category: mapCategory(p.type),
+    canShare: isAdmin || userXP >= XP_TO_SHARE,
+  }), [userXP, isAdmin]);
 
-  // Busca XP do usuário — endpoint pode não existir ainda, silencioso
-  useEffect(() => {
-    api.get('/gamification/me')
-      .then(r => { if (r.data?.xp !== undefined) setUserXP(r.data.xp); })
-      .catch(() => { /* endpoint ainda não existe, usa XP local */ });
-  }, []);
+  const fetchPosts = useCallback(async () => {
+    setFetchingPosts(true);
 
-  // Busca gatos reais para stories
-  useEffect(() => {
-    api.get('/pets')
-      .then(r => {
-        const pets = r.data?.slice(0, 6) || [];
-        const mapped = pets.map(p => ({
+    try {
+      const res = await api.get('/social/posts', {
+        params: { visibility: 'PUBLIC' },
+      });
+
+      const list = Array.isArray(res.data) ? res.data : [];
+      setPosts(list.map(normalizePost));
+    } catch (err) {
+      console.error('Erro ao carregar feed da Comunigato:', err);
+      setPosts([]);
+    } finally {
+      setFetchingPosts(false);
+    }
+  }, [normalizePost]);
+
+  const fetchCommunityCats = useCallback(async () => {
+    try {
+      const petsRes = await api.get('/pets');
+      const pets = Array.isArray(petsRes.data) ? petsRes.data : [];
+
+      const mapped = pets
+        .filter((p) => !isMemorialPet(p))
+        .map((p) => ({
           id: p.id,
-          name: p.name,
-          tutor: p.owner?.name?.split(' ')[0] || 'Tutor',
-          img: p.photoUrl || 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150&q=80',
-          active: Math.random() > 0.4,
+          name: p.name || 'Gato',
+          img: p.photoUrl || APP_FALLBACK_CAT,
+          tutor: p.owner?.name || p.tutorName || 'Tutor',
+          nickname: p.nickname || p.slug || '',
+          active: true,
           breed: p.breed || 'SRD',
         }));
-        setRealStories(mapped);
-      })
-      .catch(() => setRealStories([])); // usa STORIES mock se falhar
+
+      setCommunityCats(mapped);
+    } catch (err) {
+      console.error('Erro ao carregar gatos da comunidade:', err);
+      setCommunityCats([]);
+    }
   }, []);
 
-  const handleLike = (id) => {
-    touch();
-    setPosts(prev => prev.map(p =>
-      p.id === id ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p
-    ));
+  const fetchMe = useCallback(async () => {
+    await syncGamification();
+  }, [syncGamification]);
+
+  useEffect(() => {
+    const nextXp = isAdmin ? 999999 : Number(xpt || 0);
+    const nextPoints = isAdmin ? 999999 : Number(gpts || 0);
+    setUserXP(nextXp);
+    setUserPoints(nextPoints);
+  }, [xpt, gpts, isAdmin]);
+
+  const fetchMyCats = useCallback(async () => {
+    try {
+      const res = await api.get('/pets');
+      const pets = Array.isArray(res.data) ? res.data : [];
+      const activePets = pets.filter((pet) => !isMemorialPet(pet));
+
+      setMyCats(activePets);
+
+      setSelectedCat((prev) => {
+        if (prev?.id) {
+          const stillExists = activePets.find((pet) => pet.id === prev.id);
+          if (stillExists) return stillExists;
+        }
+        return activePets[0] || null;
+      });
+    } catch (err) {
+      console.error('Erro ao carregar gatos do tutor:', err);
+      setMyCats([]);
+      setSelectedCat(null);
+    }
+  }, []);
+
+  const fetchNotices = useCallback(async () => {
+    setLoadingNotices(true);
+
+    try {
+      const res = await api.get('/notices/active');
+      const list = Array.isArray(res.data) ? res.data : [];
+      setNotices(list);
+    } catch (err) {
+      console.error('Erro ao carregar notices oficiais:', err);
+      setNotices([]);
+    } finally {
+      setLoadingNotices(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPosts();
+    fetchMe();
+    fetchMyCats();
+    fetchNotices();
+    fetchCommunityCats();
+  }, [fetchPosts, fetchMe, fetchMyCats, fetchNotices, fetchCommunityCats]);
+
+  useEffect(() => {
+    const handleNewPost = () => {
+      fetchPosts();
+      fetchMe();
+      fetchCommunityCats();
+      fetchMyCats();
+    };
+
+    const handleXpUpdated = (event) => {
+      const amount = Number(event?.detail?.amount || 0);
+      const source = event?.detail?.source || '';
+
+      if (amount > 0) {
+        const prefix = source === 'share'
+          ? 'Compartilhamento'
+          : source === 'official-notice'
+            ? 'Comunicado lido'
+            : source === 'comment'
+              ? 'Comentário'
+              : source === 'publish'
+                ? 'Publicação'
+                : 'XP recebido';
+
+        showToast(`+${amount} XP • ${prefix}`, 'success');
+      }
+
+      fetchMe();
+    };
+
+    const handleRefreshNotices = () => {
+      fetchNotices();
+    };
+
+    const handleGamificationRefresh = () => {
+      fetchMe();
+    };
+
+    const handleSocialPublished = () => {
+      fetchPosts();
+      fetchMe();
+      fetchCommunityCats();
+      fetchMyCats();
+      showToast('Post publicado no feed', 'success');
+    };
+
+    window.addEventListener('comunigato:new_post', handleNewPost);
+    window.addEventListener('gatedo:xp-updated', handleXpUpdated);
+    window.addEventListener('gatedo:refresh-notices', handleRefreshNotices);
+    window.addEventListener('gatedo-gamification-refresh', handleGamificationRefresh);
+    window.addEventListener('gatedo-social-published', handleSocialPublished);
+
+    return () => {
+      window.removeEventListener('comunigato:new_post', handleNewPost);
+      window.removeEventListener('gatedo:xp-updated', handleXpUpdated);
+      window.removeEventListener('gatedo:refresh-notices', handleRefreshNotices);
+      window.removeEventListener('gatedo-gamification-refresh', handleGamificationRefresh);
+      window.removeEventListener('gatedo-social-published', handleSocialPublished);
+    };
+  }, [fetchPosts, fetchMe, fetchNotices, fetchCommunityCats, fetchMyCats, showToast]);
+
+  const copyToClipboard = async (text, successMsg = 'Copiado com sucesso') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(successMsg, 'success');
+    } catch {
+      showToast('Não foi possível copiar agora', 'warn');
+    }
   };
 
-  const handleSave = (id) => {
-    touch();
-    setPosts(prev => prev.map(p =>
-      p.id === id ? { ...p, bookmarked: !p.bookmarked, saved: p.bookmarked ? p.saved - 1 : p.saved + 1 } : p
-    ));
-  };
+  const openComposerFlow = () => {
+    touch('success');
 
-  const handleShare = (id) => {
-    if (userXP < XP_TO_SHARE) {
-      setShareToast({ type: 'locked', msg: `Precisa de ${XP_TO_SHARE} XP para compartilhar. Você tem ${userXP} XP.` });
-      setTimeout(() => setShareToast(null), 3000);
+    if (!isAdmin && userXP < XP_TO_PUBLISH) {
+      showToast(`Você precisa de ${XP_TO_PUBLISH} XP para publicar. XP atual: ${userXP}.`, 'warn');
       return;
     }
-    touch();
-    // Compartilha nativamente
-    const post = posts.find(p => p.id === id);
-    if (navigator.share) {
-      navigator.share({
-        title: `${post?.cat?.name} no Gatedo`,
-        text: post?.caption?.slice(0, 100),
-        url: window.location.href,
-      }).catch(() => {});
+
+    if (!myCats.length) {
+      showToast('Cadastre ao menos um gato ativo antes de publicar.', 'warn');
+      return;
     }
-    // Ganha XP
-    setUserXP(x => x + XP_PER_SHARE);
-    setShareToast({ type: 'xp', msg: `+${XP_PER_SHARE} XP por compartilhar! 🚀` });
-    setTimeout(() => setShareToast(null), 2500);
-    api.patch('/gamification', { xp: userXP + XP_PER_SHARE }).catch(() => {});
+
+    const nextSelectedCat =
+      (selectedCat?.id && myCats.find((cat) => cat.id === selectedCat.id)) ||
+      myCats[0] ||
+      null;
+
+    setSelectedCat(nextSelectedCat);
+    setShowComposer(true);
   };
 
-  const filtered = posts.filter(p => {
+  const handleLike = async (post) => {
+    touch();
+
+    try {
+      if (post.liked) {
+        const res = await api.delete(`/social/posts/${post.id}/like`);
+        setPosts((prev) => prev.map((p) =>
+          p.id === post.id
+            ? {
+                ...p,
+                liked: false,
+                likes: res.data?.likesCount ?? Math.max(0, p.likes - 1),
+              }
+            : p
+        ));
+      } else {
+        const res = await api.post(`/social/posts/${post.id}/like`);
+        setPosts((prev) => prev.map((p) =>
+          p.id === post.id
+            ? {
+                ...p,
+                liked: true,
+                likes: res.data?.likesCount ?? (p.likes + 1),
+              }
+            : p
+        ));
+      }
+
+      await fetchMe();
+    } catch {
+      showToast('Não foi possível curtir agora', 'warn');
+    }
+  };
+
+  const handleSave = async (post) => {
+    touch();
+
+    try {
+      if (post.bookmarked) {
+        const res = await api.delete(`/social/posts/${post.id}/save`);
+        setPosts((prev) => prev.map((p) =>
+          p.id === post.id
+            ? {
+                ...p,
+                bookmarked: false,
+                saved: res.data?.savesCount ?? Math.max(0, p.saved - 1),
+              }
+            : p
+        ));
+        showToast('Removido dos favoritos', 'default');
+      } else {
+        const res = await api.post(`/social/posts/${post.id}/save`);
+        setPosts((prev) => prev.map((p) =>
+          p.id === post.id
+            ? {
+                ...p,
+                bookmarked: true,
+                saved: res.data?.savesCount ?? (p.saved + 1),
+              }
+            : p
+        ));
+        showToast('Post salvo nos favoritos', 'success');
+      }
+
+      await fetchMe();
+    } catch {
+      showToast('Não foi possível salvar agora', 'warn');
+    }
+  };
+
+  const handleComments = async (post) => {
+    setCommentsPost(post);
+    setShowComments(true);
+  };
+
+  const handleCommentAdded = async (postId, commentsCount) => {
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              comments: typeof commentsCount === 'number' ? commentsCount : (p.comments || 0) + 1,
+            }
+          : p
+      )
+    );
+
+    setCommentsPost((prev) =>
+      prev?.id === postId
+        ? {
+            ...prev,
+            comments: typeof commentsCount === 'number' ? commentsCount : (prev.comments || 0) + 1,
+          }
+        : prev
+    );
+
+    await fetchMe();
+  };
+
+  const handleShare = async (post) => {
+    if (!isAdmin && userXP < XP_TO_SHARE) {
+      showToast(`Precisa de ${XP_TO_SHARE} XP para compartilhar. Você tem ${userXP} XP.`, 'warn');
+      return;
+    }
+
+    touch();
+
+    const url = buildShareUrl(post);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${post?.cat?.name || 'Gato'} no GATEDO`,
+          text: post?.caption?.slice(0, 100) || 'Veja este perfil no GATEDO',
+          url,
+        });
+        showToast('Compartilhado com sucesso! 🚀', 'success');
+        window.dispatchEvent(new CustomEvent('gatedo:xp-updated', {
+          detail: { amount: 3, source: 'share' },
+        }));
+        await fetchMe();
+      } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('Link copiado para compartilhar', 'success');
+        window.dispatchEvent(new CustomEvent('gatedo:xp-updated', {
+          detail: { amount: 3, source: 'share' },
+        }));
+        await fetchMe();
+      } catch {
+        showToast('Não foi possível compartilhar agora', 'warn');
+      }
+    }
+  };
+
+  const openPostMenu = (post) => {
+    setActiveActionPost(post);
+  };
+
+  const handleFacebookShare = async (post) => {
+    const url = encodeURIComponent(buildShareUrl(post));
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank', 'noopener,noreferrer');
+    setActiveActionPost(null);
+    window.dispatchEvent(new CustomEvent('gatedo:xp-updated', {
+      detail: { amount: 3, source: 'share' },
+    }));
+    await fetchMe();
+  };
+
+  const handleInstagramPrep = async (post) => {
+    await copyToClipboard(buildShareCaption(post), 'Legenda copiada para Instagram');
+    setActiveActionPost(null);
+    setSocialCardPost(post);
+    window.dispatchEvent(new CustomEvent('gatedo:xp-updated', {
+      detail: { amount: 3, source: 'share' },
+    }));
+    await fetchMe();
+  };
+
+  const handleTikTokPrep = async (post) => {
+    await copyToClipboard(buildShareCaption(post), 'Legenda copiada para TikTok');
+    setActiveActionPost(null);
+    setSocialCardPost(post);
+    window.dispatchEvent(new CustomEvent('gatedo:xp-updated', {
+      detail: { amount: 3, source: 'share' },
+    }));
+    await fetchMe();
+  };
+
+  const filtered = posts.filter((p) => {
     const matchCat = activeFilter === 'Todos' || p.category === activeFilter;
-    const matchSearch = !searchQuery || p.caption?.toLowerCase().includes(searchQuery.toLowerCase()) || p.cat?.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchSearch =
+      !searchQuery ||
+      p.caption?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.cat?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.author?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+
     return matchCat && matchSearch;
   });
 
-  // Stats do feed
-  const igentTips = posts.filter(p => p.type === 'IGENT_TIP' || p.type === 'HEALTH_WIN').length;
+  const igentTips = posts.filter((p) => p.type === 'IGENT_TIP' || p.type === 'HEALTH_WIN').length;
+  const favoritePosts = posts.filter((p) => p.bookmarked);
 
   return (
-    <div className="min-h-screen bg-[#F4F3FF] pb-32 font-sans">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-32 font-sans">
+      <FavoritesDrawer
+        open={showFavorites}
+        posts={favoritePosts}
+        onClose={() => setShowFavorites(false)}
+        onOpenPostMenu={openPostMenu}
+        onLike={handleLike}
+        onSave={handleSave}
+        onShare={handleShare}
+        onComments={handleComments}
+        navigate={navigate}
+      />
 
-      {/* ── BETA POPUP ───────────────────────────────────────────────────── */}
+      <CommentsDrawer
+        open={showComments}
+        post={commentsPost}
+        onClose={() => {
+          setShowComments(false);
+          setCommentsPost(null);
+        }}
+        onCommentAdded={handleCommentAdded}
+        showToast={showToast}
+      />
+
+      <SocialPostComposerModal
+        isOpen={showComposer}
+        onClose={() => setShowComposer(false)}
+        onSuccess={async () => {
+          setShowComposer(false);
+          await fetchPosts();
+          await fetchMe();
+          await fetchCommunityCats();
+          await fetchMyCats();
+
+          window.dispatchEvent(new CustomEvent('comunigato:new_post'));
+          window.dispatchEvent(new CustomEvent('gatedo-social-published'));
+          window.dispatchEvent(new CustomEvent('gatedo:xp-updated', {
+            detail: { amount: 5, source: 'publish' },
+          }));
+        }}
+        selectedPetId={selectedCat?.id || myCats?.[0]?.id || null}
+        selectedStudioCreation={null}
+      />
+
       <AnimatePresence>
-        {showBetaPopup && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[400] flex items-end justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
-          >
-            <motion.div
-              initial={{ y: 80, scale: 0.95 }}
-              animate={{ y: 0, scale: 1 }}
-              exit={{ y: 80, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              className="w-full max-w-md bg-white rounded-[32px] p-6 pb-8 shadow-2xl"
-            >
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-[18px] flex items-center justify-center text-2xl flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #6158ca20, #6158ca10)' }}>
-                  🧪
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-gray-800 text-base">Comunigato Beta</h3>
-                    <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider"
-                      style={{ background: '#DFFF40', color: '#5A7000' }}>Experimental</span>
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-bold">Versão 0.1 · Acesso antecipado</p>
-                </div>
-              </div>
-
-              <p className="text-sm text-gray-600 leading-relaxed font-medium mb-4">
-                Você, tutor, está entre os primeiros a explorar o <strong>Comunigato</strong> — nossa rede social de gatos. 🐾
-              </p>
-
-              <div className="space-y-2 mb-5">
-                {[
-                  ['🚧', 'Algumas funções ainda estão sendo construídas'],
-                  ['🐛', 'Erros podem acontecer — sua paciência é ouro'],
-                  ['💜', 'Seu feedback direto ajuda a moldar o produto'],
-                  ['⭐', 'Founders ganham badges exclusivos pelo suporte'],
-                ].map(([icon, text]) => (
-                  <div key={text} className="flex items-start gap-2.5">
-                    <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
-                    <p className="text-[11px] text-gray-500 font-medium leading-snug">{text}</p>
-                  </div>
-                ))}
-              </div>
-
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={dismissBeta}
-                className="w-full py-4 rounded-[22px] font-black text-sm shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #6158ca, #8B5CF6)', color: 'white' }}
-              >
-                Entendi, vou explorar! 🚀
-              </motion.button>
-              <p className="text-center text-[9px] text-gray-300 font-bold mt-3">
-                Esta mensagem aparece só uma vez
-              </p>
-            </motion.div>
-          </motion.div>
+        {activeActionPost && (
+          <PostActionSheet
+            post={activeActionPost}
+            onClose={() => setActiveActionPost(null)}
+            onCopyLink={() => {
+              copyToClipboard(buildShareUrl(activeActionPost), 'Link copiado');
+              setActiveActionPost(null);
+            }}
+            onFacebookShare={() => handleFacebookShare(activeActionPost)}
+            onInstagramPrep={() => handleInstagramPrep(activeActionPost)}
+            onTikTokPrep={() => handleTikTokPrep(activeActionPost)}
+            onOpenCard={() => {
+              setSocialCardPost(activeActionPost);
+              setActiveActionPost(null);
+            }}
+          />
         )}
       </AnimatePresence>
 
-      {/* ── SHARE TOAST ──────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {shareToast && (
+        {socialCardPost && (
+          <SocialCardModal
+            post={socialCardPost}
+            onClose={() => setSocialCardPost(null)}
+            onCopyCaption={() => copyToClipboard(buildShareCaption(socialCardPost), 'Legenda copiada')}
+            onCopyLink={() => copyToClipboard(buildShareUrl(socialCardPost), 'Link copiado')}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {toast && (
           <motion.div
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 60, opacity: 0 }}
             className="fixed bottom-28 left-0 right-0 flex justify-center z-[300] pointer-events-none px-4"
           >
-            <div className="px-5 py-3 rounded-full font-black text-sm shadow-lg"
-              style={shareToast.type === 'xp'
-                ? { background: '#DFFF40', color: '#1a1a00' }
-                : { background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' }
-              }>
-              {shareToast.msg}
+            <div
+              className="px-5 py-3 rounded-full font-black text-sm shadow-lg"
+              style={
+                toast.type === 'success'
+                  ? { background: '#e1ff00', color: '#1a1a00' }
+                  : toast.type === 'warn'
+                    ? { background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' }
+                    : { background: '#111827', color: '#fff' }
+              }
+            >
+              {toast.msg}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── XP SHARE LOCKED HINT (se não tem XP suficiente) ──────────────── */}
-      {userXP < XP_TO_SHARE && (
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+      {!isAdmin && userXP < XP_TO_SHARE && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
           className="mx-4 mt-3 px-4 py-2.5 rounded-[16px] flex items-center gap-3"
-          style={{ background: '#FFFBEB', border: '1px solid #FCD34D' }}>
+          style={{ background: '#FFFBEB', border: '1px solid #FCD34D' }}
+        >
           <span className="text-base">🔒</span>
           <div className="flex-1">
             <p className="text-[10px] font-black text-amber-700">Compartilhamento bloqueado</p>
             <p className="text-[9px] text-amber-600 font-medium">
-              Você tem {userXP} XP. Precisa de {XP_TO_SHARE} XP para compartilhar e ganhar +{XP_PER_SHARE} XP por post.
+              Você tem {userXP} XP. Precisa de {XP_TO_SHARE} XP para compartilhar.
             </p>
-          </div>
-          <div className="text-right flex-shrink-0">
-            <div className="h-1.5 w-20 bg-amber-100 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-amber-400 transition-all"
-                style={{ width: `${Math.min((userXP / XP_TO_SHARE) * 100, 100)}%` }} />
-            </div>
-            <p className="text-[8px] font-black text-amber-500 mt-0.5">{userXP}/{XP_TO_SHARE}</p>
           </div>
         </motion.div>
       )}
 
-      {/* ── HEADER STICKY ─────────────────────────────────────────────────── */}
-      <div className="bg-white sticky top-0 z-40 border-b border-gray-100 shadow-sm">
+      {isAdmin && (
+        <div className="mx-4 mt-3 px-4 py-2.5 rounded-[16px] flex items-center gap-3" style={{ background: '#EEFDF3', border: '1px solid #86EFAC' }}>
+          <span className="text-base">🛡️</span>
+          <div className="flex-1">
+            <p className="text-[10px] font-black text-emerald-700">ADMIN: compartilhamento liberado sem restrição</p>
+            <p className="text-[9px] text-emerald-600 font-medium">
+              XP: ilimitado • Points: ilimitado
+            </p>
+          </div>
+        </div>
+      )}
 
-        {/* Top bar */}
+      {userXP < XP_TO_PUBLISH && !isAdmin && (
+        <div className="mx-4 mb-4 mt-3 px-4 py-2.5 rounded-[16px] flex items-center gap-3" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
+          <span className="text-base">✍️</span>
+          <div className="flex-1">
+            <p className="text-[10px] font-black text-indigo-700">Publicação liberada a partir de 100 XP</p>
+            <p className="text-[9px] text-indigo-600 font-medium">
+              XP atual: {userXP} • Points atuais: {userPoints}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white sticky top-0 z-40 border-b border-gray-100 shadow-sm">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <AnimatePresence mode="wait">
             {showSearch ? (
@@ -790,12 +1439,12 @@ export default function Comunigato() {
                 exit={{ opacity: 0, x: -10 }}
                 className="flex-1 flex items-center gap-2"
               >
-                <div className="flex-1 flex items-center gap-2 bg-gray-50 rounded-2xl px-3 py-2 border border-gray-100">
+                <div className="flex-1 flex items-center gap-2 bg-gray-50 rounded-2xl mt-8 px-3 py-2 border border-gray-100">
                   <Search size={15} className="text-gray-400" />
                   <input
                     autoFocus
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Buscar gateiros, dicas, raças..."
                     className="flex-1 bg-transparent outline-none text-sm text-gray-700 font-medium"
                   />
@@ -811,7 +1460,7 @@ export default function Comunigato() {
                 </h1>
                 {igentTips > 0 && (
                   <p className="text-[9px] font-bold text-gray-400">
-                    <span style={{ color: C.purple }}>{igentTips} dicas</span> do iGentVet compartilhadas hoje
+                    <span style={{ color: C.purple }}>{igentTips} dicas</span> do iGentVet compartilhadas
                   </p>
                 )}
               </motion.div>
@@ -819,37 +1468,52 @@ export default function Comunigato() {
           </AnimatePresence>
 
           <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowSearch(s => !s)}
-              className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center"
-            >
+            <button onClick={() => setShowSearch((s) => !s)} className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center">
               <Search size={18} className="text-gray-500" />
             </button>
-            <button className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center relative">
+
+            <button
+              onClick={() => setShowFavorites(true)}
+              className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center relative"
+              title="Favoritos"
+            >
+              <Bookmark size={18} className="text-gray-500" />
+              {favoritePosts.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#823fff] text-white text-[8px] font-black flex items-center justify-center">
+                  {favoritePosts.length}
+                </span>
+              )}
+            </button>
+
+            <button className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center relative" title="Notificações">
               <Bell size={18} className="text-gray-500" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+              {notices.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+              )}
             </button>
           </div>
         </div>
 
-        {/* Stories */}
-        <div className="flex items-center gap-4 px-5 pb-3 overflow-x-auto scrollbar-hide">
-          {[STORIES[0], ...(realStories.length > 0 ? realStories : STORIES.slice(1))].map(s => (
-            <StoryBubble key={s.id} story={s} onPress={() => s.id !== 'add' && navigate(`/gato/${s.id}`)} />
-          ))}
+        <div className="px-5 pb-3">
+          <CommunityCatsBar
+            cats={communityCats}
+            onSelectCat={(cat) => navigate(`/gato/${cat.id}`)}
+            onAddPress={() => navigate('/mundo-gatedo')}
+          />
         </div>
 
-        {/* Filtros */}
-        <div className="flex gap-2 px-5 pb-3 overflow-x-auto scrollbar-hide">
-          {FILTERS.map(f => (
+        <div className="flex gap-2 px-5 pb-3 overflow-x-auto">
+          {FILTERS.map((f) => (
             <button
               key={f.id}
-              onClick={() => { touch(); setActiveFilter(f.id); }}
+              onClick={() => {
+                touch();
+                setActiveFilter(f.id);
+              }}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all"
               style={activeFilter === f.id
                 ? { background: C.purple, color: 'white', boxShadow: `0 4px 12px ${C.purple}40` }
-                : { background: '#F4F3FF', color: '#6B7280', border: '1px solid #E5E7EB' }
-              }
+                : { background: 'var(--gatedo-light-bg)', color: '#6B7280', border: '1px solid #E5E7EB' }}
             >
               <span>{f.emoji}</span>
               {f.id}
@@ -858,14 +1522,13 @@ export default function Comunigato() {
         </div>
       </div>
 
-      {/* ── BANNER IA DESTAQUE ─────────────────────────────────────────────── */}
       {activeFilter === 'Todos' && (
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-4 space-y-3">
           <motion.button
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => navigate('/igentvet')}
+            onClick={() => navigate('/igent-vet')}
             className="w-full rounded-[24px] overflow-hidden relative flex items-center gap-4 px-5 py-4 shadow-lg"
             style={{ background: `linear-gradient(135deg, ${C.purple} 0%, #8B5CF6 100%)` }}
           >
@@ -882,12 +1545,71 @@ export default function Comunigato() {
             </div>
             <ChevronRight size={18} className="text-white/60 ml-auto flex-shrink-0" />
           </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/mundo-gatedo')}
+            className="w-full rounded-[22px] flex items-center gap-4 px-5 py-4 border"
+            style={{ background: '#fff', borderColor: '#E9D5FF' }}
+          >
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#F5F3FF' }}>
+              🌍
+            </div>
+            <div className="text-left flex-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#8B4AFF] mb-0.5">Ecossistema</p>
+              <p className="text-sm font-black text-gray-800 leading-tight">Explorar o Mundo GATEDO</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">Mais contexto, visão da comunidade e evolução do app</p>
+            </div>
+            <ChevronRight size={18} className="text-[#8B4AFF]" />
+          </motion.button>
         </div>
       )}
 
-      {/* ── FEED ──────────────────────────────────────────────────────────── */}
+      <div className="px-4 pt-4">
+       <OfficialNoticesStack
+  notices={notices}
+  loading={loadingNotices}
+  onNoticeRead={async (notice) => {
+    try {
+      await api.post(`/notices/${notice.id}/read`);
+
+      const xpReward = Number(notice?.xpReward || 0);
+
+      setNotices((prev) => prev.filter((item) => item.id !== notice.id));
+
+      if (xpReward > 0) {
+        setUserXP((prev) => (isAdmin ? 999999 : prev + xpReward));
+
+        window.dispatchEvent(
+          new CustomEvent('gatedo:xp-updated', {
+            detail: {
+              amount: xpReward,
+              source: 'official-notice',
+              noticeId: notice.id,
+            },
+          }),
+        );
+      }
+
+      await fetchMe();
+      await fetchNotices();
+    } catch (err) {
+      console.error('Erro ao confirmar leitura do notice:', err);
+      showToast(
+        err?.response?.data?.message || 'Não foi possível confirmar o comunicado agora',
+        'warn',
+      );
+    }
+  }}
+/>
+      </div>
+
       <div className="px-4 pt-4 space-y-4">
-        {filtered.length === 0 ? (
+        {fetchingPosts ? (
+          <div className="text-center py-16">
+            <p className="font-black text-gray-400">Carregando feed...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-4xl mb-3">🐱</p>
             <p className="font-black text-gray-500">Nenhum post encontrado</p>
@@ -895,35 +1617,27 @@ export default function Comunigato() {
           </div>
         ) : (
           filtered.map((post, i) => (
-            <motion.div
-              key={post.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06 }}
-            >
-              <PostCard post={post} onLike={handleLike} onSave={handleSave} onShare={handleShare} canShare={userXP >= XP_TO_SHARE} />
+            <motion.div key={post.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+              <PostCard
+                post={post}
+                onLike={handleLike}
+                onSave={handleSave}
+                onShare={handleShare}
+                onMenu={openPostMenu}
+                onComments={handleComments}
+                navigate={navigate}
+              />
             </motion.div>
           ))
         )}
-
-        {/* Load more hint */}
-        {filtered.length > 0 && (
-          <div className="text-center py-4">
-            <p className="text-[10px] font-bold text-gray-400">Você está em dia com o Comunigato ✨</p>
-          </div>
-        )}
       </div>
 
-      {/* ── FAB ───────────────────────────────────────────────────────────── */}
       <motion.button
         whileTap={{ scale: 0.9 }}
         whileHover={{ scale: 1.05 }}
-        onClick={() => { touch('success'); navigate('/studio'); }}
+        onClick={openComposerFlow}
         className="fixed bottom-24 right-5 w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-40"
-        style={{
-          background: `linear-gradient(135deg, ${C.purple} 0%, #8B5CF6 100%)`,
-          boxShadow: `0 8px 24px ${C.purple}50`,
-        }}
+        style={{ background: `linear-gradient(135deg, ${C.purple} 0%, #8B5CF6 100%)`, boxShadow: `0 8px 24px ${C.purple}50` }}
       >
         <Plus size={26} strokeWidth={2.5} className="text-white" />
       </motion.button>

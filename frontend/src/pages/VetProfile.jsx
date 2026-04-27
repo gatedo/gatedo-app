@@ -78,7 +78,7 @@ export default function VetProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FE] pb-10 font-sans relative">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-10 font-sans relative">
       
       {/* CAPA + HEADER */}
       <div className="relative h-64 bg-gray-200">
@@ -138,7 +138,7 @@ export default function VetProfile() {
             {/* Título e Info */}
             <div className="mb-6">
                 <h1 className="text-2xl font-black text-gray-800 leading-tight mb-1">{vet.name}</h1>
-                <p className="text-sm font-bold text-[#6158ca] mb-1">{vet.clinic}</p>
+                <p className="text-sm font-bold text-[#8B4AFF] mb-1">{vet.clinic}</p>
                 <p className="text-xs text-gray-400 font-medium">{vet.specialty}</p>
             </div>
 

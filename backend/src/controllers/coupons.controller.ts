@@ -73,10 +73,35 @@ export class CouponsController {
       await tx.coupon.update({ where: { id: coupon.id }, data: { usedCount: { increment: 1 } } });
       if (coupon.discountType === 'POINTS') {
         pointsEarned = coupon.value;
+        await tx.user.update({
+          where: { id: userId },
+          data: { gatedoPoints: { increment: pointsEarned } },
+        });
         await tx.tutorPoints.upsert({
           where:  { userId },
           create: { userId, points: pointsEarned, totalEarned: pointsEarned },
           update: { points: { increment: pointsEarned }, totalEarned: { increment: pointsEarned } },
+        });
+        await tx.balanceAdjustmentLog.create({
+          data: {
+            userId,
+            actorId: userId,
+            walletDelta: pointsEarned,
+            xpDelta: 0,
+            reason: `COUPON:${coupon.code}`,
+          },
+        });
+        await tx.rewardEvent.create({
+          data: {
+            userId,
+            action: 'COUPON_REDEEMED',
+            gptsDelta: pointsEarned,
+            xptDelta: 0,
+            metadata: {
+              couponId: coupon.id,
+              couponCode: coupon.code,
+            },
+          },
         });
       }
     });

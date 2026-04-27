@@ -5,7 +5,7 @@ import { Trophy, CheckCircle, Lock, ChevronLeft, Star, Award, ShieldCheck } from
 import useSensory from '../hooks/useSensory';
 
 const BADGES = [
-  { id: 1, name: "Gateiro Fundador", desc: "Apoiou o Gatedo desde o início.", icon: CheckCircle, color: "#6158ca", earned: true },
+  { id: 1, name: "Gateiro Fundador", desc: "Apoiou o Gatedo desde o início.", icon: CheckCircle, color: "#8B4AFF", earned: true },
   { id: 2, name: "Tutor Vigilante", desc: "Manteve todas as vacinas em dia por 6 meses.", icon: ShieldCheck, color: "#2ecc71", earned: true },
   { id: 3, name: "Explorador da Wiki", desc: "Leu 10 artigos sobre saúde felina.", icon: Star, color: "#f59e0b", earned: false },
   { id: 4, name: "Artista do Studio", desc: "Criou 5 retratos mágicos no Studio.", icon: Award, color: "#ec4899", earned: false },
@@ -16,7 +16,7 @@ export default function Achievements() {
   const touch = useSensory();
 
   return (
-    <div className="min-h-screen bg-[#F8F9FE] px-6 pt-12 pb-32 font-sans">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] px-6 pt-12 pb-32 font-sans">
       {/* Header da Página */}
       <div className="flex items-center gap-4 mb-8">
         <button onClick={() => { touch(); navigate(-1); }} className="p-2 bg-white rounded-2xl shadow-sm text-gray-400">
@@ -26,7 +26,7 @@ export default function Achievements() {
       </div>
 
       {/* Resumo de Pontuação */}
-      <div className="bg-gradient-to-br from-[#6158ca] to-[#8b83ff] rounded-[32px] p-6 text-white shadow-xl mb-10 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-[#8B4AFF] to-[#8b83ff] rounded-[32px] p-6 text-white shadow-xl mb-10 relative overflow-hidden">
         <div className="relative z-10 flex items-center justify-between">
           <div>
             <p className="text-xs font-black uppercase opacity-60 tracking-widest">Total de Selas</p>

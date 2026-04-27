@@ -60,9 +60,9 @@ export default function AddCat() {
   if (showSuccess) return <SuccessScreen formData={formData} generatedId={generatedId} navigate={navigate} />;
 
   return (
-    <div className="pb-40 min-h-screen bg-[#F8F9FE]">
+    <div className="pb-40 min-h-screen bg-[var(--gatedo-light-bg)]">
       {/* Cabeçalho Lilás com Logo Estourada */}
-      <div className="bg-[#6158ca] h-44 rounded-b-[55px] relative w-full overflow-hidden mb-8 shadow-lg">
+      <div className="bg-[#8B4AFF] h-44 rounded-b-[55px] relative w-full overflow-hidden mb-8 shadow-lg">
         <img src="/assets/logo-fundo1.svg" className="absolute -top-16 -right-16 w-64 h-64 opacity-20 pointer-events-none rotate-12" />
         <div className="absolute top-10 left-6 flex items-center gap-4 z-20 text-white font-black uppercase text-xs tracking-widest">
            <button onClick={() => navigate(-1)} className="p-3 bg-white/10 backdrop-blur-md rounded-2xl"><ArrowLeft size={20}/></button>
@@ -92,7 +92,7 @@ export default function AddCat() {
         <div className="fixed bottom-10 left-0 right-0 px-8 flex justify-center z-[999]">
           <button 
             onClick={() => step === 4 ? handleFinish() : setStep(step + 1)}
-            className="w-full max-w-[320px] bg-[#6158ca] text-white py-5 rounded-[28px] font-black uppercase text-xs shadow-xl active:scale-95 transition-all"
+            className="w-full max-w-[320px] bg-[#8B4AFF] text-white py-5 rounded-[28px] font-black uppercase text-xs shadow-xl active:scale-95 transition-all"
           >
             {loading ? 'Salvando...' : step === 4 ? 'Gerar RG Gatedo 🐾' : 'Próximo Passo'}
           </button>
@@ -105,11 +105,11 @@ export default function AddCat() {
 // Componente de Sucesso (RG Gatedo conforme o print enviado)
 function SuccessScreen({ formData, generatedId, navigate }) {
   return (
-    <div className="min-h-screen bg-[#6158ca] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
+    <div className="min-h-screen bg-[#8B4AFF] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[45px] shadow-2xl w-full max-w-sm overflow-hidden p-10 relative z-10">
         <div className="bg-[#ebfc66] h-24 absolute top-0 left-0 right-0 flex items-center justify-center">
-             <div className="absolute top-4 right-6 text-[#6158ca] opacity-40 uppercase font-black text-[9px] flex items-center gap-1"><Lock size={12}/> RG Oficial</div>
+             <div className="absolute top-4 right-6 text-[#8B4AFF] opacity-40 uppercase font-black text-[9px] flex items-center gap-1"><Lock size={12}/> RG Oficial</div>
         </div>
         <div className="relative z-10 pt-4">
           <div className="w-32 h-32 rounded-full border-8 border-white shadow-xl overflow-hidden mx-auto mb-6 bg-gray-50">
@@ -122,7 +122,7 @@ function SuccessScreen({ formData, generatedId, navigate }) {
             <div><p className="text-[8px] font-black text-gray-300 uppercase mb-1">Raça</p><p className="font-bold text-xs text-gray-700">{formData.breed}</p></div>
           </div>
         </div>
-        <button onClick={() => navigate('/home')} className="mt-10 w-full bg-[#6158ca] text-white py-5 rounded-[25px] font-black uppercase text-[10px] tracking-[2px]">Ir para o App</button>
+        <button onClick={() => navigate('/home')} className="mt-10 w-full bg-[#8B4AFF] text-white py-5 rounded-[25px] font-black uppercase text-[10px] tracking-[2px]">Ir para o App</button>
       </motion.div>
     </div>
   );

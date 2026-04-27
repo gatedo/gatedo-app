@@ -5,6 +5,9 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Caminho baseado no seu print
+import { calcTutorLevelMeta } from '../gamification/gamification.constants';
+
+const STORE_SHARE_XPT_REWARD = 2;
  
 @Controller('products')
 export class ProductsController {
@@ -131,28 +134,129 @@ export class ProductsController {
     if (!product) throw new NotFoundException('Produto não encontrado');
  
     const existing = await (this.prisma as any).productShare.findFirst({
-      where: { userId, productId: dto.productId, clicks: 0 },
+      where: { userId, productId: dto.productId },
+      orderBy: { createdAt: 'desc' },
     });
     
     if (existing) {
-      return { shareToken: existing.token, message: 'Token existente reutilizado', totalPoints: null };
+      return { shareToken: existing.token, message: 'Token existente reutilizado' };
     }
  
     const share = await (this.prisma as any).productShare.create({
       data: { userId, productId: dto.productId },
     });
  
-    const points = await this.prisma.tutorPoints.upsert({
-      where:  { userId },
-      update: { points: { increment: 5 }, totalEarned: { increment: 5 }, lastActionAt: new Date() },
-      create: { userId, points: 5, totalEarned: 5 },
-    });
- 
     return {
-      shareToken:  share.token,
-      pointsEarned: 5,
-      totalPoints: points.points,
+      shareToken: share.token,
     };
+  }
+
+  @Post('share/confirm')
+  @UseGuards(JwtAuthGuard)
+  async confirmShare(@Body() dto: { shareToken: string }, @Req() req: any) {
+    const userId = req.user?.sub || req.user?.id;
+
+    if (!userId) {
+      throw new UnauthorizedException('Usuário não identificado.');
+    }
+
+    if (!dto.shareToken) {
+      throw new BadRequestException('Token de compartilhamento é obrigatório.');
+    }
+
+    const share = await (this.prisma as any).productShare.findUnique({
+      where: { token: dto.shareToken },
+      select: {
+        token: true,
+        userId: true,
+        productId: true,
+      },
+    });
+
+    if (!share) {
+      throw new NotFoundException('Compartilhamento não encontrado.');
+    }
+
+    if (share.userId !== userId) {
+      throw new UnauthorizedException('Este compartilhamento não pertence a você.');
+    }
+
+    const reason = `STORE_SHARE:${dto.shareToken}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingReward = await tx.balanceAdjustmentLog.findFirst({
+        where: { userId, reason },
+      });
+
+      if (existingReward) {
+        const existingUser = await tx.user.findUnique({
+          where: { id: userId },
+          select: { xpt: true, gatedoPoints: true },
+        });
+
+        return {
+          ok: true,
+          alreadyRewarded: true,
+          xptEarned: 0,
+          xptTotal: existingUser?.xpt ?? 0,
+          gptsTotal: existingUser?.gatedoPoints ?? 0,
+        };
+      }
+
+      const currentUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: { xpt: true, gatedoPoints: true },
+      });
+
+      if (!currentUser) {
+        throw new NotFoundException('Usuário não encontrado.');
+      }
+
+      const nextXpt = (currentUser.xpt ?? 0) + STORE_SHARE_XPT_REWARD;
+
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          xpt: nextXpt,
+          level: calcTutorLevelMeta(nextXpt).rank,
+        },
+        select: {
+          xpt: true,
+          gatedoPoints: true,
+        },
+      });
+
+      await tx.balanceAdjustmentLog.create({
+        data: {
+          userId,
+          actorId: userId,
+          walletDelta: 0,
+          xpDelta: STORE_SHARE_XPT_REWARD,
+          reason,
+        },
+      });
+
+      await tx.rewardEvent.create({
+        data: {
+          userId,
+          action: 'STORE_SHARE_CONFIRMED',
+          gptsDelta: 0,
+          xptDelta: STORE_SHARE_XPT_REWARD,
+          metadata: {
+            shareToken: dto.shareToken,
+            productId: share.productId,
+          },
+        },
+      });
+
+      return {
+        ok: true,
+        alreadyRewarded: false,
+        xptEarned: STORE_SHARE_XPT_REWARD,
+        xptTotal: updatedUser.xpt ?? 0,
+        gptsTotal: updatedUser.gatedoPoints ?? 0,
+      };
+    });
   }
  
   // ────────────────────────────────────────────────────────────────────────────

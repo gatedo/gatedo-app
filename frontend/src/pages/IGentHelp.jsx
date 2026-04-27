@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
 
 const C = {
-  purple:    '#6158ca',
+  purple:    '#8B4AFF',
   purpleDark:'#4B40C6',
   accent:    '#DFFF40',
   bg:        '#F4F3FF',
@@ -89,7 +89,7 @@ const RACAS_DESTAQUE = [
 ];
 
 const COMO_DESCREVER = [
-  { icon: Clock, cor: '#6158ca', titulo: 'Quando começou?', dica: '"Há 2 dias", "desde ontem à noite", "semana passada" — tempo preciso ajuda a definir urgência.' },
+  { icon: Clock, cor: '#8B4AFF', titulo: 'Quando começou?', dica: '"Há 2 dias", "desde ontem à noite", "semana passada" — tempo preciso ajuda a definir urgência.' },
   { icon: Activity, cor: '#16A34A', titulo: 'Frequência e intensidade', dica: '"Vomitou 5 vezes hoje", "coça o ouvido a cada 10 minutos", "manca só quando sobe escadas".' },
   { icon: Sparkles, cor: '#D97706', titulo: 'O que mudou?', dica: 'Nova ração, areia, produto de limpeza, novo animal, obra em casa, viagem — contexto ambiental é diagnóstico.' },
   { icon: Heart, cor: '#DC2626', titulo: 'Comportamento geral', dica: '"Continua comendo normalmente", "parou de comer ontem", "escondido embaixo da cama" — estado geral é crucial.' },

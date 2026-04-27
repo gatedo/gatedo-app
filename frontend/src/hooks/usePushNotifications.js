@@ -1,102 +1,150 @@
 import { useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
-// ─── PUSH NOTIFICATIONS — Web Notifications API ───────────────────────────────
-// Solicita permissão e dispara alertas nativos de doses
 export default function usePushNotifications(userId, petId) {
   const pollRef = useRef(null);
+  const timeoutRefs = useRef([]);
+  const { settings, setSetting, notificationPermission, syncNotificationPermission } = useAppSettings();
 
-  // ── Solicita permissão de notificação ────────────────────────────────────
-  const requestPermission = useCallback(async () => {
-    if (!('Notification' in window)) return 'unsupported';
-    if (Notification.permission === 'granted') return 'granted';
-    if (Notification.permission === 'denied') return 'denied';
-    const result = await Notification.requestPermission();
-    return result;
+  const notificationsEnabled = settings.notificationsEnabled;
+
+  const clearScheduledTimeouts = useCallback(() => {
+    timeoutRefs.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    timeoutRefs.current = [];
   }, []);
 
-  // ── Dispara notificação nativa ────────────────────────────────────────────
+  const requestPermission = useCallback(async () => {
+    if (!('Notification' in window)) {
+      setSetting('notificationsEnabled', false);
+      return 'unsupported';
+    }
+
+    if (Notification.permission === 'granted') {
+      setSetting('notificationsEnabled', true);
+      syncNotificationPermission();
+      return 'granted';
+    }
+
+    if (Notification.permission === 'denied') {
+      setSetting('notificationsEnabled', false);
+      syncNotificationPermission();
+      return 'denied';
+    }
+
+    const result = await Notification.requestPermission();
+    syncNotificationPermission();
+    setSetting('notificationsEnabled', result === 'granted');
+    return result;
+  }, [setSetting, syncNotificationPermission]);
+
   const fireNative = useCallback((title, body, options = {}) => {
-    if (Notification.permission !== 'granted') return;
-    const n = new Notification(title, {
+    if (!notificationsEnabled) return null;
+    if (notificationPermission !== 'granted') return null;
+
+    const notification = new Notification(title, {
       body,
-      icon:  '/icons/icon-192x192.png',
+      icon: '/icons/icon-192x192.png',
       badge: '/icons/badge-72x72.png',
-      tag:   options.tag || 'gatedo-treatment',
+      tag: options.tag || 'gatedo-treatment',
       requireInteraction: options.urgent || false,
       ...options,
     });
-    n.onclick = () => {
+
+    notification.onclick = () => {
       window.focus();
       if (options.url) window.location.href = options.url;
-      n.close();
+      notification.close();
     };
-    return n;
-  }, []);
 
-  // ── Agenda alerta local para uma dose ─────────────────────────────────────
+    return notification;
+  }, [notificationPermission, notificationsEnabled]);
+
   const scheduleDoseAlert = useCallback((dose, catName, medTitle) => {
+    if (!notificationsEnabled) return;
+    if (notificationPermission !== 'granted') return;
+
     const scheduledAt = new Date(dose.scheduledAt).getTime();
     const now = Date.now();
     const delay = scheduledAt - now;
 
-    if (delay <= 0 || delay > 24 * 3600000) return; // só agenda próximas 24h
+    if (delay <= 0 || delay > 24 * 3600000) return;
 
-    // Alerta 10min antes
     const preDelay = delay - 10 * 60000;
     if (preDelay > 0) {
-      setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
         fireNative(
-          `💊 Dose em 10 minutos`,
-          `${medTitle} para ${catName} às ${new Date(scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+          'Dose em 10 minutos',
+          `${medTitle} para ${catName} as ${new Date(scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
           { tag: `pre-${dose.id}`, url: `/cat/${dose.schedule?.petId}/health` }
         );
       }, preDelay);
+
+      timeoutRefs.current.push(timeoutId);
     }
 
-    // Alerta na hora
-    setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       fireNative(
-        `🔔 Hora da medicação!`,
-        `Dê ${medTitle} para ${catName} agora`,
+        'Hora da medicacao!',
+        `De ${medTitle} para ${catName} agora`,
         { tag: `now-${dose.id}`, urgent: true, url: `/cat/${dose.schedule?.petId}/health` }
       );
     }, Math.max(0, delay));
-  }, [fireNative]);
 
-  // ── Polling de doses pendentes (a cada 5min) ──────────────────────────────
+    timeoutRefs.current.push(timeoutId);
+  }, [fireNative, notificationPermission, notificationsEnabled]);
+
   const pollPendingDoses = useCallback(async () => {
     if (!userId || !petId) return;
-    if (Notification.permission !== 'granted') return;
+    if (!notificationsEnabled) return;
+    if (notificationPermission !== 'granted') return;
 
     try {
       const res = await api.get(`/treatments/pending?petId=${petId}`);
       const doses = res.data || [];
 
+      clearScheduledTimeouts();
+
       doses.forEach((dose) => {
-        const catName  = dose.schedule?.pet?.name || 'seu gato';
-        const medTitle = dose.schedule?.title || 'medicação';
+        const catName = dose.schedule?.pet?.name || 'seu gato';
+        const medTitle = dose.schedule?.title || 'medicacao';
         scheduleDoseAlert(dose, catName, medTitle);
       });
     } catch {
-      // Silencioso — não trava a UI
+      // Keep notification scheduling best-effort and silent.
     }
-  }, [userId, petId, scheduleDoseAlert]);
+  }, [clearScheduledTimeouts, notificationPermission, notificationsEnabled, petId, scheduleDoseAlert, userId]);
 
-  // ── Setup: pede permissão e inicia polling ────────────────────────────────
   useEffect(() => {
-    if (!userId || !petId) return;
+    if (!userId || !petId) return undefined;
 
-    requestPermission().then((perm) => {
-      if (perm === 'granted') {
-        pollPendingDoses();
-        // Poll a cada 5 minutos
-        pollRef.current = setInterval(pollPendingDoses, 5 * 60000);
-      }
-    });
+    clearScheduledTimeouts();
+    clearInterval(pollRef.current);
+    pollRef.current = null;
 
-    return () => clearInterval(pollRef.current);
-  }, [userId, petId]);
+    if (!notificationsEnabled || notificationPermission !== 'granted') {
+      return undefined;
+    }
 
-  return { requestPermission, fireNative, scheduleDoseAlert };
+    pollPendingDoses();
+    pollRef.current = setInterval(pollPendingDoses, 5 * 60000);
+
+    return () => {
+      clearScheduledTimeouts();
+      clearInterval(pollRef.current);
+    };
+  }, [clearScheduledTimeouts, notificationPermission, notificationsEnabled, petId, pollPendingDoses, userId]);
+
+  useEffect(() => () => {
+    clearScheduledTimeouts();
+    clearInterval(pollRef.current);
+  }, [clearScheduledTimeouts]);
+
+  return {
+    requestPermission,
+    fireNative,
+    scheduleDoseAlert,
+    notificationsEnabled,
+    notificationPermission,
+  };
 }

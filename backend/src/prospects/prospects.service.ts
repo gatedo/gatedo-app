@@ -2,8 +2,8 @@ import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import axios, { AxiosError } from 'axios';
 
-const GATEWAY_URL     = process.env.GATEWAY_URL    || 'http://localhost:3002';
-const GATEWAY_SECRET  = process.env.GATEWAY_SECRET || 'change-me-in-render-env';
+const GATEWAY_URL = (process.env.GATEWAY_URL || process.env.WA_GATEWAY_URL || 'https://gatedo-wa-gateway.onrender.com').replace(/\/+$/, '');
+const GATEWAY_SECRET  = process.env.GATEWAY_SECRET || process.env.WA_GATEWAY_SECRET || 'change-me-in-render-env';
 const GATEWAY_TIMEOUT = 12000;
 
 @Injectable()
@@ -15,6 +15,29 @@ export class ProspectsService {
     return { 'x-gateway-secret': GATEWAY_SECRET };
   }
 
+  private sanitizeProspect(data: any) {
+    const tags = Array.isArray(data?.tags)
+      ? data.tags.filter(Boolean).map((item) => String(item))
+      : [];
+
+    const parsedScore = Number(data?.score ?? 0);
+
+    return {
+      phone: String(data?.phone || '').trim(),
+      name: data?.name ? String(data.name) : null,
+      note: data?.note ? String(data.note) : null,
+      status: String(data?.status || data?.column || 'pending'),
+      column: String(data?.column || data?.status || 'pending'),
+      score: Number.isFinite(parsedScore) ? parsedScore : 0,
+      tags,
+      sentAt: data?.sentAt ? new Date(data.sentAt) : null,
+      repliedAt: data?.repliedAt ? new Date(data.repliedAt) : null,
+      lastReply: data?.lastReply ? String(data.lastReply) : null,
+      lastMessageId: data?.lastMessageId ? String(data.lastMessageId) : null,
+      scriptId: data?.scriptId ? String(data.scriptId) : null,
+    };
+  }
+
   // ── Chamadas ao Gateway com erro robusto ───────────────────────────────────
   private async gGet(path: string) {
     try {
@@ -22,7 +45,7 @@ export class ProspectsService {
       return r.data;
     } catch (err) {
       const e = err as AxiosError<any>;
-      this.logger.warn({ path, err: e.message, code: e.code }, 'Gateway GET falhou');
+      this.logger.warn({ path, status: e.response?.status, err: e.message, code: e.code }, 'Gateway GET falhou');
       if (['ECONNREFUSED','ECONNRESET','ERR_NETWORK','ENOTFOUND'].includes(e.code || '')) {
         throw new HttpException({ error: 'Gateway offline', code: 'GATEWAY_OFFLINE' }, HttpStatus.SERVICE_UNAVAILABLE);
       }
@@ -39,7 +62,7 @@ export class ProspectsService {
       return r.data;
     } catch (err) {
       const e = err as AxiosError<any>;
-      this.logger.warn({ path, err: e.message, code: e.code }, 'Gateway POST falhou');
+      this.logger.warn({ path, status: e.response?.status, err: e.message, code: e.code }, 'Gateway POST falhou');
       if (['ECONNREFUSED','ECONNRESET','ERR_NETWORK','ENOTFOUND'].includes(e.code || '')) {
         throw new HttpException({ error: 'Gateway offline', code: 'GATEWAY_OFFLINE' }, HttpStatus.SERVICE_UNAVAILABLE);
       }
@@ -87,7 +110,11 @@ export class ProspectsService {
   }
 
   async upsert(data: any) {
-    const { id, ...rest } = data;
+    const id = data?.id ? String(data.id) : null;
+    const rest = this.sanitizeProspect(data);
+    if (!rest.phone) {
+      throw new HttpException({ error: 'phone obrigatorio' }, HttpStatus.BAD_REQUEST);
+    }
     if (!id) return this.prisma.prospect.create({ data: rest });
     return this.prisma.prospect.upsert({
       where:  { id },

@@ -130,7 +130,7 @@ export default function AdminPartners() {
                             <input 
                                 value={editingVet.name} 
                                 onChange={e => setEditingVet({...editingVet, name: e.target.value})}
-                                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-[#6158ca]"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-[#8B4AFF]"
                             />
                         </div>
                         <div>
@@ -138,7 +138,7 @@ export default function AdminPartners() {
                             <input 
                                 value={editingVet.clinic} 
                                 onChange={e => setEditingVet({...editingVet, clinic: e.target.value})}
-                                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-[#6158ca]"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-[#8B4AFF]"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -147,7 +147,7 @@ export default function AdminPartners() {
                                 <select 
                                     value={editingVet.status} 
                                     onChange={e => setEditingVet({...editingVet, status: e.target.value})}
-                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-[#6158ca]"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-[#8B4AFF]"
                                 >
                                     <option value="PENDING">Pendente</option>
                                     <option value="APPROVED">Verificado ✅</option>
@@ -158,7 +158,7 @@ export default function AdminPartners() {
                                 <select 
                                     value={editingVet.isPremium} 
                                     onChange={e => setEditingVet({...editingVet, isPremium: e.target.value === 'true'})}
-                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-[#6158ca]"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold text-gray-700 outline-none focus:border-[#8B4AFF]"
                                 >
                                     <option value="false">Básico</option>
                                     <option value="true">Premium 👑</option>
@@ -168,7 +168,7 @@ export default function AdminPartners() {
                         
                         <div className="pt-2 flex justify-end gap-2">
                             <button type="button" onClick={() => setEditingVet(null)} className="px-4 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100">Cancelar</button>
-                            <button type="submit" className="bg-[#6158ca] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:brightness-110 shadow-lg shadow-indigo-200">
+                            <button type="submit" className="bg-[#8B4AFF] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:brightness-110 shadow-lg shadow-indigo-200">
                                 <Save size={18} /> Salvar
                             </button>
                         </div>

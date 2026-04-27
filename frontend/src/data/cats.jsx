@@ -15,7 +15,7 @@ export const catsData = [
       
       // COR DO CARTÃO (Gradiente Roxo do Print)
       // Se o usuário personalizar, mudamos aqui.
-      cardColor: "from-[#6158ca] to-[#5b35a1]", 
+      cardColor: "from-[#8B4AFF] to-[#5b35a1]", 
 
       
       gatedoId: "RG-2024-8899",

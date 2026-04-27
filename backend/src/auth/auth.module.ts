@@ -17,7 +17,7 @@ import { AdminInviteController } from './admin-invite.controller';
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: process.env.JWT_SECRET,
-        signOptions: { expiresIn: '30d' },
+        signOptions: { expiresIn: '365d' },
       }),
     }),
   ],

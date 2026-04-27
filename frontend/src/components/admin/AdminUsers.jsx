@@ -40,7 +40,7 @@ export default function AdminUsers() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
-            <Users className="text-[#6158ca]" /> Gestão de Tutores
+            <Users className="text-[#8B4AFF]" /> Gestão de Tutores
           </h2>
           <p className="text-sm text-gray-400">Gerencie planos e selos da comunidade.</p>
         </div>
@@ -102,7 +102,7 @@ export default function AdminUsers() {
                     className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
                       user.plan === 'FOUNDER'
                         ? 'border-red-100 text-red-500 hover:bg-red-50'
-                        : 'bg-[#6158ca] text-white border-[#6158ca] hover:brightness-110 shadow-lg shadow-indigo-100'
+                        : 'bg-[#8B4AFF] text-white border-[#8B4AFF] hover:brightness-110 shadow-lg shadow-indigo-100'
                     }`}
                   >
                     {user.plan === 'FOUNDER' ? 'Remover Founder' : '👑 Tornar Fundador'}

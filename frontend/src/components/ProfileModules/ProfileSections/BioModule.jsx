@@ -1,407 +1,743 @@
-/**
- * BioModule.jsx — v3
- * ─────────────────────────────────────────────────────────────────────────────
- * Aba Bio do CatProfile. Exibe:
- *   1. Banner do Perfil Social — cor tema sólida, totalmente clicável
- *   2. Bio + personalidade (com botão editar)
- *   3. Diário Recente — últimas 3 entradas do CatDiary
- *   4. Skills RPG — grid melhorado com destaque do ponto forte + edição
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Heart, Star, Zap, Shield, Target, Smile,
-  Edit3, ChevronRight, Globe, QrCode,
-  BookOpen, Plus, Palette, Check,
+  Heart,
+  Edit3,
+  ChevronRight,
+  BookOpen,
+  QrCode,
+  Check,
+  Camera,
+  Images,
+  PawPrint,
+  MapPin,
+  Home,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import EditBioModal from './EditBioModal';
+import GalleryUploadModal from './GalleryUploadModal';
+import CatGalleryViewerModal from './CatGalleryViewerModal';
+import {
+  resolveThemeHex,
+  resolveThemeGradient,
+  CARD_GRADIENTS,
+} from '../CatIdentityCard';
+import FelineID from './FelineID';
 import api from '../../../services/api';
+import DiaryBanner from './DiaryBanner';
+import {
+  pruneSocialGallerySelection,
+  saveSocialGallerySelection,
+  toggleSocialGallerySelection,
+} from '../../../utils/socialGallerySelection';
 
-// ─── COR TEMA ─────────────────────────────────────────────────────────────────
-// Paleta rápida (mesma do EditProfileModal)
-const QUICK_COLORS = [
-  '#6158ca','#8B5CF6','#EC4899','#F97316',
-  '#F59E0B','#EF4444','#34D399','#10B981',
-  '#06B6D4','#60A5FA','#A78BFA','#F472B6',
-  '#FB923C','#4ADE80','#94A3B8','#1C1C2E',
-];
+function normalizeGalleryItems(gallery) {
+  if (!Array.isArray(gallery)) return [];
 
-const BREED_COLORS = {
-  'Persa': '#A78BFA', 'Siamês': '#60A5FA', 'Maine Coon': '#F59E0B',
-  'Ragdoll': '#EC4899', 'Bengal': '#F97316', 'Birmanês': '#8B5CF6',
-  'SRD': '#34D399', 'default': '#6158ca',
-};
-const getThemeColor = (cat) => {
-  const t = cat?.themeColor;
-  // Aceita só hex real — ignora strings de classe Tailwind antigas (bg-[...])
-  if (t && t.startsWith('#')) return t;
-  return BREED_COLORS[cat?.breed] || BREED_COLORS.default;
-};
+  return gallery
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        return {
+          id: `gallery-${index}`,
+          url: item,
+          alt: `Foto ${index + 1}`,
+          raw: item,
+        };
+      }
 
-// ─── MOOD MAP (espelha CatDiary.jsx) ─────────────────────────────────────────
-const MOOD_MAP = {
-  happy:   { emoji: '😸', label: 'Feliz',    color: '#16A34A', bg: '#F0FDF4' },
-  sleepy:  { emoji: '😴', label: 'Preguiça', color: '#2563EB', bg: '#EFF6FF' },
-  zoomies: { emoji: '⚡', label: 'Zoomies',  color: '#D97706', bg: '#FFFBEB' },
-  spicy:   { emoji: '😾', label: 'Bravo',    color: '#DC2626', bg: '#FFF5F5' },
-};
+      const url = item?.url || item?.img || item?.photoUrl || item?.imageUrl || null;
+      if (!url) return null;
 
-// ─── SKILLS ───────────────────────────────────────────────────────────────────
-const SKILL_DEFS = [
-  { id: 'skillSocial',    label: 'Social',    icon: Heart,   hex: '#FB7185', default: '80' },
-  { id: 'skillDocile',    label: 'Dócil',     icon: Smile,   hex: '#F472B6', default: '95' },
-  { id: 'skillCuriosity', label: 'Curioso',   icon: Star,    hex: '#FBBF24', default: '90' },
-  { id: 'skillIndep',     label: 'Indep.',    icon: Shield,  hex: '#FB923C', default: '60' },
-  { id: 'skillEnergy',    label: 'Energia',   icon: Zap,     hex: '#818CF8', default: '75' },
-  { id: 'skillAgility',   label: 'Agilidade', icon: Target,  hex: '#A78BFA', default: '85' },
-];
-
-function fmtDate(d) {
-  if (!d) return '';
-  try {
-    const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
-    if (diff === 0) return 'Hoje';
-    if (diff === 1) return 'Ontem';
-    if (diff < 7)  return `${diff}d atrás`;
-    return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-  } catch { return ''; }
+      return {
+        id: item?.id || `gallery-${index}`,
+        url,
+        alt: item?.alt || `Foto ${index + 1}`,
+        raw: item,
+      };
+    })
+    .filter(Boolean);
 }
 
-// ─── SKILL BAR ────────────────────────────────────────────────────────────────
-function SkillBar({ skill, cat }) {
-  const val = parseInt(cat?.[skill.id] || skill.default, 10);
+function formatGender(value) {
+  if (!value) return 'Não informado';
+
+  const v = String(value).toLowerCase();
+
+  if (['male', 'macho', 'masculino'].includes(v)) return 'Macho';
+  if (['female', 'fêmea', 'femea', 'feminino'].includes(v)) return 'Fêmea';
+
+  return value;
+}
+
+function formatArrivalType(value) {
+  if (!value) return 'Não informado';
+
+  const map = {
+    adopted: 'Adotado',
+    adoption: 'Adoção',
+    rescued: 'Resgatado',
+    rescue: 'Resgate',
+    found: 'Encontrado',
+    gift: 'Presente',
+    born_at_home: 'Nasceu em casa',
+    born_home: 'Nasceu em casa',
+    foster: 'Lar temporário',
+    bought: 'Comprado',
+    from_street: 'Veio da rua',
+  };
+
+  return map[String(value).toLowerCase()] || value;
+}
+
+function formatHousingType(value) {
+  if (!value) return 'Não informado';
+
+  const map = {
+    apartment: 'Apartamento',
+    house: 'Casa',
+    farm: 'Sítio / Chácara',
+    indoor_only: 'Ambiente interno',
+  };
+
+  return map[String(value).toLowerCase()] || value;
+}
+
+function formatHabitat(value) {
+  if (!value) return 'Não informado';
+
+  const map = {
+    indoor: 'Interno',
+    outdoor: 'Externo',
+    mixed: 'Misto',
+    sheltered: 'Abrigado',
+  };
+
+  return map[String(value).toLowerCase()] || value;
+}
+
+function isSRD(cat) {
+  const breed = String(cat?.breed || '')
+    .trim()
+    .toLowerCase();
+  return ['srd', 'sem raça definida', 'sem raca definida', 'vira-lata', 'vira lata'].includes(breed);
+}
+
+function hasAnyValue(values = []) {
+  return values.some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== undefined && value !== null && String(value).trim() !== '';
+  });
+}
+
+function SectionCard({ icon: Icon, title, subtitle, themeColor, children, action }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <skill.icon size={12} style={{ color: skill.hex }} />
-          <span className="text-[9px] font-black text-gray-500 uppercase tracking-wider">{skill.label}</span>
+    <section className="bg-white rounded-[22px] px-5 py-4 shadow-sm border border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div
+            className="w-8 h-8 rounded-[11px] flex items-center justify-center flex-shrink-0"
+            style={{ background: `${themeColor}15` }}
+          >
+            <Icon size={15} style={{ color: themeColor }} />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-black text-gray-700 uppercase tracking-[1.8px] leading-none">
+              {title}
+            </p>
+            {subtitle ? (
+              <p className="text-[9px] text-gray-400 font-bold mt-1 truncate">{subtitle}</p>
+            ) : null}
+          </div>
         </div>
-        <span className="text-[10px] font-black" style={{ color: skill.hex }}>{val}%</span>
+
+        {action || null}
       </div>
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${val}%` }}
-          transition={{ duration: 0.9, ease: 'easeOut', delay: 0.05 }}
-          className="h-full rounded-full"
-          style={{ background: `linear-gradient(90deg, ${skill.hex}80, ${skill.hex})` }}
-        />
-      </div>
+
+      {children}
+    </section>
+  );
+}
+
+function InfoGrid({ items = [] }) {
+  const validItems = items.filter(
+    (item) =>
+      item &&
+      item.value !== undefined &&
+      item.value !== null &&
+      String(item.value).trim() !== ''
+  );
+
+  if (!validItems.length) return null;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      {validItems.map((item) => (
+        <div key={item.label} className="rounded-[16px] border border-gray-100 bg-[#FAFBFF] px-3 py-3">
+          <p className="text-[8px] font-black uppercase tracking-[1.6px] text-gray-400 mb-1">
+            {item.label}
+          </p>
+          <p className="text-[12px] leading-snug font-bold text-gray-700 break-words">
+            {item.value}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
 
-// ─── DIARY CARD ───────────────────────────────────────────────────────────────
-function DiaryCard({ entry }) {
-  const mood  = MOOD_MAP[entry.type] || MOOD_MAP.happy;
-  const habits = entry.content?.match(/Checklist: (.+?)\./)?.[1] || '';
-  const note   = entry.content?.replace(/Checklist: .+?\.\n?/, '').trim();
+function ChipList({ items = [], themeColor }) {
+  const validItems = items.filter(Boolean);
+  if (!validItems.length) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
-      className="flex items-start gap-3 px-3 py-2.5 rounded-[16px] border"
-      style={{ background: mood.bg, borderColor: `${mood.color}20` }}
-    >
-      <div className="w-8 h-8 rounded-[12px] flex items-center justify-center text-base flex-shrink-0 bg-white border"
-        style={{ borderColor: `${mood.color}25` }}>
-        {mood.emoji}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-[10px] font-black" style={{ color: mood.color }}>{mood.label}</span>
-          <span className="text-[9px] text-gray-400 font-bold">{fmtDate(entry.date)}</span>
-        </div>
-        {habits && (
-          <div className="flex gap-1 flex-wrap mb-0.5">
-            {habits.split(', ').slice(0, 3).map(h => (
-              <span key={h} className="text-[7px] font-bold px-1.5 py-0.5 rounded-full bg-white/70 text-gray-500">{h}</span>
-            ))}
-          </div>
-        )}
-        {note && <p className="text-[9px] text-gray-500 font-medium leading-snug truncate">{note}</p>}
-      </div>
-    </motion.div>
+    <div className="flex flex-wrap gap-1.5">
+      {validItems.map((item) => (
+        <span
+          key={item}
+          className="text-[9px] font-black px-2.5 py-1 rounded-full"
+          style={{
+            background: `${themeColor}12`,
+            color: themeColor,
+            border: `1px solid ${themeColor}25`,
+          }}
+        >
+          {item}
+        </span>
+      ))}
+    </div>
   );
 }
 
-// ─── MAIN ─────────────────────────────────────────────────────────────────────
-export default function BioModule({ cat, refreshCat, navigate }) {
-  const themeColor                    = getThemeColor(cat);
-  const [isEditOpen, setIsEditOpen]       = useState(false);
-  const [showPicker, setShowPicker]         = useState(false);
-  const [savingColor, setSavingColor]       = useState(false);
-  const [diary, setDiary]             = useState([]);
-  const [diaryLoading, setDiaryLoading] = useState(true);
+function LongNote({ label, value }) {
+  if (!value || !String(value).trim()) return null;
+
+  return (
+    <div className="rounded-[16px] border border-gray-100 bg-[#FAFBFF] px-3.5 py-3">
+      <p className="text-[8px] font-black uppercase tracking-[1.6px] text-gray-400 mb-1.5">
+        {label}
+      </p>
+      <p className="text-[12px] leading-relaxed font-medium text-gray-600 whitespace-pre-line break-words">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+export default function BioModule({ cat, refreshCat, navigate, tutor }) {
+  const themeColor = resolveThemeHex(cat?.themeColor);
+  const gradient = resolveThemeGradient(cat?.themeColor);
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [savingColor, setSavingColor] = useState(false);
+
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
+  const [socialGalleryUrls, setSocialGalleryUrls] = useState([]);
+
+  const galleryItems = useMemo(
+    () => normalizeGalleryItems(cat?.gallery || cat?.galleryPhotos || cat?.photos || []),
+    [cat]
+  );
 
   useEffect(() => {
-    if (!cat?.id) return;
-    api.get(`/diary-entries?petId=${cat.id}&limit=3`)
-      .then(r => setDiary(Array.isArray(r.data) ? r.data.slice(0, 3) : []))
-      .catch(() => setDiary([]))
-      .finally(() => setDiaryLoading(false));
-  }, [cat?.id]);
+    if (!cat?.id) {
+      setSocialGalleryUrls([]);
+      return;
+    }
 
-  const applyColor = async (hex) => {
+    const availableUrls = galleryItems.map((item) => item.url).filter(Boolean);
+    setSocialGalleryUrls(pruneSocialGallerySelection(cat.id, availableUrls));
+  }, [cat?.id, galleryItems]);
+
+  const nicknameList = useMemo(() => {
+    if (Array.isArray(cat?.cuteNicknames)) return cat.cuteNicknames.filter(Boolean);
+
+    if (typeof cat?.cuteNicknames === 'string') {
+      return cat.cuteNicknames
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    if (typeof cat?.nicknames === 'string') {
+      return cat.nicknames
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    return [];
+  }, [cat]);
+
+  const memorialData = useMemo(() => {
+    return cat?.memorialTribute || cat?.memorial || null;
+  }, [cat]);
+
+  const applyColor = async (gradientId) => {
     setSavingColor(true);
+
     try {
-      await api.patch(`/pets/${cat.id}`, { themeColor: hex });
+      await api.patch(`/pets/${cat.id}`, { themeColor: gradientId });
       setShowPicker(false);
-      if (refreshCat) refreshCat();
-    } catch { /* silencioso */ }
-    finally { setSavingColor(false); }
+      refreshCat?.();
+    } catch {
+      // silencioso
+    } finally {
+      setSavingColor(false);
+    }
   };
 
-  // Skill com maior valor
-  const topSkill = SKILL_DEFS.reduce((best, s) => {
-    const v = parseInt(cat?.[s.id] || s.default, 10);
-    return v > parseInt(cat?.[best.id] || best.default, 10) ? s : best;
-  }, SKILL_DEFS[0]);
-  const topVal = parseInt(cat?.[topSkill.id] || topSkill.default, 10);
+  const openViewer = (index) => {
+    setViewerIndex(index);
+    setViewerOpen(true);
+  };
+
+  const handlePrev = () => {
+    setViewerIndex((prev) => (prev === 0 ? galleryItems.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setViewerIndex((prev) => (prev === galleryItems.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleDeletePhoto = async (photo) => {
+    if (!photo) return;
+
+    const confirmed = window.confirm('Deseja excluir esta foto da galeria?');
+    if (!confirmed) return;
+
+    setDeletingPhoto(true);
+
+    try {
+      const currentGalleryRaw = Array.isArray(cat?.gallery) ? cat.gallery : [];
+      const normalizedRawUrls = currentGalleryRaw
+        .map((item) =>
+          typeof item === 'string'
+            ? item
+            : item?.url || item?.img || item?.photoUrl || item?.imageUrl || null
+        )
+        .filter(Boolean);
+
+      const targetUrl = photo.url;
+      const updatedGallery = normalizedRawUrls.filter(
+        (url, i) => !(url === targetUrl && i === normalizedRawUrls.indexOf(targetUrl))
+      );
+
+      await api.patch(`/pets/${cat.id}`, { gallery: updatedGallery });
+
+      const nextSelection = socialGalleryUrls.filter((url) => url !== targetUrl);
+      saveSocialGallerySelection(cat.id, nextSelection);
+      setSocialGalleryUrls(nextSelection);
+      refreshCat?.();
+      setViewerOpen(false);
+    } catch (error) {
+      console.error('Erro ao excluir foto da galeria:', error);
+      alert('Não foi possível excluir a foto agora.');
+    } finally {
+      setDeletingPhoto(false);
+    }
+  };
+
+  const handleSharePhoto = (photo) => {
+    if (!photo?.url) return;
+
+    if (navigator.share) {
+      navigator
+        .share({
+          title: `Foto de ${cat?.name}`,
+          text: `Olha essa foto do ${cat?.name} no GATEDO 🐾`,
+          url: photo.url,
+        })
+        .catch(() => {});
+      return;
+    }
+
+    navigator.clipboard
+      .writeText(photo.url)
+      .then(() => alert('Link da foto copiado!'))
+      .catch(() => alert('Não foi possível compartilhar agora.'));
+  };
+
+  const handleToggleSocialGallery = (event, photo) => {
+    event.stopPropagation();
+    if (!cat?.id || !photo?.url) return;
+
+    const nextSelection = toggleSocialGallerySelection(cat.id, photo.url);
+    setSocialGalleryUrls(nextSelection);
+  };
+
+  const identityItems = [
+    { label: 'Nome', value: cat?.name || 'Não informado' },
+    { label: 'Raça', value: cat?.breed || 'Não informado' },
+    { label: 'Pelagem', value: isSRD(cat) ? cat?.coatType || 'Não informado' : null },
+    { label: 'Sexo', value: formatGender(cat?.gender) },
+    { label: 'Cidade de origem', value: cat?.originCity || cat?.cityOfOrigin || cat?.birthCity || null },
+    { label: 'Microchip', value: cat?.microchip ? String(cat.microchip) : 'Não informado' },
+  ];
+
+  const originHasContent = hasAnyValue([cat?.arrivalType, cat?.arrivalNotes]);
+  const environmentHasContent = hasAnyValue([cat?.habitat, cat?.housingType]);
 
   return (
     <div className="space-y-4 pb-20">
+      {/* TOPO BIO — RG DIGITAL + PAINEL PREDITIVO */}
+      <div className="space-y-4">
+        <div className="relative z-10">
+          <FelineID
+            cat={cat}
+            tutor={tutor || cat?.owner || null}
+          />
+        </div>
+      </div>
 
-      {/* ══ 0. BARRA PERSONALIZAÇÃO ═════════════════════════════════════ */}
-      <div className="flex items-center justify-between">
+      {/* 0. BARRA PERSONALIZAÇÃO */}
+      <div className="flex items-center justify-between pt-1">
         <p className="text-[9px] font-black text-gray-400 uppercase tracking-[2px]">Perfil</p>
+
         <div className="relative">
           <button
-            onClick={() => setShowPicker(s => !s)}
+            type="button"
+            onClick={() => setShowPicker((s) => !s)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black transition-all"
-            style={showPicker
-              ? { background: themeColor, color: 'white' }
-              : { background: `${themeColor}18`, color: themeColor }
+            style={
+              showPicker
+                ? { background: themeColor, color: 'white' }
+                : { background: `${themeColor}18`, color: themeColor }
             }
           >
-            <Palette size={11} />
-            Personalizar
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 3a9 9 0 1 0 9 9c0-1.09-.21-2.12-.56-3.07-.16.03-.3.07-.44.07a3 3 0 0 1 0-6c.82 0 1.56.34 2.11.88A8.97 8.97 0 0 0 12 3z" />
+            </svg>
+            <span>Personalizar</span>
           </button>
 
           <AnimatePresence>
-            {showPicker && (
+            {showPicker ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: -6 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: -6 }}
                 transition={{ duration: 0.14 }}
                 className="absolute right-0 top-10 z-50 bg-white rounded-[20px] p-4 shadow-2xl border border-gray-100"
-                style={{ width: 214 }}
+                style={{ width: 240 }}
               >
                 <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-3">
-                  Cor do perfil
+                  Cor do Cartão RG
                 </p>
-                <div className="grid grid-cols-8 gap-2 mb-2">
-                  {QUICK_COLORS.map(hex => (
-                    <button key={hex} onClick={() => applyColor(hex)} disabled={savingColor}
-                      className="w-6 h-6 rounded-full transition-all hover:scale-125 flex items-center justify-center"
-                      style={{
-                        background: hex,
-                        boxShadow: themeColor === hex ? `0 0 0 2px white, 0 0 0 3.5px ${hex}` : 'none',
-                        transform: themeColor === hex ? 'scale(1.2)' : 'scale(1)',
-                      }}>
-                      {themeColor === hex && <Check size={9} color="white" strokeWidth={3} />}
+
+                <div className="grid grid-cols-6 gap-2 mb-2">
+                  {CARD_GRADIENTS.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => applyColor(g.id)}
+                      disabled={savingColor}
+                      className="flex flex-col items-center gap-1 group"
+                      title={g.label}
+                    >
+                      <div
+                        className="w-8 h-8 rounded-[10px] transition-all flex items-center justify-center"
+                        style={{
+                          background: `linear-gradient(135deg, ${g.fromHex}, ${g.toHex})`,
+                          outline: gradient.id === g.id ? `2.5px solid ${g.fromHex}` : 'none',
+                          outlineOffset: '2px',
+                          transform: gradient.id === g.id ? 'scale(1.18)' : 'scale(1)',
+                          boxShadow: gradient.id === g.id ? `0 4px 10px ${g.fromHex}60` : 'none',
+                        }}
+                      >
+                        {gradient.id === g.id ? (
+                          <Check size={10} color="white" strokeWidth={3} />
+                        ) : null}
+                      </div>
                     </button>
                   ))}
                 </div>
+
                 <p className="text-[8px] text-gray-400 font-medium text-center">
                   {savingColor ? 'Aplicando...' : 'Toque para aplicar instantaneamente'}
                 </p>
               </motion.div>
-            )}
+            ) : null}
           </AnimatePresence>
         </div>
       </div>
+      
+<DiaryBanner
+  cat={cat}
+  themeColor={themeColor}
+  navigate={navigate}
+/>
 
-      {/* ══ 1. BANNER PERFIL SOCIAL ══════════════════════════════════════ */}
-      <motion.button
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileTap={{ scale: 0.97 }}
-        onClick={() => navigate(`/gato/${cat.id}`)}
-        className="w-full text-left rounded-[24px] overflow-hidden relative"
-        style={{
-          background: `linear-gradient(135deg, ${themeColor} 0%, ${themeColor}CC 100%)`,
-          boxShadow: `0 8px 28px ${themeColor}45`,
-        }}
+    
+
+      {/* 2. IDENTIDADE */}
+      <SectionCard
+        icon={PawPrint}
+        title="Identidade"
+        subtitle="Dados principais do perfil"
+        themeColor={themeColor}
+        action={
+          <button
+            onClick={() => setIsEditOpen(true)}
+            className="w-7 h-7 rounded-full flex items-center justify-center"
+            style={{ background: `${themeColor}15` }}
+          >
+            <Edit3 size={12} style={{ color: themeColor }} />
+          </button>
+        }
       >
-        {/* Textura pontilhada sutil */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none"
-          style={{
-            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px)',
-            backgroundSize: '18px 18px',
-          }} />
-
-        <div className="relative z-10 flex items-center gap-4 px-5 py-4">
-          {/* Foto */}
-          <div className="relative flex-shrink-0">
-            <div className="w-14 h-14 rounded-[16px] overflow-hidden border-2 border-white/40 shadow-lg">
-              <img src={cat?.photoUrl || '/placeholder-cat.png'} alt={cat?.name}
-                className="w-full h-full object-cover" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow">
-              <Globe size={10} style={{ color: themeColor }} />
-            </div>
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <p className="text-[8px] font-black uppercase tracking-widest text-white/60 mb-0.5">Perfil Social</p>
-            <p className="text-base font-black text-white leading-tight">{cat?.name}</p>
-            <p className="text-[10px] text-white/55 font-bold truncate">
-              gatedo.com/gato/{cat?.name?.toLowerCase()}
+        {!!nicknameList.length && (
+          <div className="mb-3">
+            <p className="text-[8px] font-black uppercase tracking-[1.6px] text-gray-400 mb-1.5">
+              Apelidos carinhosos
             </p>
+            <ChipList items={nicknameList} themeColor={themeColor} />
           </div>
+        )}
 
-          {/* CTA pill */}
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-white/30 bg-white/15 flex-shrink-0">
-            <span className="text-[10px] font-black text-white">Ver</span>
-            <ChevronRight size={11} className="text-white" />
-          </div>
-        </div>
+        <InfoGrid items={identityItems} />
+      </SectionCard>
 
-        {/* Strip */}
-        <div className="relative z-10 flex items-center justify-between px-5 py-2 border-t border-white/10"
-          style={{ background: 'rgba(0,0,0,0.10)' }}>
-          <span className="text-[8px] font-bold text-white/50">
-            📸 Galeria · 🏆 Conquistas · 🧠 Histórico de Saúde
-          </span>
-          <div className="flex items-center gap-1">
-            <QrCode size={9} className="text-white/50" />
-            <span className="text-[8px] font-black text-white/50">QR</span>
-          </div>
-        </div>
-      </motion.button>
+      {/* 3. ORIGEM */}
+      {originHasContent && (
+        <SectionCard
+          icon={MapPin}
+          title="Origem"
+          subtitle="Como entrou na família"
+          themeColor={themeColor}
+        >
+          <InfoGrid
+            items={[
+              { label: 'Como chegou até você', value: formatArrivalType(cat?.arrivalType) },
+            ]}
+          />
 
-      {/* ══ 2. BIO + PERSONALIDADE ════════════════════════════════════════ */}
-      {(cat?.bio || cat?.personality?.length > 0) && (
+          {cat?.arrivalNotes ? (
+            <div className="mt-3">
+              <LongNote label="História de chegada" value={cat.arrivalNotes} />
+            </div>
+          ) : null}
+        </SectionCard>
+      )}
+
+      {/* 4. AMBIENTE BASE */}
+      {environmentHasContent && (
+        <SectionCard
+          icon={Home}
+          title="Ambiente"
+          subtitle="Contexto base do lar"
+          themeColor={themeColor}
+        >
+          <InfoGrid
+            items={[
+              { label: 'Habitat', value: formatHabitat(cat?.habitat) },
+              { label: 'Tipo de moradia', value: formatHousingType(cat?.housingType) },
+            ]}
+          />
+        </SectionCard>
+      )}
+
+      {/* 5. MEMORIAL */}
+      {(cat?.isMemorial || cat?.isArchived || memorialData?.message || memorialData?.title) && (
+        <SectionCard
+          icon={Heart}
+          title="Memorial"
+          subtitle="Registro afetivo e homenagem"
+          themeColor={themeColor}
+        >
+          <InfoGrid
+            items={[
+              { label: 'Título', value: memorialData?.title || 'Em memória' },
+              {
+                label: 'Visibilidade',
+                value: memorialData?.isPublic === false ? 'Privado' : 'Público',
+              },
+            ]}
+          />
+
+          {memorialData?.message ? (
+            <div className="mt-3">
+              <LongNote label="Mensagem" value={memorialData.message} />
+            </div>
+          ) : (
+            <div className="mt-3 rounded-[16px] border border-rose-100 bg-rose-50 px-3.5 py-3">
+              <p className="text-[12px] leading-relaxed font-medium text-rose-700">
+                Este perfil guarda com carinho a memória de{' '}
+                <span className="font-black">{cat?.name}</span>.
+              </p>
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {/* 6. SOBRE */}
+      {cat?.bio && (
         <section className="bg-white rounded-[22px] px-5 py-4 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-[2px]">Sobre</p>
-            <button onClick={() => setIsEditOpen(true)}
+            <button
+              onClick={() => setIsEditOpen(true)}
               className="w-7 h-7 rounded-full flex items-center justify-center"
-              style={{ background: `${themeColor}15` }}>
+              style={{ background: `${themeColor}15` }}
+            >
               <Edit3 size={12} style={{ color: themeColor }} />
             </button>
           </div>
-          {cat?.bio && (
-            <p className="text-sm text-gray-600 leading-relaxed font-medium mb-3">"{cat.bio}"</p>
-          )}
-          {cat?.personality?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {cat.personality.map(p => (
-                <span key={p} className="text-[9px] font-black px-2.5 py-1 rounded-full"
-                  style={{ background: `${themeColor}12`, color: themeColor, border: `1px solid ${themeColor}25` }}>
-                  {p}
-                </span>
-              ))}
-            </div>
-          )}
+
+          <p className="text-sm text-gray-600 leading-relaxed font-medium">
+            "{cat.bio}"
+          </p>
         </section>
       )}
 
-      {/* ══ 3. DIÁRIO RECENTE ════════════════════════════════════════════ */}
+      {/* 7. GALERIA */}
       <section className="bg-white rounded-[22px] overflow-hidden shadow-sm border border-gray-100">
         <div className="flex items-center justify-between px-5 pt-4 pb-3">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-[10px] flex items-center justify-center"
-              style={{ background: `${themeColor}15` }}>
-              <BookOpen size={13} style={{ color: themeColor }} />
+            <div
+              className="w-7 h-7 rounded-[10px] flex items-center justify-center"
+              style={{ background: `${themeColor}15` }}
+            >
+              <Images size={13} style={{ color: themeColor }} />
             </div>
             <div>
-              <p className="text-xs font-black text-gray-700 leading-none">Diário</p>
-              <p className="text-[8px] text-gray-400 font-bold">Últimos registros</p>
+              <p className="text-xs font-black text-gray-700 leading-none">Galeria</p>
+              <p className="text-[8px] text-gray-400 font-bold">
+                {galleryItems.length}/9 fotos · {socialGalleryUrls.length} no perfil social
+              </p>
             </div>
           </div>
-          <button onClick={() => navigate(`/cat/${cat.id}/diary`)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[9px] font-black"
-            style={{ background: `${themeColor}12`, color: themeColor }}>
-            <Plus size={10} /> Novo dia
-          </button>
-        </div>
 
-        <div className="px-4 pb-4 space-y-2">
-          {diaryLoading ? (
-            <div className="py-4 flex justify-center">
-              <div className="w-5 h-5 rounded-full border-2 animate-spin"
-                style={{ borderColor: `${themeColor}30`, borderTopColor: themeColor }} />
-            </div>
-          ) : diary.length > 0 ? (
-            <>
-              {diary.map(e => <DiaryCard key={e.id} entry={e} />)}
-              <button onClick={() => navigate(`/cat/${cat.id}/diary`)}
-                className="w-full pt-2 text-center text-[9px] font-black"
-                style={{ color: themeColor }}>
-                Ver histórico completo →
-              </button>
-            </>
-          ) : (
-            <div className="py-5 flex flex-col items-center gap-2 text-center">
-              <span className="text-3xl">📔</span>
-              <p className="text-xs font-black text-gray-400">Nenhum registro ainda</p>
-              <p className="text-[9px] text-gray-300 font-medium">
-                Registre o humor e hábitos do {cat?.name} diariamente
-              </p>
-              <button onClick={() => navigate(`/cat/${cat.id}/diary`)}
-                className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-full text-[10px] font-black"
-                style={{ background: themeColor, color: 'white' }}>
-                <Plus size={12} /> Começar diário
-              </button>
-            </div>
+          {galleryItems.length < 9 && (
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black transition-all"
+              style={{ background: themeColor, color: 'white' }}
+            >
+              <Camera size={10} /> Adicionar
+            </button>
           )}
         </div>
-      </section>
 
-      {/* ══ 4. ATRIBUTOS RPG ════════════════════════════════════════════ */}
-      <section className="bg-white rounded-[22px] overflow-hidden shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between px-5 pt-4 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-[10px] flex items-center justify-center"
-              style={{ background: `${themeColor}15` }}>
-              <Star size={13} style={{ color: themeColor }} />
-            </div>
-            <div>
-              <p className="text-xs font-black text-gray-700 leading-none">Atributos</p>
-              <p className="text-[8px] text-gray-400 font-bold">Personalidade em dados</p>
-            </div>
+        {galleryItems.length === 0 ? (
+          <div className="px-5 pb-5 text-center">
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="w-full py-8 border-2 border-dashed rounded-[16px] flex flex-col items-center gap-2"
+              style={{ borderColor: `${themeColor}30`, background: `${themeColor}06` }}
+            >
+              <Camera size={22} style={{ color: themeColor }} />
+              <p className="text-xs font-black" style={{ color: themeColor }}>
+                Adicionar primeira foto
+              </p>
+              <p className="text-[9px] text-gray-400">Até 9 fotos estilo portfólio</p>
+            </button>
           </div>
-          <button onClick={() => setIsEditOpen(true)}
-            className="w-7 h-7 rounded-full flex items-center justify-center"
-            style={{ background: `${themeColor}15` }}>
-            <Edit3 size={12} style={{ color: themeColor }} />
-          </button>
-        </div>
-
-        {/* Destaque: maior skill */}
-        <div className="mx-4 mb-3 px-4 py-3 rounded-[16px] flex items-center gap-3"
-          style={{ background: `${topSkill.hex}10`, border: `1px solid ${topSkill.hex}25` }}>
-          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center flex-shrink-0"
-            style={{ background: `${topSkill.hex}18` }}>
-            <topSkill.icon size={20} style={{ color: topSkill.hex }} />
-          </div>
-          <div className="flex-1">
-            <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Ponto forte</p>
-            <p className="text-sm font-black leading-none mt-0.5" style={{ color: topSkill.hex }}>
-              {topSkill.label}
+        ) : (
+          <div className="px-4 pb-4">
+            <p className="text-[9px] font-bold text-gray-400 mb-3 px-1">
+              Marque no selo de cada foto o que deve aparecer na galeria social.
             </p>
-          </div>
-          <p className="text-2xl font-black" style={{ color: topSkill.hex }}>{topVal}%</p>
-        </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {Array.from({ length: 9 }, (_, i) => {
+                const item = galleryItems[i];
 
-        {/* Todas as skills */}
-        <div className="px-4 pb-4 space-y-3">
-          {SKILL_DEFS.map(s => <SkillBar key={s.id} skill={s} cat={cat} />)}
-        </div>
+                if (!item) {
+                  return galleryItems.length < 9 && i === galleryItems.length ? (
+                    <button
+                      key={i}
+                      onClick={() => setShowUploadModal(true)}
+                      className="aspect-square rounded-[12px] border-2 border-dashed flex flex-col items-center justify-center"
+                      style={{ borderColor: `${themeColor}30`, background: `${themeColor}06` }}
+                    >
+                      <Camera size={14} style={{ color: themeColor }} />
+                    </button>
+                  ) : (
+                    <div key={i} className="aspect-square rounded-[12px] bg-gray-50" />
+                  );
+                }
+
+                const isSelectedForSocial = socialGalleryUrls.includes(item.url);
+
+                return (
+                  <motion.div
+                    key={item.id}
+                    whileTap={{ scale: 0.98 }}
+                    className="aspect-square rounded-[12px] overflow-hidden relative group"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openViewer(i)}
+                      className="absolute inset-0"
+                    >
+                      <img src={item.url} className="w-full h-full object-cover" alt={item.alt || ''} />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-active:opacity-100 transition-opacity" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(event) => handleToggleSocialGallery(event, item)}
+                      className="absolute top-1.5 right-1.5 z-10 h-7 min-w-[58px] rounded-full px-2.5 flex items-center justify-center gap-1 text-[8px] font-black shadow-sm"
+                      style={isSelectedForSocial
+                        ? { background: themeColor, color: '#fff', border: `1px solid ${themeColor}` }
+                        : { background: 'rgba(255,255,255,0.94)', color: themeColor, border: `1px solid ${themeColor}35` }}
+                    >
+                      {isSelectedForSocial ? <Check size={11} /> : <Images size={11} />}
+                      Social
+                    </button>
+
+                    {isSelectedForSocial ? (
+                      <div
+                        className="absolute left-1.5 right-1.5 bottom-1.5 z-10 rounded-[10px] px-2 py-1 text-[8px] font-black text-center"
+                        style={{ background: 'rgba(15,12,30,0.72)', color: '#fff' }}
+                      >
+                        Na galeria social
+                      </div>
+                    ) : null}
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
 
-      {/* Modal edição */}
+      <CatGalleryViewerModal
+        isOpen={viewerOpen}
+        items={galleryItems}
+        currentIndex={viewerIndex}
+        onClose={() => setViewerOpen(false)}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onDelete={(photo, index) => handleDeletePhoto(photo, index)}
+        canDelete={!deletingPhoto}
+        showDeleteLoading={deletingPhoto}
+        accentColor={themeColor}
+        onShare={(photo) => handleSharePhoto(photo)}
+        onOpenSocialProfile={() => navigate(`/gato/${cat.id}`)}
+      />
+
+      <GalleryUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        catId={cat?.id}
+        existingCount={galleryItems.length}
+        onUploadSuccess={() => {
+          refreshCat?.();
+        }}
+      />
+
       <AnimatePresence>
         {isEditOpen && (
-          <EditBioModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)}
-            cat={cat} onSave={refreshCat} />
+          <EditBioModal
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            cat={cat}
+            onSave={refreshCat}
+          />
         )}
       </AnimatePresence>
     </div>

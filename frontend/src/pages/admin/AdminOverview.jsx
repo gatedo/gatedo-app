@@ -16,14 +16,14 @@ export default function AdminOverview() {
       try {
         const [usersRes, petsRes] = await Promise.all([
           api.get('/users'),
-          api.get('/pets')
+          api.get('/pets', { params: { scope: 'admin' } })
         ]);
 
         const users = usersRes.data || [];
         const pets = petsRes.data || [];
 
         // Filtra apenas quem entrou pelo fluxo de Fundador
-        const founders = users.filter(u => u.plan === 'FOUNDER').length;
+        const founders = users.filter(u => u.plan === 'FOUNDER_EARLY').length;
         
         // Receita estimada (ajuste conforme o valor médio das fases)
         const revenue = founders * 47.00; 
@@ -45,9 +45,9 @@ export default function AdminOverview() {
 
   // Definição das Fases de 50 usuários cada
   const phases = [
-    { name: 'Fase 1 (R$ 47)', goal: 50, color: 'bg-cyan-500' },
-    { name: 'Fase 2 (R$ 64)', goal: 50, color: 'bg-orange-500' },
-    { name: 'Fase 3 (R$ 97)', goal: 50, color: 'bg-purple-500' },
+    { name: 'Fase 1 (R$ 47)', goal: 100, color: 'bg-cyan-500' },
+    { name: 'Fase 2 (R$ 67)', goal: 100, color: 'bg-orange-500' },
+    { name: 'Fase 3 (R$ 97)', goal: 200, color: 'bg-purple-500' },
   ];
 
   if (loading) return <div className="flex h-64 items-center justify-center text-gray-400"><Loader2 className="animate-spin" /> Carregando métricas...</div>;
@@ -64,7 +64,7 @@ export default function AdminOverview() {
       {/* MONITOR DE FASES (50/50/50) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {phases.map((phase, index) => {
-          const start = index * 50;
+          const start = index === 0 ? 0 : index === 1 ? 100 : 200;
           const currentProgress = Math.min(Math.max(stats.foundersCount - start, 0), phase.goal);
           const percentage = (currentProgress / phase.goal) * 100;
 
@@ -116,6 +116,7 @@ function StatCard({ label, value, icon: Icon, color }) {
         green: "bg-green-50 text-green-600 border-green-100",
         orange: "bg-orange-50 text-orange-600 border-orange-100",
     };
+    const iconNode = Icon ? React.createElement(Icon, { size: 18 }) : null;
     return (
         <div className="bg-white p-5 rounded-[22px] border border-gray-100 flex items-center justify-between shadow-sm">
            <div>
@@ -123,7 +124,7 @@ function StatCard({ label, value, icon: Icon, color }) {
               <h3 className="text-2xl font-black text-gray-800 mt-0.5">{value}</h3>
            </div>
            <div className={`p-3 rounded-xl border ${colors[color]}`}>
-              <Icon size={18} />
+              {iconNode}
            </div>
         </div>
     );

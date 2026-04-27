@@ -19,7 +19,7 @@ export default function AdminHeader({ title, onMenuClick, searchTerm, setSearchT
 
         {/* Barra de Busca */}
         <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center gap-2 w-full md:w-80 transition-all focus-within:ring-2 ring-[#6158ca]/20">
+            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center gap-2 w-full md:w-80 transition-all focus-within:ring-2 ring-[#8B4AFF]/20">
                 <Search size={20} className="text-gray-400" />
                 <input 
                     type="text" 

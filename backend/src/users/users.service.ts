@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt'; // <--- Importante para criptografar a senha
+import { getPlanFromUser, normalizeBadges } from '../membership/membership.constants';
 
 @Injectable()
 export class UsersService {
@@ -29,13 +30,51 @@ export class UsersService {
   }
 
   async findAll() {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
-        id: true, name: true, email: true, phone: true, role: true, status: true, createdAt: true,
-        pets: true 
-      }
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        city: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        photoUrl: true,
+        plan: true,
+        planExpires: true,
+        badges: true,
+        xpt: true,
+        gatedoPoints: true,
+        level: true,
+        pets: {
+          select: {
+            id: true,
+            name: true,
+            photoUrl: true,
+          },
+        },
+        subscription: {
+          select: {
+            id: true,
+            provider: true,
+            planType: true,
+            status: true,
+            startedAt: true,
+            expiresAt: true,
+            autoRenew: true,
+            updatedAt: true,
+          },
+        },
+      },
     });
+
+    return users.map((user) => ({
+      ...user,
+      plan: getPlanFromUser(user),
+      badges: normalizeBadges(user.badges),
+    }));
   }
 
   async findOne(id: string) {

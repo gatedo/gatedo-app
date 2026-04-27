@@ -1,6 +1,11 @@
+// LEGADO:
+// a edição oficial do perfil agora acontece via EditProfileModal dentro de CatProfile.
+// manter este arquivo fora do fluxo principal até refatoração ou remoção definitiva.
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from "../services/api"; 
+import { getDateOnly } from '../utils/catAge';
 
 export default function CatEdit() { // Removi as props pet porque vamos buscar aqui
     const navigate = useNavigate();
@@ -40,8 +45,8 @@ export default function CatEdit() { // Removi as props pet porque vamos buscar a
                         nicknames: pet.nicknames || '',
                         breed: pet.breed || 'SRD',
                         gender: pet.gender || 'UNKNOWN',
-                        birthDate: pet.birthDate ? pet.birthDate.split('T')[0] : '',
-                        deathDate: pet.deathDate ? pet.deathDate.split('T')[0] : '',
+                        birthDate: getDateOnly(pet.birthDate),
+                        deathDate: getDateOnly(pet.deathDate),
                         isDateEstimated: !!pet.isDateEstimated,
                         ageYears: pet.ageYears ?? '',
                         ageMonths: pet.ageMonths ?? '',
@@ -73,8 +78,8 @@ export default function CatEdit() { // Removi as props pet porque vamos buscar a
                 ageYears: formData.ageYears !== '' ? parseInt(formData.ageYears) : null,
                 ageMonths: formData.ageMonths !== '' ? parseInt(formData.ageMonths) : null,
                 // Formata datas para o Prisma (TIMESTAMP)
-                birthDate: formData.birthDate ? new Date(formData.birthDate).toISOString() : null,
-                deathDate: formData.deathDate ? new Date(formData.deathDate).toISOString() : null,
+                birthDate: formData.birthDate || null,
+                deathDate: formData.deathDate || null,
             };
 
             await api.put(`/pets/${id}`, payload);

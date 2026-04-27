@@ -13,6 +13,9 @@ function toNullableInt(v: any): number | null {
 
 function toNullableDate(v: any): Date | null {
   if (v === null || v === undefined || v === '' || v === 'null') return null;
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return new Date(`${v}T12:00:00.000Z`);
+  }
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
 }

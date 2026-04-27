@@ -28,7 +28,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#9D8FFF] via-[#7865da] to-[#5e42c0] relative overflow-hidden flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#936cff] via-[#8b4dff] to-[#682adb] relative overflow-hidden flex items-center justify-center p-4">
 
       {/* Fundo decorativo */}
       <img
@@ -40,12 +40,12 @@ export default function ForgotPassword() {
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-[#f4f3ffef] backdrop-blur-sm w-full max-w-sm rounded-[35px] shadow-2xl relative pt-16 pb-8 px-6 mt-10 z-10"
+        className="bg-[#f4f3ffef] backdrop-blur-sm w-full max-w-sm rounded-[50px] shadow-2xl relative pt-16 pb-8 px-6 mt-10 z-10"
       >
         {/* Ícone flutuante */}
         <div className="absolute -top-12 left-1/2 -translate-x-1/2">
-          <div className="w-24 h-24 bg-[#ebfc66] rounded-full flex items-center justify-center shadow-lg border-4 border-white">
-            <img src="/assets/icone-login.png" alt="" className="w-16 h-16 object-contain" />
+          <div className="w-24 h-24 bg-[#f8f4ff83] rounded-full flex items-center justify-center shadow-lg ">
+            <img src="/assets/Gatedo_logo.webp" alt="" className="w-32 h-32 object-contain" />
           </div>
         </div>
 
@@ -84,7 +84,7 @@ export default function ForgotPassword() {
             /* ── ESTADO: FORMULÁRIO ──────────────────────────────────── */
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="text-center mb-6">
-                <img src="/logo-login.png" alt="Gatedo" className="h-8 mx-auto mb-2" />
+                <img src="/assets/logo_gatedo_full.webp" alt="Gatedo" className="h-8 mx-auto mb-2" />
                 <h1 className="text-lg font-black text-gray-800 mb-1">Esqueceu a senha?</h1>
                 <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
                   Enviaremos um link para redefinir
@@ -93,7 +93,7 @@ export default function ForgotPassword() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="bg-white rounded-xl px-4 py-3 border border-gray-100
-                                focus-within:border-[#6158ca] transition-colors flex items-center gap-3">
+                                focus-within:border-[#8B4AFF] transition-colors flex items-center gap-3">
                   <Mail size={18} className="text-gray-400" />
                   <input
                     type="email"
@@ -115,8 +115,8 @@ export default function ForgotPassword() {
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-br from-[#9D8FFF] via-[#7865da] to-[#5e42c0]
-                             text-white h-12 rounded-xl font-black shadow-lg flex items-center
+                  className="w-full bg-gradient-to-br from-[#936cff] via-[#8b4dff] to-[#682adb]
+                             text-white h-12 rounded-full font-black shadow-lg flex items-center
                              justify-center gap-2 uppercase text-sm tracking-wide disabled:opacity-70"
                 >
                   {loading ? 'Enviando...' : 'Enviar Link de Recuperação'}
@@ -126,7 +126,7 @@ export default function ForgotPassword() {
               <div className="text-center mt-5">
                 <button
                   onClick={() => navigate('/login')}
-                  className="text-xs text-gray-400 hover:text-[#6158ca] flex items-center
+                  className="text-xs text-gray-400 hover:text-[#8B4AFF] flex items-center
                              gap-1.5 mx-auto transition-colors font-bold"
                 >
                   <ArrowLeft size={13} /> Voltar para o Login
