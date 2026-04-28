@@ -113,20 +113,23 @@ export class InstagramOutreachService {
 
   async listLeads(query: any = {}) {
     await this.ensureSchema();
-    const where: any = {};
-    if (query.status && query.status !== 'all') where.status = String(query.status);
-    if (query.source && query.source !== 'all') where.source = String(query.source);
-
     const take = Math.min(Number(query.limit) || 80, 200);
-    const leads = await this.db.instagramLead.findMany({
-      where,
+    const status = query.status && query.status !== 'all' ? String(query.status) : null;
+    const source = query.source && query.source !== 'all' ? String(query.source) : null;
+
+    const leads = await this.prisma.$queryRawUnsafe<any[]>(
+      `
+        SELECT *
+        FROM "InstagramLead"
+        WHERE ($1::text IS NULL OR "status" = $1)
+          AND ($2::text IS NULL OR "source" = $2)
+        ORDER BY "updatedAt" DESC
+        LIMIT $3
+      `,
+      status,
+      source,
       take,
-      orderBy: [{ updatedAt: 'desc' }],
-      include: {
-        messages: { take: 3, orderBy: { createdAt: 'desc' } },
-        interactions: { take: 3, orderBy: { occurredAt: 'desc' } },
-      },
-    });
+    );
 
     return { data: leads.map((lead: any) => ({ ...lead, policy: this.evaluatePolicy(lead) })) };
   }
@@ -341,15 +344,22 @@ export class InstagramOutreachService {
 
   async getSummary() {
     await this.ensureSchema();
-    const [total, newCount, warm, blocked, messages] = await Promise.all([
-      this.db.instagramLead.count(),
-      this.db.instagramLead.count({ where: { status: 'new' } }),
-      this.db.instagramLead.count({ where: { status: { in: ['replied', 'interested', 'qualified'] } } }),
-      this.db.instagramMessage.count({ where: { status: 'blocked' } }),
-      this.db.instagramMessage.count({ where: { direction: 'out' } }),
-    ]);
+    const [row] = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT
+        (SELECT COUNT(*)::int FROM "InstagramLead") AS total,
+        (SELECT COUNT(*)::int FROM "InstagramLead" WHERE "status" = 'new') AS new,
+        (SELECT COUNT(*)::int FROM "InstagramLead" WHERE "status" IN ('replied', 'interested', 'qualified')) AS warm,
+        (SELECT COUNT(*)::int FROM "InstagramMessage" WHERE "status" = 'blocked') AS blocked,
+        (SELECT COUNT(*)::int FROM "InstagramMessage" WHERE "direction" = 'out') AS messages
+    `);
 
-    return { total, new: newCount, warm, blocked, messages };
+    return {
+      total: Number(row?.total || 0),
+      new: Number(row?.new || 0),
+      warm: Number(row?.warm || 0),
+      blocked: Number(row?.blocked || 0),
+      messages: Number(row?.messages || 0),
+    };
   }
 
   private evaluatePolicy(lead: any) {
