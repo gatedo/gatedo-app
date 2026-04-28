@@ -13,6 +13,10 @@ const IG_BUSINESS_ID = process.env.INSTAGRAM_BUSINESS_ID || process.env.META_IG_
 const SEND_ENABLED = String(process.env.INSTAGRAM_SEND_ENABLED || '').toLowerCase() === 'true';
 const MESSAGE_WINDOW_HOURS = Number(process.env.INSTAGRAM_MESSAGE_WINDOW_HOURS || 24);
 const PRIVATE_REPLY_DAYS = Number(process.env.INSTAGRAM_PRIVATE_REPLY_DAYS || 7);
+const IG_WEBHOOK_VERIFY_TOKEN =
+  process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN ||
+  process.env.META_IG_WEBHOOK_VERIFY_TOKEN ||
+  'gatedo_instagram_webhook';
 
 const DEFAULT_TEMPLATES = [
   {
@@ -79,9 +83,36 @@ export class InstagramOutreachService {
       requiredEnv: [
         'INSTAGRAM_ACCESS_TOKEN ou META_ACCESS_TOKEN',
         'INSTAGRAM_BUSINESS_ID ou META_IG_BUSINESS_ID',
+        'INSTAGRAM_WEBHOOK_VERIFY_TOKEN',
         'INSTAGRAM_SEND_ENABLED=true apenas depois da revisao final',
       ],
     };
+  }
+
+  verifyWebhook(mode?: string, token?: string, challenge?: string) {
+    if (mode === 'subscribe' && token === IG_WEBHOOK_VERIFY_TOKEN && challenge) {
+      return challenge;
+    }
+
+    throw new BadRequestException('Webhook Instagram invalido');
+  }
+
+  async handleWebhook(payload: any) {
+    await this.ensureSchema();
+
+    const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+    let processed = 0;
+
+    for (const entry of entries) {
+      processed += await this.processMessagingEvents(entry);
+      processed += await this.processChangeEvents(entry);
+    }
+
+    if (!processed) {
+      this.logger.log({ object: payload?.object, entries: entries.length }, 'Webhook Instagram recebido sem eventos processaveis');
+    }
+
+    return { ok: true, processed };
   }
 
   async getHealth() {
@@ -233,6 +264,103 @@ export class InstagramOutreachService {
     });
 
     return interaction;
+  }
+
+  private async processMessagingEvents(entry: any) {
+    const events = Array.isArray(entry?.messaging) ? entry.messaging : [];
+    let processed = 0;
+
+    for (const event of events) {
+      const senderId = event?.sender?.id ? String(event.sender.id) : null;
+      const messageText = event?.message?.text || event?.postback?.title || event?.postback?.payload || '';
+      const occurredAt = event?.timestamp ? new Date(Number(event.timestamp)) : new Date();
+
+      if (!senderId || !messageText) continue;
+
+      const lead = await this.upsertLead({
+        instagramUserId: senderId,
+        source: event?.postback ? 'ig_postback' : 'ig_dm',
+        status: 'replied',
+        consentStatus: 'customer_care',
+        lastInteractionAt: occurredAt,
+        conversationWindowUntil: addHours(occurredAt, MESSAGE_WINDOW_HOURS),
+      });
+
+      await this.addInteraction({
+        leadId: lead.id,
+        type: event?.postback ? 'postback' : 'dm_received',
+        source: event?.postback ? 'ig_postback' : 'ig_dm',
+        text: messageText,
+        occurredAt,
+        metadata: {
+          mid: event?.message?.mid,
+          quickReply: event?.message?.quick_reply,
+          postback: event?.postback,
+          recipient: event?.recipient,
+        },
+      });
+
+      await this.db.instagramMessage.create({
+        data: {
+          leadId: lead.id,
+          direction: 'in',
+          body: messageText,
+          metaMessageId: event?.message?.mid || null,
+          status: 'received',
+          sentAt: occurredAt,
+        },
+      });
+
+      processed += 1;
+    }
+
+    return processed;
+  }
+
+  private async processChangeEvents(entry: any) {
+    const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+    let processed = 0;
+
+    for (const change of changes) {
+      const field = String(change?.field || '');
+      const value = change?.value || {};
+
+      if (!['comments', 'mentions', 'live_comments'].includes(field)) continue;
+
+      const from = value.from || {};
+      const username = from.username || value.username || null;
+      const instagramUserId = from.id || value.user_id || null;
+      const text = value.text || value.message || '';
+      const occurredAt = value.created_time ? new Date(Number(value.created_time) * 1000) : new Date();
+
+      if (!username && !instagramUserId) continue;
+
+      const lead = await this.upsertLead({
+        username,
+        instagramUserId,
+        fullName: from.name,
+        source: `ig_${field}`,
+        status: 'new',
+        consentStatus: 'commented',
+        lastInteractionAt: occurredAt,
+      });
+
+      await this.addInteraction({
+        leadId: lead.id,
+        type: field === 'comments' ? 'comment' : field,
+        source: `ig_${field}`,
+        text,
+        occurredAt,
+        mediaId: value.media?.id || value.media_id || null,
+        commentId: value.id || value.comment_id || null,
+        permalink: value.permalink || null,
+        metadata: value,
+      });
+
+      processed += 1;
+    }
+
+    return processed;
   }
 
   async listTemplates() {
