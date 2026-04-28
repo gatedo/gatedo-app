@@ -57,6 +57,7 @@ function addDays(date: Date, days: number) {
 @Injectable()
 export class InstagramOutreachService {
   private readonly logger = new Logger(InstagramOutreachService.name);
+  private schemaReady = false;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -111,6 +112,7 @@ export class InstagramOutreachService {
   }
 
   async listLeads(query: any = {}) {
+    await this.ensureSchema();
     const where: any = {};
     if (query.status && query.status !== 'all') where.status = String(query.status);
     if (query.source && query.source !== 'all') where.source = String(query.source);
@@ -130,6 +132,7 @@ export class InstagramOutreachService {
   }
 
   async upsertLead(body: any) {
+    await this.ensureSchema();
     const username = String(body.username || '').replace(/^@/, '').trim() || null;
     const instagramUserId = body.instagramUserId ? String(body.instagramUserId) : null;
 
@@ -165,6 +168,7 @@ export class InstagramOutreachService {
   }
 
   async updateLead(id: string, body: any) {
+    await this.ensureSchema();
     return this.db.instagramLead.update({
       where: { id },
       data: {
@@ -178,6 +182,7 @@ export class InstagramOutreachService {
   }
 
   async addInteraction(body: any) {
+    await this.ensureSchema();
     if (!body.leadId && !body.username && !body.instagramUserId) {
       throw new BadRequestException('leadId, username ou instagramUserId obrigatorio');
     }
@@ -228,11 +233,13 @@ export class InstagramOutreachService {
   }
 
   async listTemplates() {
+    await this.ensureSchema();
     await this.ensureDefaultTemplates();
     return { data: await this.db.instagramTemplate.findMany({ orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }] }) };
   }
 
   async saveTemplate(body: any) {
+    await this.ensureSchema();
     if (!body.name || !body.body) throw new BadRequestException('name e body obrigatorios');
     if (body.id) {
       return this.db.instagramTemplate.update({
@@ -246,6 +253,7 @@ export class InstagramOutreachService {
   }
 
   async previewMessage(leadId: string, templateId: string) {
+    await this.ensureSchema();
     const lead = await this.db.instagramLead.findUnique({ where: { id: leadId } });
     const template = await this.db.instagramTemplate.findUnique({ where: { id: templateId } });
     if (!lead || !template) throw new BadRequestException('lead/template invalido');
@@ -253,6 +261,7 @@ export class InstagramOutreachService {
   }
 
   async sendMessage(body: any) {
+    await this.ensureSchema();
     const lead = await this.db.instagramLead.findUnique({ where: { id: String(body.leadId) } });
     if (!lead) throw new BadRequestException('lead nao encontrado');
 
@@ -331,6 +340,7 @@ export class InstagramOutreachService {
   }
 
   async getSummary() {
+    await this.ensureSchema();
     const [total, newCount, warm, blocked, messages] = await Promise.all([
       this.db.instagramLead.count(),
       this.db.instagramLead.count({ where: { status: 'new' } }),
@@ -365,6 +375,113 @@ export class InstagramOutreachService {
     await this.db.instagramTemplate.createMany({
       data: DEFAULT_TEMPLATES.map((template) => ({ ...template, active: true, isDefault: true })),
     });
+  }
+
+  private async ensureSchema() {
+    if (this.schemaReady) return;
+
+    const createTableStatements = [
+      `CREATE TABLE IF NOT EXISTS "InstagramLead" (
+        "id" TEXT NOT NULL,
+        "instagramUserId" TEXT,
+        "username" TEXT,
+        "fullName" TEXT,
+        "profileUrl" TEXT,
+        "avatarUrl" TEXT,
+        "source" TEXT NOT NULL DEFAULT 'manual',
+        "status" TEXT NOT NULL DEFAULT 'new',
+        "score" INTEGER NOT NULL DEFAULT 0,
+        "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+        "notes" TEXT,
+        "consentStatus" TEXT NOT NULL DEFAULT 'unknown',
+        "lastInteractionAt" TIMESTAMP(3),
+        "conversationWindowUntil" TIMESTAMP(3),
+        "lastMessageAt" TIMESTAMP(3),
+        "lastReplyAt" TIMESTAMP(3),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "InstagramLead_pkey" PRIMARY KEY ("id")
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS "InstagramInteraction" (
+        "id" TEXT NOT NULL,
+        "leadId" TEXT NOT NULL,
+        "type" TEXT NOT NULL,
+        "mediaId" TEXT,
+        "commentId" TEXT,
+        "permalink" TEXT,
+        "text" TEXT,
+        "occurredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "privateReplyUntil" TIMESTAMP(3),
+        "metadata" JSONB,
+        CONSTRAINT "InstagramInteraction_pkey" PRIMARY KEY ("id")
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS "InstagramMessage" (
+        "id" TEXT NOT NULL,
+        "leadId" TEXT NOT NULL,
+        "direction" TEXT NOT NULL,
+        "body" TEXT NOT NULL,
+        "templateId" TEXT,
+        "metaMessageId" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'draft',
+        "blockedReason" TEXT,
+        "sentAt" TIMESTAMP(3),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "InstagramMessage_pkey" PRIMARY KEY ("id")
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS "InstagramTemplate" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "category" TEXT NOT NULL DEFAULT 'outreach',
+        "body" TEXT NOT NULL,
+        "active" BOOLEAN NOT NULL DEFAULT true,
+        "isDefault" BOOLEAN NOT NULL DEFAULT false,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "InstagramTemplate_pkey" PRIMARY KEY ("id")
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS "InstagramComplianceLog" (
+        "id" TEXT NOT NULL,
+        "action" TEXT NOT NULL,
+        "leadId" TEXT,
+        "allowed" BOOLEAN NOT NULL,
+        "reason" TEXT,
+        "metadata" JSONB,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "InstagramComplianceLog_pkey" PRIMARY KEY ("id")
+      )`,
+    ];
+
+    for (const statement of createTableStatements) {
+      await this.prisma.$executeRawUnsafe(statement);
+    }
+
+    const statements = [
+      'CREATE UNIQUE INDEX IF NOT EXISTS "InstagramLead_instagramUserId_key" ON "InstagramLead"("instagramUserId")',
+      'CREATE INDEX IF NOT EXISTS "InstagramLead_status_idx" ON "InstagramLead"("status")',
+      'CREATE INDEX IF NOT EXISTS "InstagramLead_source_idx" ON "InstagramLead"("source")',
+      'CREATE INDEX IF NOT EXISTS "InstagramLead_username_idx" ON "InstagramLead"("username")',
+      'CREATE INDEX IF NOT EXISTS "InstagramLead_lastInteractionAt_idx" ON "InstagramLead"("lastInteractionAt")',
+      'CREATE INDEX IF NOT EXISTS "InstagramInteraction_leadId_idx" ON "InstagramInteraction"("leadId")',
+      'CREATE INDEX IF NOT EXISTS "InstagramInteraction_type_idx" ON "InstagramInteraction"("type")',
+      'CREATE INDEX IF NOT EXISTS "InstagramInteraction_occurredAt_idx" ON "InstagramInteraction"("occurredAt")',
+      'CREATE INDEX IF NOT EXISTS "InstagramMessage_leadId_idx" ON "InstagramMessage"("leadId")',
+      'CREATE INDEX IF NOT EXISTS "InstagramMessage_status_idx" ON "InstagramMessage"("status")',
+      'CREATE INDEX IF NOT EXISTS "InstagramTemplate_active_idx" ON "InstagramTemplate"("active")',
+      'CREATE INDEX IF NOT EXISTS "InstagramTemplate_category_idx" ON "InstagramTemplate"("category")',
+      'CREATE INDEX IF NOT EXISTS "InstagramComplianceLog_leadId_idx" ON "InstagramComplianceLog"("leadId")',
+      'CREATE INDEX IF NOT EXISTS "InstagramComplianceLog_action_idx" ON "InstagramComplianceLog"("action")',
+      'CREATE INDEX IF NOT EXISTS "InstagramComplianceLog_createdAt_idx" ON "InstagramComplianceLog"("createdAt")',
+    ];
+
+    for (const statement of statements) {
+      await this.prisma.$executeRawUnsafe(statement);
+    }
+
+    this.schemaReady = true;
   }
 
   private async logCompliance(action: string, leadId: string | null, allowed: boolean, reason: string, metadata?: any) {
