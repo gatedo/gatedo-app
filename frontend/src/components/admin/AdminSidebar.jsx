@@ -14,7 +14,8 @@ import {
   ChevronRight,
   Megaphone,
   UserSearch,
-  BarChart3
+  BarChart3,
+  Instagram
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,6 +39,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isOpen, onClose 
     { id: 'store', label: 'Loja & Afiliados', icon: ShoppingBag },
     { id: 'prospects', label: 'Prospecção', icon: UserSearch },
     { id: 'meta-ads', label: 'Meta Ads', icon: BarChart3 },
+    { id: 'instagram-outreach', label: 'Instagram', icon: Instagram },
     { id: 'financial', label: 'Financeiro', icon: TrendingUp },
     { id: 'settings', label: 'Configurações', icon: Settings },
   ];

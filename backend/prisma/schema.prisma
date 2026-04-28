@@ -782,6 +782,97 @@ model ProspectMessage {
   @@index([prospectId])
 }
 
+model InstagramLead {
+  id                       String                     @id @default(cuid())
+  instagramUserId          String?                    @unique
+  username                 String?
+  fullName                 String?
+  profileUrl               String?
+  avatarUrl                String?
+  source                   String                     @default("manual")
+  status                   String                     @default("new")
+  score                    Int                        @default(0)
+  tags                     String[]                   @default([])
+  notes                    String?
+  consentStatus            String                     @default("unknown")
+  lastInteractionAt        DateTime?
+  conversationWindowUntil  DateTime?
+  lastMessageAt            DateTime?
+  lastReplyAt              DateTime?
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  interactions             InstagramInteraction[]
+  messages                 InstagramMessage[]
+
+  @@index([status])
+  @@index([source])
+  @@index([username])
+  @@index([lastInteractionAt])
+}
+
+model InstagramInteraction {
+  id                String        @id @default(cuid())
+  leadId            String
+  type              String
+  mediaId           String?
+  commentId         String?
+  permalink         String?
+  text              String?
+  occurredAt        DateTime      @default(now())
+  privateReplyUntil DateTime?
+  metadata          Json?
+  lead              InstagramLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([type])
+  @@index([occurredAt])
+}
+
+model InstagramMessage {
+  id             String        @id @default(cuid())
+  leadId         String
+  direction      String
+  body           String
+  templateId     String?
+  metaMessageId  String?
+  status         String        @default("draft")
+  blockedReason  String?
+  sentAt         DateTime?
+  createdAt      DateTime      @default(now())
+  lead           InstagramLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([status])
+}
+
+model InstagramTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  category    String   @default("outreach")
+  body        String
+  active      Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active])
+  @@index([category])
+}
+
+model InstagramComplianceLog {
+  id        String   @id @default(cuid())
+  action    String
+  leadId    String?
+  allowed   Boolean
+  reason    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([action])
+  @@index([createdAt])
+}
+
 enum Role {
   USER
   ADMIN

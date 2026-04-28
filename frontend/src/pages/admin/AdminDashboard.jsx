@@ -10,6 +10,7 @@ import AdminStore from './AdminStore';
 import AdminFinancial from './AdminFinancial';
 import AdminProspects from './AdminProspects';
 import AdminMetaAds from './AdminMetaAds';
+import AdminInstagramOutreach from './AdminInstagramOutreach';
 
 import AdminLinkGenerator from '../../components/admin/AdminLinkGenerator';
 import AdminFasesControl from '../../components/admin/AdminFasesControl';
@@ -56,6 +57,9 @@ export default function AdminDashboard() {
 
       case 'meta-ads':
         return <AdminMetaAds />;
+
+      case 'instagram-outreach':
+        return <AdminInstagramOutreach />;
 
       default:
         return <AdminOverview />;
