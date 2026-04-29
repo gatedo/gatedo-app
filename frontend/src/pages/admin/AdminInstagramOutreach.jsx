@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  Copy,
+  ExternalLink,
   Instagram,
   MessageCircle,
   Plus,
@@ -65,6 +67,18 @@ function Stat({ label, value, icon: Icon, color }) {
 function formatDate(value) {
   if (!value) return 'Sem janela ativa';
   return new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function leadLabel(lead) {
+  if (!lead) return 'Lead';
+  return lead.username ? `@${lead.username}` : `ID ${lead.instagramUserId || lead.id}`;
+}
+
+function leadSubLabel(lead) {
+  if (!lead) return '';
+  if (lead.fullName) return lead.fullName;
+  if (lead.username) return lead.source;
+  return 'A Meta ainda nao retornou o @usuario para este lead';
 }
 
 export default function AdminInstagramOutreach() {
@@ -164,6 +178,18 @@ export default function AdminInstagramOutreach() {
     }
   };
 
+  const copyPreview = async () => {
+    if (!preview?.text) return;
+    await navigator.clipboard.writeText(preview.text);
+    setNotice({ type: 'success', text: 'Mensagem copiada. Cole no Direct do Instagram se estiver operando em modo manual.' });
+  };
+
+  const openInstagram = () => {
+    if (!selectedLead?.username && !selectedLead?.profileUrl) return;
+    const url = selectedLead.profileUrl || `https://instagram.com/${selectedLead.username}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -240,8 +266,8 @@ export default function AdminInstagramOutreach() {
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <p className="font-black text-slate-950">@{lead.username || lead.instagramUserId || 'lead'}</p>
-                      <p className="text-xs font-bold text-slate-400">{lead.fullName || lead.source}</p>
+                      <p className="font-black text-slate-950">{leadLabel(lead)}</p>
+                      <p className="text-xs font-bold text-slate-400">{leadSubLabel(lead)}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${status[1]}`}>{status[0]}</span>
@@ -249,6 +275,11 @@ export default function AdminInstagramOutreach() {
                     </div>
                   </div>
                   <p className="mt-3 text-xs font-semibold text-slate-500">{lead.policy?.reason}</p>
+                  {lead.messages?.[0]?.body && (
+                    <p className="mt-2 line-clamp-2 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600">
+                      Ultima mensagem: {lead.messages[0].body}
+                    </p>
+                  )}
                   <p className="mt-1 text-[11px] font-bold text-slate-400">Janela ate: {formatDate(lead.conversationWindowUntil)}</p>
                 </button>
               );
@@ -258,6 +289,54 @@ export default function AdminInstagramOutreach() {
         </Card>
 
         <div className="space-y-6">
+          <Card>
+            <h2 className="text-lg font-black text-slate-950">Lead selecionado</h2>
+            {selectedLead ? (
+              <div className="mt-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  {selectedLead.avatarUrl ? (
+                    <img src={selectedLead.avatarUrl} alt="" className="h-12 w-12 rounded-2xl object-cover" />
+                  ) : (
+                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-50 text-violet-600">
+                      <Instagram size={22} />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-black text-slate-950">{leadLabel(selectedLead)}</p>
+                    <p className="text-xs font-bold text-slate-400">{leadSubLabel(selectedLead)}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={openInstagram}
+                    disabled={!selectedLead.username && !selectedLead.profileUrl}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-3 py-3 text-xs font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ExternalLink size={14} /> Abrir perfil
+                  </button>
+                  <Badge color={selectedLead.policy?.allowed ? 'green' : 'amber'}>
+                    {selectedLead.policy?.allowed ? 'Pode responder' : 'Manual/campanha'}
+                  </Badge>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-3">
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Historico recente</p>
+                  <div className="space-y-2">
+                    {(selectedLead.messages || []).slice(0, 3).map((message) => (
+                      <div key={message.id} className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+                        <span className="font-black text-violet-600">{message.direction === 'in' ? 'Lead' : 'Gatedo'}:</span> {message.body}
+                      </div>
+                    ))}
+                    {!(selectedLead.messages || []).length && (
+                      <p className="text-xs font-semibold text-slate-400">Sem mensagens salvas ainda. Novas DMs reais entram aqui via webhook.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm font-bold text-slate-500">Selecione um lead para operar.</p>
+            )}
+          </Card>
+
           <Card>
             <h2 className="text-lg font-black text-slate-950">Adicionar lead seguro</h2>
             <form onSubmit={createLead} className="mt-4 space-y-3">
@@ -274,7 +353,7 @@ export default function AdminInstagramOutreach() {
             <h2 className="text-lg font-black text-slate-950">Mensagem assistida</h2>
             <div className="mt-4 space-y-3">
               <select value={selectedLeadId} onChange={(e) => setSelectedLeadId(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none">
-                {leads.map((lead) => <option key={lead.id} value={lead.id}>@{lead.username || lead.instagramUserId}</option>)}
+                {leads.map((lead) => <option key={lead.id} value={lead.id}>{leadLabel(lead)}</option>)}
               </select>
               <select value={selectedTemplateId} onChange={(e) => setSelectedTemplateId(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none">
                 {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
@@ -294,7 +373,12 @@ export default function AdminInstagramOutreach() {
                     {preview.policy?.allowed ? <ShieldCheck size={14} /> : <AlertTriangle size={14} />} Previa
                   </div>
                   <p className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-slate-700">{preview.text}</p>
-                  <Badge color={preview.policy?.allowed ? 'green' : 'amber'}>{preview.policy?.reason}</Badge>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Badge color={preview.policy?.allowed ? 'green' : 'amber'}>{preview.policy?.reason}</Badge>
+                    <button onClick={copyPreview} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[11px] font-black text-slate-600 shadow-sm">
+                      <Copy size={12} /> Copiar
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

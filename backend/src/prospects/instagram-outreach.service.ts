@@ -150,11 +150,34 @@ export class InstagramOutreachService {
 
     const leads = await this.prisma.$queryRawUnsafe<any[]>(
       `
-        SELECT *
-        FROM "InstagramLead"
+        SELECT
+          lead.*,
+          COALESCE(messages.messages, '[]'::json) AS messages,
+          COALESCE(interactions.interactions, '[]'::json) AS interactions
+        FROM "InstagramLead" lead
+        LEFT JOIN LATERAL (
+          SELECT json_agg(row_to_json(msg_row)) AS messages
+          FROM (
+            SELECT "id", "direction", "body", "status", "sentAt", "createdAt"
+            FROM "InstagramMessage"
+            WHERE "leadId" = lead."id"
+            ORDER BY "createdAt" DESC
+            LIMIT 5
+          ) msg_row
+        ) messages ON true
+        LEFT JOIN LATERAL (
+          SELECT json_agg(row_to_json(interaction_row)) AS interactions
+          FROM (
+            SELECT "id", "type", "text", "occurredAt", "permalink"
+            FROM "InstagramInteraction"
+            WHERE "leadId" = lead."id"
+            ORDER BY "occurredAt" DESC
+            LIMIT 5
+          ) interaction_row
+        ) interactions ON true
         WHERE ($1::text IS NULL OR "status" = $1)
           AND ($2::text IS NULL OR "source" = $2)
-        ORDER BY "updatedAt" DESC
+        ORDER BY lead."updatedAt" DESC
         LIMIT $3
       `,
       status,
@@ -277,8 +300,12 @@ export class InstagramOutreachService {
 
       if (!senderId || !messageText) continue;
 
+      const profile = await this.fetchInstagramProfile(senderId);
       const lead = await this.upsertLead({
         instagramUserId: senderId,
+        username: profile?.username,
+        fullName: profile?.name,
+        avatarUrl: profile?.profile_pic || profile?.profile_picture_url,
         source: event?.postback ? 'ig_postback' : 'ig_dm',
         status: 'replied',
         consentStatus: 'customer_care',
@@ -361,6 +388,28 @@ export class InstagramOutreachService {
     }
 
     return processed;
+  }
+
+  private async fetchInstagramProfile(userId: string) {
+    if (!IG_ACCESS_TOKEN) return null;
+
+    try {
+      const response = await axios.get(`${GRAPH_URL}/${userId}`, {
+        timeout: 8000,
+        params: {
+          fields: 'id,username,name,profile_pic,profile_picture_url',
+          access_token: IG_ACCESS_TOKEN,
+        },
+      });
+      return response.data;
+    } catch (err) {
+      const e = err as AxiosError<any>;
+      this.logger.warn(
+        { status: e.response?.status, userId, message: e.response?.data?.error?.message || e.message },
+        'Nao foi possivel enriquecer perfil Instagram',
+      );
+      return null;
+    }
   }
 
   async listTemplates() {
