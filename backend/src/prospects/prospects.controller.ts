@@ -68,6 +68,16 @@ export class ProspectsController {
     }
     return this.svc.sendBatch(messages);
   }
+
+  @Get('wa-bot')
+  getWaBot() {
+    return this.svc.getBotSettings();
+  }
+
+  @Post('wa-bot')
+  updateWaBot(@Body() body: any) {
+    return this.svc.updateBotSettings(body);
+  }
 }
 
 // ─── Webhooks ───────────────────────────────────────────────────────────────
@@ -96,6 +106,9 @@ export class WebhooksController {
     assertSecret(s);
     await this.svc.updateStatusByPhone(b.phone, 'replied', { lastReply: b.message, repliedAt: new Date(b.timestamp * 1000) });
     await this.svc.saveIncomingMessage(b);
+    await this.svc.handleAutoReply(b).catch((err) => {
+      this.logger.warn({ err: err?.message, phone: b.phone }, 'WA bot nao respondeu');
+    });
     return { ok: true };
   }
 

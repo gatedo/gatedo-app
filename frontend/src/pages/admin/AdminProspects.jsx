@@ -51,6 +51,7 @@ const KANBAN_COLS   = ['waiting','pending','sent','replied','interested','accept
 const QUEUE_COLS    = ['waiting','pending']; // colunas da fila de disparo
 const LS_KEY        = 'gatedo_prospects_v4';
 const LS_TMPL_KEY   = 'gatedo_templates_v4';
+const LS_STATUS_COLORS_KEY = 'gatedo_status_colors_v1';
 
 // ─── DEFAULT TEMPLATES ────────────────────────────────────────────────────────
 const DEFAULT_TEMPLATES = [
@@ -182,12 +183,50 @@ function saveTemplatesLocal(t) {
   try { localStorage.setItem(LS_TMPL_KEY, JSON.stringify(t)); } catch {}
 }
 
+function loadStatusColorsLocal() {
+  try { return JSON.parse(localStorage.getItem(LS_STATUS_COLORS_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveStatusColorsLocal(colors) {
+  try { localStorage.setItem(LS_STATUS_COLORS_KEY, JSON.stringify(colors)); } catch {}
+}
+
+function applyStatusCustomColors(statusMap, colors) {
+  const next = {};
+  Object.entries(statusMap).forEach(([key, cfg]) => {
+    const color = colors?.[key];
+    next[key] = color
+      ? {
+          ...cfg,
+          customColor: color,
+          bg: '',
+          border: '',
+          badge: '',
+          color: '',
+        }
+      : cfg;
+  });
+  return next;
+}
+
+function statusStyle(cfg, alpha = '14') {
+  if (!cfg?.customColor) return {};
+  return {
+    backgroundColor: `${cfg.customColor}${alpha}`,
+    borderColor: `${cfg.customColor}35`,
+    color: cfg.customColor,
+  };
+}
+
 // ─── STATUS BADGE ─────────────────────────────────────────────────────────────
-function StatusBadge({ status, size = 'sm' }) {
-  const cfg = LEAD_STATUS[status] || LEAD_STATUS.pending;
+function StatusBadge({ status, size = 'sm', statusMap = LEAD_STATUS }) {
+  const cfg = statusMap[status] || statusMap.pending;
   const Icon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1 font-black rounded-full border ${cfg.badge} ${cfg.border} ${size === 'xs' ? 'text-[8px] px-1.5 py-0.5' : 'text-[9px] px-2 py-0.5'}`}>
+    <span
+      className={`inline-flex items-center gap-1 font-black rounded-full border ${cfg.badge} ${cfg.border} ${cfg.color} ${size === 'xs' ? 'text-[8px] px-1.5 py-0.5' : 'text-[9px] px-2 py-0.5'}`}
+      style={statusStyle(cfg)}
+    >
       <Icon size={size === 'xs' ? 8 : 9} /> {cfg.label}
     </span>
   );
@@ -338,7 +377,7 @@ function TemplateManager({ templates, onSave, onClose }) {
   };
 
   const addNew = () => {
-    const t = { id: `tmpl_${Date.now()}`, name: 'Novo template', category: '', color: C.purple, imageUrl: '', message: '' };
+    const t = { id: `tmpl_${Date.now()}`, name: 'Novo template', category: '', color: C.purple, labelColor: C.purple, bubbleColor: '#ffffff', imageUrl: '', message: '' };
     const updated = [...list, t];
     setList(updated);
     setActive(t);
@@ -418,6 +457,24 @@ function TemplateManager({ templates, onSave, onClose }) {
               </div>
             </div>
 
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Cor do template</label>
+                <input type="color" value={form.color || C.purple} onChange={f('color')}
+                  className="w-full h-10 bg-gray-50 border border-gray-200 rounded-xl px-2 py-1" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Identificacao</label>
+                <input type="color" value={form.labelColor || form.color || C.purple} onChange={f('labelColor')}
+                  className="w-full h-10 bg-gray-50 border border-gray-200 rounded-xl px-2 py-1" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Balao preview</label>
+                <input type="color" value={form.bubbleColor || '#ffffff'} onChange={f('bubbleColor')}
+                  className="w-full h-10 bg-gray-50 border border-gray-200 rounded-xl px-2 py-1" />
+              </div>
+            </div>
+
             {/* Link com preview rico */}
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">
@@ -478,7 +535,7 @@ function TemplateManager({ templates, onSave, onClose }) {
                   <img src={form.imageUrl} alt="" className="w-full max-h-32 object-cover" onError={e => e.target.style.display='none'} />
                 </div>
               )}
-              <div className="bg-white rounded-[14px] rounded-tl-sm px-4 py-3 shadow-sm">
+              <div className="rounded-[14px] rounded-tl-sm px-4 py-3 shadow-sm" style={{ background: form.bubbleColor || '#ffffff', borderLeft: `4px solid ${form.labelColor || form.color || C.purple}` }}>
                 <p className="text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap">
                   {form.message || <span className="text-gray-300 italic">Mensagem aparece aqui...</span>}
                 </p>
@@ -509,12 +566,191 @@ function TemplateManager({ templates, onSave, onClose }) {
   );
 }
 
+function AutomationSettingsModal({ onClose, botSettings, onSaveBot, statusColors, onSaveStatusColors, statusMap }) {
+  const [bot, setBot] = useState(() => botSettings || {});
+  const [colors, setColors] = useState(() => statusColors || {});
+  const [saving, setSaving] = useState(false);
+
+  const updateRule = (index, fields) => {
+    setBot((current) => ({
+      ...current,
+      rules: (current.rules || []).map((rule, i) => (i === index ? { ...rule, ...fields } : rule)),
+    }));
+  };
+
+  const addRule = () => {
+    setBot((current) => ({
+      ...current,
+      rules: [
+        ...(current.rules || []),
+        {
+          id: `custom_${Date.now()}`,
+          label: 'Nova regra',
+          enabled: true,
+          keywords: ['gatedo'],
+          response: 'Oi! Recebemos sua mensagem. Em breve te respondemos por aqui.',
+        },
+      ],
+    }));
+  };
+
+  const removeRule = (index) => {
+    setBot((current) => ({
+      ...current,
+      rules: (current.rules || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onSaveBot(bot);
+      onSaveStatusColors(colors);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bot size={18} style={{ color: C.purple }} />
+            <div>
+              <h3 className="font-black text-gray-800">Automacao WhatsApp</h3>
+              <p className="text-[10px] font-bold text-gray-400">Bot opcional com respostas por palavra-chave.</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl"><X size={16} /></button>
+        </div>
+
+        <div className="p-6 overflow-y-auto space-y-6">
+          <div className="grid gap-4 md:grid-cols-[1.1fr_.9fr]">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-black text-emerald-800">Bot de resposta automatizada</p>
+                  <p className="text-xs font-semibold text-emerald-700 mt-1">
+                    Quando ligado, responde mensagens recebidas pelo gateway conforme as regras abaixo.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBot((current) => ({ ...current, enabled: !current.enabled }))}
+                  className={`relative w-14 h-8 rounded-full transition-all ${bot.enabled ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-all ${bot.enabled ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+              <label className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(bot.fallbackEnabled)}
+                  onChange={(e) => setBot((current) => ({ ...current, fallbackEnabled: e.target.checked }))}
+                />
+                Responder com fallback quando nenhuma regra combinar
+              </label>
+              <textarea
+                value={bot.fallbackText || ''}
+                onChange={(e) => setBot((current) => ({ ...current, fallbackText: e.target.value }))}
+                rows={3}
+                className="mt-3 w-full rounded-xl border border-emerald-100 bg-white px-3 py-2 text-xs font-semibold outline-none"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <p className="text-sm font-black text-amber-800">Uso coerente</p>
+              <p className="text-xs font-semibold text-amber-700 mt-2 leading-relaxed">
+                Use o bot para acolher, qualificar e orientar. Evite promessas, diagnosticos ou disparos frios. O gateway so responde quem chamou primeiro.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-black text-gray-800">Regras de resposta</h4>
+              <button onClick={addRule} className="px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-600 text-[10px] font-black flex items-center gap-1">
+                <Plus size={11} /> Nova regra
+              </button>
+            </div>
+            <div className="space-y-3">
+              {(bot.rules || []).map((rule, index) => (
+                <div key={rule.id || index} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_auto]">
+                    <input
+                      value={rule.label || ''}
+                      onChange={(e) => updateRule(index, { label: e.target.value })}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold outline-none"
+                      placeholder="Nome da regra"
+                    />
+                    <input
+                      value={(rule.keywords || []).join(', ')}
+                      onChange={(e) => updateRule(index, { keywords: e.target.value.split(',').map((item) => item.trim()).filter(Boolean) })}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold outline-none"
+                      placeholder="palavras, separadas, por virgula"
+                    />
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1 text-[10px] font-black text-gray-500">
+                        <input type="checkbox" checked={Boolean(rule.enabled)} onChange={(e) => updateRule(index, { enabled: e.target.checked })} />
+                        Ativa
+                      </label>
+                      <button onClick={() => removeRule(index)} className="p-2 text-red-300 hover:text-red-500"><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                  <textarea
+                    value={rule.response || ''}
+                    onChange={(e) => updateRule(index, { response: e.target.value })}
+                    rows={3}
+                    className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold outline-none"
+                    placeholder="Resposta automatizada"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-black text-gray-800 mb-3">Cores dos status</h4>
+            <div className="grid gap-2 md:grid-cols-4">
+              {KANBAN_COLS.map((status) => {
+                const cfg = statusMap[status] || LEAD_STATUS[status];
+                return (
+                  <div key={status} className="rounded-2xl border border-gray-100 p-3">
+                    <p className="text-[10px] font-black text-gray-500 mb-2">{cfg.label}</p>
+                    <input
+                      type="color"
+                      value={colors[status] || cfg.customColor || '#8B4AFF'}
+                      onChange={(e) => setColors((current) => ({ ...current, [status]: e.target.value }))}
+                      className="h-9 w-full rounded-xl border border-gray-200"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-100 p-4">
+          <button onClick={save} disabled={saving}
+            className="w-full py-3 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2"
+            style={{ background: `linear-gradient(135deg,${C.purple},#5046b0)` }}>
+            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+            Salvar automacao
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── CONTACT CARD ─────────────────────────────────────────────────────────────
-function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail, waConnected }) {
+function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail, waConnected, statusMap = LEAD_STATUS }) {
   const [menuOpen,    setMenuOpen]    = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneVal,    setPhoneVal]    = useState(contact.phone);
-  const cfg = LEAD_STATUS[contact.column] || LEAD_STATUS.pending;
+  const cfg = statusMap[contact.column] || statusMap.pending;
   const Icon = cfg.icon;
   const ddd = contact.phone.match(/\+55\s?(\d{2})/)?.[1] ?? contact.phone.slice(-4,-2);
 
@@ -587,11 +823,12 @@ function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail
           <p className="text-[8px] font-black text-gray-300 uppercase tracking-wider mb-1.5">Mover para</p>
           <div className="flex flex-wrap gap-1">
             {KANBAN_COLS.filter(c => c !== contact.column).map(col => {
-              const s = LEAD_STATUS[col];
+              const s = statusMap[col] || LEAD_STATUS[col];
               const Icon2 = s.icon;
               return (
                 <button key={col} onClick={() => { onMove(contact.id, col); setMenuOpen(false); }}
-                  className={`text-[8px] font-black px-2 py-1 rounded-lg border flex items-center gap-1 ${s.bg} ${s.color} ${s.border} hover:opacity-80`}>
+                  className={`text-[8px] font-black px-2 py-1 rounded-lg border flex items-center gap-1 ${s.bg} ${s.color} ${s.border} hover:opacity-80`}
+                  style={statusStyle(s)}>
                   <Icon2 size={8} /> {s.label}
                 </button>
               );
@@ -608,20 +845,22 @@ function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail
 }
 
 // ─── KANBAN COLUMN ────────────────────────────────────────────────────────────
-function KanbanColumn({ colId, contacts, onMove, onEdit, onDelete, onSendWA, onOpenDetail, waConnected }) {
+function KanbanColumn({ colId, contacts, onMove, onEdit, onDelete, onSendWA, onOpenDetail, waConnected, statusMap = LEAD_STATUS }) {
   const [over, setOver] = useState(false);
-  const cfg  = LEAD_STATUS[colId];
+  const cfg  = statusMap[colId] || LEAD_STATUS[colId];
   const Icon = cfg.icon;
 
   return (
-    <div className={`flex flex-col min-w-[210px] max-w-[230px] rounded-2xl border-2 transition-all ${cfg.border} ${over ? 'ring-2 ring-purple-300' : ''}`}
+    <div
+      className={`flex flex-col min-w-[210px] max-w-[230px] rounded-2xl border-2 transition-all ${cfg.border} ${over ? 'ring-2 ring-purple-300' : ''}`}
+      style={statusStyle(cfg, '08')}
       onDragOver={e => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={e => { e.preventDefault(); setOver(false); const id = e.dataTransfer.getData('contactId'); if (id) onMove(id, colId); }}>
-      <div className={`${cfg.bg} rounded-t-2xl px-3 py-2.5 flex items-center gap-2 border-b ${cfg.border}`}>
+      <div className={`${cfg.bg} rounded-t-2xl px-3 py-2.5 flex items-center gap-2 border-b ${cfg.border}`} style={statusStyle(cfg)}>
         <Icon size={13} className={cfg.color} />
         <span className={`text-[11px] font-black ${cfg.color} flex-1`}>{cfg.label}</span>
-        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${cfg.badge} border ${cfg.border}`}>{contacts.length}</span>
+        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${cfg.badge} border ${cfg.border}`} style={statusStyle(cfg, '20')}>{contacts.length}</span>
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[480px]">
         {contacts.length === 0 && (
@@ -632,7 +871,7 @@ function KanbanColumn({ colId, contacts, onMove, onEdit, onDelete, onSendWA, onO
         )}
         {contacts.map(c => (
           <ContactCard key={c.id} contact={c} onMove={onMove} onEdit={onEdit}
-            onDelete={onDelete} onSendWA={onSendWA} onOpenDetail={onOpenDetail} waConnected={waConnected} />
+            onDelete={onDelete} onSendWA={onSendWA} onOpenDetail={onOpenDetail} waConnected={waConnected} statusMap={statusMap} />
         ))}
       </div>
     </div>
@@ -640,7 +879,7 @@ function KanbanColumn({ colId, contacts, onMove, onEdit, onDelete, onSendWA, onO
 }
 
 // ─── LEAD DETAIL DRAWER ───────────────────────────────────────────────────────
-function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, templates, activeTemplate, onSetActiveTemplate, waConnected, sending }) {
+function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, templates, activeTemplate, onSetActiveTemplate, waConnected, sending, statusMap = LEAD_STATUS }) {
   const [note,   setNote]   = useState(contact.note  || '');
   const [name,   setName]   = useState(contact.name  || '');
   const [score,  setScore]  = useState(contact.score || 0);
@@ -648,7 +887,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
   const [tagIn,  setTagIn]  = useState('');
   const [copied, setCopied] = useState(false);
   const [selTmpl, setSelTmpl] = useState(activeTemplate || templates[0]);
-  const cfg = LEAD_STATUS[contact.column];
+  const cfg = statusMap[contact.column] || statusMap.pending;
 
   // Alerta se já enviado
   const alreadySent = (contact.sentCount || 0) > 0;
@@ -684,7 +923,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
             </div>
             <div>
               <p className="font-black text-gray-800 text-sm">{name || contact.phone}</p>
-              <StatusBadge status={contact.column} size="xs" />
+              <StatusBadge status={contact.column} size="xs" statusMap={statusMap} />
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50"><X size={16} /></button>
@@ -731,12 +970,13 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
             <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider mb-2">Status</label>
             <div className="grid grid-cols-4 gap-1">
               {KANBAN_COLS.map(col => {
-                const s    = LEAD_STATUS[col];
+                const s    = statusMap[col] || LEAD_STATUS[col];
                 const Icon = s.icon;
                 const isActive = col === contact.column;
                 return (
                   <button key={col} onClick={() => onMove(contact.id, col)}
-                    className={`flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all ${isActive ? `${s.bg} ${s.border} ring-2 ring-purple-200` : 'border-gray-100 hover:border-gray-200'}`}>
+                    className={`flex flex-col items-center gap-1 py-2 rounded-xl border-2 transition-all ${isActive ? `${s.bg} ${s.border} ring-2 ring-purple-200` : 'border-gray-100 hover:border-gray-200'}`}
+                    style={isActive ? statusStyle(s) : {}}>
                     <Icon size={12} className={isActive ? s.color : 'text-gray-300'} />
                     <span className={`text-[7px] font-black leading-none ${isActive ? s.color : 'text-gray-300'}`}>{s.label}</span>
                   </button>
@@ -773,7 +1013,10 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
                     <div className="px-3 py-1"><p className="text-[8px] font-black text-gray-400">Imagem sera enviada junto</p></div>
                   </div>
                 )}
-                <div className="bg-white rounded-[14px] rounded-tl-sm px-3 py-2.5 shadow-sm">
+                <div
+                  className="rounded-[14px] rounded-tl-sm px-3 py-2.5 shadow-sm"
+                  style={{ background: selTmpl.bubbleColor || '#ffffff', borderLeft: `4px solid ${selTmpl.labelColor || selTmpl.color || C.purple}` }}
+                >
                   <p className="text-[10px] text-gray-700 leading-relaxed whitespace-pre-wrap line-clamp-5">{selTmpl.message}</p>
                 </div>
                 <button onClick={handleCopy} className="mt-2 flex items-center gap-1 text-[9px] font-black text-gray-400 hover:text-purple-500">
@@ -1226,23 +1469,34 @@ export default function AdminProspects() {
   const [detailContact,setDetailContact]= useState(null);
   const [showAdd,      setShowAdd]      = useState(false);
   const [showTemplates,setShowTemplates]= useState(false);
+  const [showAutomation,setShowAutomation]= useState(false);
   const [showSequence, setShowSequence] = useState(false);
   const [waConnected,  setWaConnected]  = useState(false);
   const [sending,      setSending]      = useState(false);
   const [syncing,      setSyncing]      = useState(false);
+  const [botSettings,  setBotSettings]  = useState(null);
+  const [statusColors, setStatusColors] = useState(() => loadStatusColorsLocal());
   const fileRef = useRef();
 
   const activeTmpl = activeTemplate || templates[0];
+  const statusMap = useMemo(() => applyStatusCustomColors(LEAD_STATUS, statusColors), [statusColors]);
 
   // Persiste no localStorage toda vez que contacts muda
   useEffect(() => { saveLocal(contacts); }, [contacts]);
   useEffect(() => { saveTemplatesLocal(templates); }, [templates]);
+  useEffect(() => { saveStatusColorsLocal(statusColors); }, [statusColors]);
 
   // Tenta carregar da API na montagem
   useEffect(() => {
     api.get('/prospects').then(r => {
       if (Array.isArray(r.data) && r.data.length > 0) setContacts(r.data);
     }).catch(() => {/* usa localStorage */});
+  }, []);
+
+  useEffect(() => {
+    api.get('/prospects/wa-bot')
+      .then(r => setBotSettings(r.data))
+      .catch(() => setBotSettings({ enabled: false, rules: [] }));
   }, []);
 
   // ── CONTACT ACTIONS ─────────────────────────────────────────────────────────
@@ -1344,6 +1598,11 @@ export default function AdminProspects() {
     } finally { setSyncing(false); }
   };
 
+  const saveBotSettings = async (settings) => {
+    const { data } = await api.post('/prospects/wa-bot', settings);
+    setBotSettings(data);
+  };
+
   const exportJSON = () => {
     const blob = new Blob([JSON.stringify(contacts, null, 2)], { type: 'application/json' });
     Object.assign(document.createElement('a'), {
@@ -1391,6 +1650,14 @@ export default function AdminProspects() {
             className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-500 text-xs font-black flex items-center gap-1.5 hover:border-purple-300 hover:text-purple-500">
             <Bot size={12} /> Templates
           </button>
+          <button onClick={() => setShowAutomation(true)}
+            className={`px-3 py-2.5 rounded-xl border text-xs font-black flex items-center gap-1.5 hover:border-purple-300 ${
+              botSettings?.enabled
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                : 'border-gray-200 bg-white text-gray-500'
+            }`}>
+            <Zap size={12} /> Bot & cores
+          </button>
           <button onClick={() => fileRef.current?.click()}
             className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-500 text-xs font-black flex items-center gap-1.5 hover:border-purple-300">
             <Upload size={12} /> Importar
@@ -1421,6 +1688,20 @@ export default function AdminProspects() {
 
       {/* WA STATUS + QR inline */}
       <WaStatusBar onStatusChange={setWaConnected} />
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black ${
+          botSettings?.enabled
+            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+            : 'bg-gray-50 text-gray-400 border-gray-100'
+        }`}>
+          <Bot size={11} /> {botSettings?.enabled ? 'Bot WhatsApp ativo' : 'Bot WhatsApp desativado'}
+        </span>
+        {botSettings?.enabled && (
+          <span className="text-[10px] font-bold text-gray-400">
+            Responde automaticamente apenas mensagens recebidas que combinarem com regras ativas.
+          </span>
+        )}
+      </div>
 
       {/* STATS */}
       <ProspectsStats contacts={contacts} />
@@ -1455,7 +1736,10 @@ export default function AdminProspects() {
               </div>
             )}
             <div className="bg-[#ECE5DD] rounded-xl p-3 max-h-24 overflow-y-auto">
-              <div className="bg-white rounded-[12px] rounded-tl-sm px-3 py-2 shadow-sm">
+              <div
+                className="rounded-[12px] rounded-tl-sm px-3 py-2 shadow-sm"
+                style={{ background: activeTmpl.bubbleColor || '#ffffff', borderLeft: `4px solid ${activeTmpl.labelColor || activeTmpl.color || C.purple}` }}
+              >
                 <p className="text-[10px] text-gray-700 leading-relaxed whitespace-pre-wrap line-clamp-3">{activeTmpl.message}</p>
               </div>
             </div>
@@ -1500,7 +1784,7 @@ export default function AdminProspects() {
                 contacts={filtered(col)}
                 onMove={moveContact} onEdit={editContact}
                 onDelete={deleteContact} onSendWA={sendWA}
-                onOpenDetail={setDetailContact} waConnected={waConnected} />
+                onOpenDetail={setDetailContact} waConnected={waConnected} statusMap={statusMap} />
             ))}
           </div>
           {pendingCount > 0 && (
@@ -1531,13 +1815,14 @@ export default function AdminProspects() {
                 Todos ({contacts.length})
               </button>
               {KANBAN_COLS.map(col => {
-                const s = LEAD_STATUS[col];
+                const s = statusMap[col] || LEAD_STATUS[col];
                 const Icon = s.icon;
                 const cnt = contacts.filter(c => c.column === col).length;
                 if (cnt === 0) return null;
                 return (
                   <button key={col} onClick={() => setFilterCol(col)}
-                    className={`text-[9px] font-black px-2.5 py-1.5 rounded-xl border flex items-center gap-1 transition-all ${filterCol===col?`${s.bg} ${s.color} ${s.border}`:'border-gray-200 text-gray-500'}`}>
+                    className={`text-[9px] font-black px-2.5 py-1.5 rounded-xl border flex items-center gap-1 transition-all ${filterCol===col?`${s.bg} ${s.color} ${s.border}`:'border-gray-200 text-gray-500'}`}
+                    style={filterCol===col ? statusStyle(s) : {}}>
                     <Icon size={8} /> {s.label} ({cnt})
                   </button>
                 );
@@ -1569,7 +1854,7 @@ export default function AdminProspects() {
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-[11px] font-bold text-gray-500">{c.phone}</td>
-                    <td className="px-4 py-2.5"><StatusBadge status={c.column} size="xs" /></td>
+                    <td className="px-4 py-2.5"><StatusBadge status={c.column} size="xs" statusMap={statusMap} /></td>
                     <td className="px-4 py-2.5 w-20"><ScoreBar score={c.score} /></td>
                     <td className="px-4 py-2.5">
                       {(c.sentCount||0) > 0
@@ -1610,6 +1895,16 @@ export default function AdminProspects() {
       {showTemplates && (
         <TemplateManager templates={templates} onSave={setTemplates} onClose={() => setShowTemplates(false)} />
       )}
+      {showAutomation && (
+        <AutomationSettingsModal
+          botSettings={botSettings}
+          onSaveBot={saveBotSettings}
+          statusColors={statusColors}
+          onSaveStatusColors={setStatusColors}
+          statusMap={statusMap}
+          onClose={() => setShowAutomation(false)}
+        />
+      )}
       {showSequence && (
         <SequenceFire contacts={contacts} onSendWA={sendWA} onClose={() => setShowSequence(false)}
           activeTemplate={activeTmpl} waConnected={waConnected} />
@@ -1626,6 +1921,7 @@ export default function AdminProspects() {
           onSetActiveTemplate={setActiveTemplate}
           waConnected={waConnected}
           sending={sending}
+          statusMap={statusMap}
         />
       )}
     </div>

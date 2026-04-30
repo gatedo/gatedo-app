@@ -5,6 +5,58 @@ import axios, { AxiosError } from 'axios';
 const GATEWAY_URL = (process.env.GATEWAY_URL || process.env.WA_GATEWAY_URL || 'https://gatedo-wa-gateway.onrender.com').replace(/\/+$/, '');
 const GATEWAY_SECRET  = process.env.GATEWAY_SECRET || process.env.WA_GATEWAY_SECRET || 'change-me-in-render-env';
 const GATEWAY_TIMEOUT = 12000;
+const WA_BOT_SETTINGS_KEY = 'wa_bot_settings';
+
+const DEFAULT_WA_BOT_SETTINGS = {
+  enabled: false,
+  mode: 'assistive',
+  fallbackEnabled: false,
+  fallbackText:
+    'Oi! Recebemos sua mensagem pelo Gatedo. Em breve uma pessoa da equipe responde por aqui.',
+  rules: [
+    {
+      id: 'greeting',
+      label: 'Boas-vindas',
+      enabled: true,
+      keywords: ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite'],
+      response:
+        'Oi! Que bom falar com voce. Eu sou o assistente do Gatedo. Voce quer conhecer o app para organizar a saude e rotina do seu gato?',
+    },
+    {
+      id: 'price',
+      label: 'Preco e planos',
+      enabled: true,
+      keywords: ['preco', 'preço', 'valor', 'plano', 'assinatura', 'fundador'],
+      response:
+        'Temos condicoes especiais para fundadores do Gatedo. Posso te enviar o link com os detalhes e beneficios?',
+    },
+    {
+      id: 'health',
+      label: 'Saude do gato',
+      enabled: true,
+      keywords: ['vacina', 'veterinario', 'veterinário', 'remedio', 'remédio', 'saude', 'saúde'],
+      response:
+        'O Gatedo ajuda a organizar vacinas, historico de saude, documentos e lembretes do seu gato. Em caso de urgencia, procure um veterinario imediatamente.',
+    },
+  ],
+};
+
+function normalizeText(value: string) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function mergeBotSettings(raw: any) {
+  const settings = raw && typeof raw === 'object' ? raw : {};
+  const customRules = Array.isArray(settings.rules) ? settings.rules : [];
+  return {
+    ...DEFAULT_WA_BOT_SETTINGS,
+    ...settings,
+    rules: customRules.length ? customRules : DEFAULT_WA_BOT_SETTINGS.rules,
+  };
+}
 
 @Injectable()
 export class ProspectsService {
@@ -82,6 +134,81 @@ export class ProspectsService {
     return this.gPost('/send-batch', { messages });
   }
 
+  async getBotSettings() {
+    const saved = await this.prisma.appSettings.findUnique({ where: { key: WA_BOT_SETTINGS_KEY } }).catch(() => null);
+    if (!saved?.value) return DEFAULT_WA_BOT_SETTINGS;
+    try {
+      return mergeBotSettings(JSON.parse(saved.value));
+    } catch {
+      return DEFAULT_WA_BOT_SETTINGS;
+    }
+  }
+
+  async updateBotSettings(data: any) {
+    const settings = mergeBotSettings(data);
+    await this.prisma.appSettings.upsert({
+      where: { key: WA_BOT_SETTINGS_KEY },
+      update: { value: JSON.stringify(settings), updatedAt: new Date() },
+      create: { key: WA_BOT_SETTINGS_KEY, value: JSON.stringify(settings) },
+    });
+    return settings;
+  }
+
+  async handleAutoReply(data: { phone: string; message: string; timestamp: number; messageId: string }) {
+    const settings = await this.getBotSettings();
+    if (!settings.enabled) return { skipped: true, reason: 'bot_disabled' };
+
+    const phone = String(data.phone || '').replace(/[^\d]/g, '');
+    const incoming = normalizeText(data.message);
+    const matchedRule = (settings.rules || []).find((rule: any) => {
+      if (!rule?.enabled || !rule?.response) return false;
+      return (rule.keywords || []).some((keyword: string) => incoming.includes(normalizeText(keyword)));
+    });
+
+    const responseText = matchedRule?.response || (settings.fallbackEnabled ? settings.fallbackText : '');
+    if (!phone || !responseText) return { skipped: true, reason: 'no_matching_rule' };
+
+    const prospect = await this.findOrCreateInboundProspect(phone, data.message);
+    const recentBotReply = await this.prisma.prospectMessage.findFirst({
+      where: {
+        prospectId: prospect.id,
+        direction: 'bot',
+        sentAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+      },
+      orderBy: { sentAt: 'desc' },
+    });
+    if (recentBotReply) return { skipped: true, reason: 'bot_cooldown' };
+
+    const response = await this.sendOne({
+      phone,
+      text: responseText,
+      prospectId: prospect.id,
+      scriptId: `wa_bot_${matchedRule?.id || 'fallback'}`,
+    });
+
+    await this.prisma.prospectMessage.create({
+      data: {
+        prospectId: prospect.id,
+        direction: 'bot',
+        body: responseText,
+        waMessageId: response?.messageId || response?.id || null,
+        sentAt: new Date(),
+      },
+    });
+
+    await this.prisma.prospect.update({
+      where: { id: prospect.id },
+      data: {
+        status: 'replied',
+        column: 'replied',
+        lastMessageId: response?.messageId || response?.id || null,
+        updatedAt: new Date(),
+      },
+    });
+
+    return { ok: true, rule: matchedRule?.id || 'fallback' };
+  }
+
   // ── Status — NUNCA retorna 500, sempre retorna JSON seguro ────────────────
   async getGatewayStatus() {
     try {
@@ -144,8 +271,7 @@ export class ProspectsService {
 
   async saveIncomingMessage(data: { phone: string; message: string; timestamp: number; messageId: string }) {
     const n = data.phone.replace(/[^\d]/g, '').slice(-10);
-    const p = await this.prisma.prospect.findFirst({ where: { phone: { contains: n } } });
-    if (!p) return;
+    const p = await this.findOrCreateInboundProspect(data.phone, data.message);
     return this.prisma.prospectMessage.create({
       data: {
         prospectId:  p.id,
@@ -153,6 +279,26 @@ export class ProspectsService {
         body:        data.message,
         waMessageId: data.messageId,
         sentAt:      new Date(data.timestamp * 1000),
+      },
+    });
+  }
+
+  private async findOrCreateInboundProspect(phone: string, message: string) {
+    const n = phone.replace(/[^\d]/g, '').slice(-10);
+    const existing = await this.prisma.prospect.findFirst({ where: { phone: { contains: n } } });
+    if (existing) return existing;
+
+    return this.prisma.prospect.create({
+      data: {
+        phone,
+        name: null,
+        note: `Entrada pelo WhatsApp: ${String(message || '').slice(0, 140)}`,
+        status: 'replied',
+        column: 'replied',
+        score: 40,
+        tags: ['inbound'],
+        repliedAt: new Date(),
+        lastReply: message,
       },
     });
   }
