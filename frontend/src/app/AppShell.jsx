@@ -22,6 +22,8 @@ import VerifyEmail from '../pages/VerifyEmail';
 import Welcome from '../pages/Welcome';
 import WelcomeFounder from '../pages/WelcomeFounder';
 import ThankYou from '../pages/Thankyou';
+import TermsOfUse from '../pages/legal/TermsOfUse';
+import PrivacyPolicy from '../pages/legal/PrivacyPolicy';
 
 // Home e Gatos
 import Home from '../pages/Home';
@@ -96,6 +98,10 @@ const NO_LOADING_ROUTES = [
   '/reset-password',
   '/verify-email',
   '/obrigado',
+  '/terms',
+  '/termos',
+  '/privacy',
+  '/privacidade',
   '/clube',
   '/planos',
   '/cat-game',
@@ -155,6 +161,10 @@ const PUBLIC_ROUTES_WITHOUT_NAV = [
   '/clube',
   '/planos',
   '/obrigado',
+  '/terms',
+  '/termos',
+  '/privacy',
+  '/privacidade',
   '/auth/register',
   '/auth/login',
   // Formulários de adição de gato e dados pessoais
@@ -308,6 +318,10 @@ const AppShell = () => {
               <Route path="/clube" element={<Clube />} />
               <Route path="/planos" element={<Clube />} />
               <Route path="/obrigado" element={<ThankYou />} />
+              <Route path="/terms" element={<TermsOfUse />} />
+              <Route path="/termos" element={<TermsOfUse />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/privacidade" element={<PrivacyPolicy />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/home" element={<Home />} />

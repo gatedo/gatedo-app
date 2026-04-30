@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -457,6 +458,21 @@ export default function TutorProfile() {
         >
           <LogOut size={16} /> Sair da Conta
         </button>
+
+        <footer className="pb-8 pt-2 text-center">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-black uppercase tracking-[2px] text-gray-400">
+            <Link to="/terms" className="hover:text-[#8B4AFF]">
+              Termos de uso
+            </Link>
+            <span className="text-gray-300">•</span>
+            <Link to="/privacy" className="hover:text-[#8B4AFF]">
+              Politica de privacidade
+            </Link>
+          </div>
+          <p className="mt-3 text-[10px] font-bold text-gray-300">
+            Gatedo App - cuidado, memoria e identidade felina.
+          </p>
+        </footer>
       </div>
 
       <GamificationDrawer
