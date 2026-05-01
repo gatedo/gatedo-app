@@ -58,6 +58,15 @@ function mergeBotSettings(raw: any) {
   };
 }
 
+function toDateFromGatewayTimestamp(value: any) {
+  const raw =
+    typeof value === 'object' && value !== null
+      ? Number(value.low ?? value.value ?? value.seconds ?? value.toString?.())
+      : Number(value);
+  if (!Number.isFinite(raw) || raw <= 0) return new Date();
+  return new Date(raw > 10_000_000_000 ? raw : raw * 1000);
+}
+
 @Injectable()
 export class ProspectsService {
   private readonly logger = new Logger(ProspectsService.name);
@@ -166,7 +175,14 @@ export class ProspectsService {
     });
 
     const responseText = matchedRule?.response || (settings.fallbackEnabled ? settings.fallbackText : '');
-    if (!phone || !responseText) return { skipped: true, reason: 'no_matching_rule' };
+    if (!phone || !responseText) {
+      return {
+        skipped: true,
+        reason: 'no_matching_rule',
+        enabled: settings.enabled,
+        fallbackEnabled: settings.fallbackEnabled,
+      };
+    }
 
     const prospect = await this.findOrCreateInboundProspect(phone, data.message);
     const recentBotReply = await this.prisma.prospectMessage.findFirst({
@@ -177,7 +193,7 @@ export class ProspectsService {
       },
       orderBy: { sentAt: 'desc' },
     });
-    if (recentBotReply) return { skipped: true, reason: 'bot_cooldown' };
+    if (recentBotReply) return { skipped: true, reason: 'bot_cooldown', prospectId: prospect.id };
 
     const response = await this.sendOne({
       phone,
@@ -206,7 +222,7 @@ export class ProspectsService {
       },
     });
 
-    return { ok: true, rule: matchedRule?.id || 'fallback' };
+    return { ok: true, rule: matchedRule?.id || 'fallback', prospectId: prospect.id };
   }
 
   // ── Status — NUNCA retorna 500, sempre retorna JSON seguro ────────────────
@@ -270,7 +286,6 @@ export class ProspectsService {
   }
 
   async saveIncomingMessage(data: { phone: string; message: string; timestamp: number; messageId: string }) {
-    const n = data.phone.replace(/[^\d]/g, '').slice(-10);
     const p = await this.findOrCreateInboundProspect(data.phone, data.message);
     return this.prisma.prospectMessage.create({
       data: {
@@ -278,7 +293,7 @@ export class ProspectsService {
         direction:   'incoming',
         body:        data.message,
         waMessageId: data.messageId,
-        sentAt:      new Date(data.timestamp * 1000),
+        sentAt:      toDateFromGatewayTimestamp(data.timestamp),
       },
     });
   }

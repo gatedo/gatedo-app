@@ -11,6 +11,15 @@ function assertSecret(s: string) {
   if (s !== GATEWAY_SECRET) throw new UnauthorizedException();
 }
 
+function toWebhookDate(value: any) {
+  const raw =
+    typeof value === 'object' && value !== null
+      ? Number(value.low ?? value.value ?? value.seconds ?? value.toString?.())
+      : Number(value);
+  if (!Number.isFinite(raw) || raw <= 0) return new Date();
+  return new Date(raw > 10_000_000_000 ? raw : raw * 1000);
+}
+
 @Controller('prospects')
 export class ProspectsController {
   constructor(private readonly svc: ProspectsService) {}
@@ -104,11 +113,14 @@ export class WebhooksController {
     @Body() b: { phone: string; message: string; timestamp: number; messageId: string },
   ) {
     assertSecret(s);
-    await this.svc.updateStatusByPhone(b.phone, 'replied', { lastReply: b.message, repliedAt: new Date(b.timestamp * 1000) });
+    const receivedAt = toWebhookDate(b.timestamp);
+    await this.svc.updateStatusByPhone(b.phone, 'replied', { lastReply: b.message, repliedAt: receivedAt });
     await this.svc.saveIncomingMessage(b);
-    await this.svc.handleAutoReply(b).catch((err) => {
+    const botResult = await this.svc.handleAutoReply(b).catch((err) => {
       this.logger.warn({ err: err?.message, phone: b.phone }, 'WA bot nao respondeu');
+      return { ok: false, error: err?.message };
     });
+    this.logger.log({ phone: b.phone, botResult }, 'WA inbound processado');
     return { ok: true };
   }
 
