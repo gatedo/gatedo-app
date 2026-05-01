@@ -4,7 +4,8 @@ import axios, { AxiosError } from 'axios';
 
 const GATEWAY_URL = (process.env.GATEWAY_URL || process.env.WA_GATEWAY_URL || 'https://gatedo-wa-gateway.onrender.com').replace(/\/+$/, '');
 const GATEWAY_SECRET  = process.env.GATEWAY_SECRET || process.env.WA_GATEWAY_SECRET || 'change-me-in-render-env';
-const GATEWAY_TIMEOUT = 12000;
+const GATEWAY_TIMEOUT = Number(process.env.WA_GATEWAY_TIMEOUT_MS || process.env.GATEWAY_TIMEOUT_MS || 45000);
+const GATEWAY_STATUS_TIMEOUT = Number(process.env.WA_GATEWAY_STATUS_TIMEOUT_MS || 8000);
 const WA_BOT_SETTINGS_KEY = 'wa_bot_settings';
 
 const DEFAULT_WA_BOT_SETTINGS = {
@@ -100,9 +101,9 @@ export class ProspectsService {
   }
 
   // ── Chamadas ao Gateway com erro robusto ───────────────────────────────────
-  private async gGet(path: string) {
+  private async gGet(path: string, timeout = GATEWAY_TIMEOUT) {
     try {
-      const r = await axios.get(`${GATEWAY_URL}${path}`, { headers: this.headers(), timeout: GATEWAY_TIMEOUT });
+      const r = await axios.get(`${GATEWAY_URL}${path}`, { headers: this.headers(), timeout });
       return r.data;
     } catch (err) {
       const e = err as AxiosError<any>;
@@ -228,7 +229,7 @@ export class ProspectsService {
   // ── Status — NUNCA retorna 500, sempre retorna JSON seguro ────────────────
   async getGatewayStatus() {
     try {
-      return await this.gGet('/status');
+      return await this.gGet('/status', GATEWAY_STATUS_TIMEOUT);
     } catch {
       return { connected: false, hasQR: false, queueSize: 0, offline: true };
     }
