@@ -56,12 +56,12 @@ export default function AdminSidebar({ activeTab, setActiveTab, isOpen, onClose 
       <aside
         className={`
           fixed lg:sticky top-0 left-0 z-50 h-screen border-r border-gray-100
-          transition-all duration-300 ease-in-out flex flex-col shadow-xl lg:shadow-none
+          transition-all duration-300 ease-in-out flex flex-col shadow-xl lg:shadow-none overflow-hidden
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${isCollapsed ? 'w-20 bg-[#8B4AFF]' : 'w-64 bg-white'}
         `}
       >
-        <div className="p-4 flex flex-col items-center border-b border-gray-50/10 mb-2 relative">
+        <div className="p-4 flex flex-col items-center border-b border-gray-50/10 mb-2 relative flex-shrink-0">
           <div className={`${isCollapsed ? 'w-10 h-10' : 'w-32 h-12'} transition-all duration-300 flex items-center justify-center mb-2`}>
             <img
               src={isCollapsed ? "/vite.svg" : "assets/logo_gatedo_full.webp"} 
@@ -86,7 +86,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isOpen, onClose 
           </button>
         </div>
 
-        <nav className={`flex-1 ${isCollapsed ? 'px-2' : 'px-4'} py-4 space-y-2 overflow-y-auto custom-scrollbar`}>
+        <nav className={`flex-1 min-h-0 ${isCollapsed ? 'px-2' : 'px-4'} py-4 space-y-2 overflow-y-auto overscroll-contain custom-scrollbar`}>
           {MENU_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -129,7 +129,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isOpen, onClose 
           })}
         </nav>
 
-        <div className={`p-4 border-t border-gray-100 space-y-3 ${isCollapsed ? 'bg-transparent' : 'bg-gray-50/50'}`}>
+        <div className={`flex-shrink-0 mt-auto p-4 border-t border-gray-100 space-y-3 ${isCollapsed ? 'bg-transparent' : 'bg-gray-50/50'}`}>
           <button
             onClick={() => navigate('/home')}
             className={`w-full rounded-2xl flex items-center justify-center transition-all active:scale-95 ${isCollapsed ? 'h-12' : 'py-3.5 gap-2 font-black shadow-md'}`}
