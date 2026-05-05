@@ -67,7 +67,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--gatedo-light-bg)] flex font-sans w-full">
+    <div className="h-dvh bg-[var(--gatedo-light-bg)] flex font-sans w-full overflow-hidden">
       <AdminSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen transition-all duration-300">
+      <div className="flex-1 flex flex-col min-w-0 h-dvh transition-all duration-300 overflow-hidden">
         <div className="lg:hidden bg-white p-4 flex items-center justify-between shadow-sm sticky top-0 z-40">
           <div className="flex items-center gap-2">
             <img src="/vite.svg" alt="Logo" className="w-6 h-6" />
@@ -94,9 +94,11 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        <main className="p-4 md:p-8 lg:p-10 w-full max-w-[1600px] mx-auto">
-          {renderContent()}
-        </main>
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+          <main className="p-4 md:p-8 lg:p-10 w-full max-w-[1600px] mx-auto">
+            {renderContent()}
+          </main>
+        </div>
       </div>
     </div>
   );

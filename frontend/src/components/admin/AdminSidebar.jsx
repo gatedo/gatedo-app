@@ -55,7 +55,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, isOpen, onClose 
 
       <aside
         className={`
-          fixed lg:sticky top-0 left-0 z-50 h-screen border-r border-gray-100
+          fixed lg:sticky top-0 left-0 z-50 h-dvh border-r border-gray-100
           transition-all duration-300 ease-in-out flex flex-col shadow-xl lg:shadow-none overflow-hidden
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${isCollapsed ? 'w-20 bg-[#8B4AFF]' : 'w-64 bg-white'}
