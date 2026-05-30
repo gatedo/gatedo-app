@@ -8,6 +8,90 @@ const GATEWAY_TIMEOUT = Number(process.env.WA_GATEWAY_TIMEOUT_MS || process.env.
 const GATEWAY_STATUS_TIMEOUT = Number(process.env.WA_GATEWAY_STATUS_TIMEOUT_MS || 8000);
 const WA_BOT_SETTINGS_KEY = 'wa_bot_settings';
 
+const DEFAULT_PROSPECT_TEMPLATES = [
+  {
+    id: 'convite_fundador',
+    name: 'Convite Fundador',
+    category: 'Primeiro contato',
+    color: '#8B4AFF',
+    labelColor: '#8B4AFF',
+    bubbleColor: '#ffffff',
+    imageUrl: '',
+    linkUrl: '',
+    message: `Ola!
+
+Sou tutor(a) de gato e descobri uma plataforma incrivel chamada *GATEDO* - o primeiro ecossistema digital criado exclusivamente para quem tem gato!
+
+Com ele voce organiza vacinas, consultas e o historico completo do seu felino, conta com IA veterinaria que conhece seu gato pelo nome, e muito mais.
+
+Estao abrindo as *primeiras vagas de Fundador(a)* - o menor valor que esse app vai ter, para sempre.
+
+Tem interesse em conhecer? Me responde aqui`,
+  },
+  {
+    id: 'followup_24h',
+    name: 'Follow-up 24h',
+    category: 'Sem resposta',
+    color: '#f59e0b',
+    labelColor: '#f59e0b',
+    bubbleColor: '#ffffff',
+    imageUrl: '',
+    linkUrl: '',
+    message: `Oi!
+
+So passando para saber se voce viu minha mensagem sobre o *GATEDO*!
+
+E uma oportunidade unica de entrar como Fundador(a) com o menor preco do app. As vagas sao limitadas!
+
+Posso te mostrar como funciona em 2 minutinhos?`,
+  },
+  {
+    id: 'interesse',
+    name: 'Respondeu com Interesse',
+    category: 'Lead quente',
+    color: '#10b981',
+    labelColor: '#10b981',
+    bubbleColor: '#ffffff',
+    imageUrl: '',
+    linkUrl: '',
+    message: `Que otimo!
+
+Deixa eu te contar o que o *GATEDO* oferece:
+
+- Historico de saude completo do seu gato
+- IA vet que conhece seu felino pelo nome
+- Vacinas, consultas e lembretes automaticos
+- Studio de imagens AI exclusivo
+- Comunidade gateira nacional
+
+Como *Fundador(a)*, voce garante o menor preco que o app vai ter - para sempre.
+
+Quer garantir sua vaga? Me fala que te passo o link direto`,
+  },
+  {
+    id: 'objecao',
+    name: 'Objecao de Preco',
+    category: 'Hesitante',
+    color: '#3b82f6',
+    labelColor: '#3b82f6',
+    bubbleColor: '#ffffff',
+    imageUrl: '',
+    linkUrl: '',
+    message: `Entendo!
+
+Mas olha so: o plano Fundador sai por menos de *R$ 1/dia* - e voce tem tudo isso:
+
+- Saude do gatinho organizada
+- App exclusivo de gatos no Brasil
+- IA veterinaria 24h
+- Studio de fotos AI exclusivo
+
+E investimento no bem-estar do seu bichano! E o preco de Fundador nunca mais volta.
+
+Quer garantir antes que as vagas acabem?`,
+  },
+];
+
 const DEFAULT_WA_BOT_SETTINGS = {
   enabled: false,
   mode: 'assistive',
@@ -41,9 +125,16 @@ const DEFAULT_WA_BOT_SETTINGS = {
     },
   ],
 };
+const AUTO_SENT_STATUSES = new Set(['waiting', 'pending', 'sent']);
 
 function normalizeText(value: string) {
   return String(value || '')
+    .replace(/Ã¡|Ã |Ã¢|Ã£/g, 'a')
+    .replace(/Ã©|Ãª/g, 'e')
+    .replace(/Ã­/g, 'i')
+    .replace(/Ã³|Ã´|Ãµ/g, 'o')
+    .replace(/Ãº/g, 'u')
+    .replace(/Ã§/g, 'c')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
@@ -100,6 +191,27 @@ export class ProspectsService {
     };
   }
 
+  private sanitizeTemplate(data: any, sortOrder = 0) {
+    return {
+      id: data?.id ? String(data.id) : undefined,
+      name: String(data?.name || 'Novo template').trim() || 'Novo template',
+      category: data?.category ? String(data.category) : null,
+      color: data?.color ? String(data.color) : '#8B4AFF',
+      labelColor: data?.labelColor ? String(data.labelColor) : data?.color ? String(data.color) : '#8B4AFF',
+      bubbleColor: data?.bubbleColor ? String(data.bubbleColor) : '#ffffff',
+      imageUrl: data?.imageUrl ? String(data.imageUrl) : null,
+      linkUrl: data?.linkUrl ? String(data.linkUrl) : null,
+      parentTheme: data?.parentTheme ? String(data.parentTheme).trim() : null,
+      flowCategory: data?.flowCategory ? String(data.flowCategory).trim() : null,
+      flowColor: data?.flowColor ? String(data.flowColor) : data?.color ? String(data.color) : '#8B4AFF',
+      stepOrder: Math.max(1, Number(data?.stepOrder || sortOrder + 1) || 1),
+      delaySeconds: Math.max(0, Number(data?.delaySeconds || 0) || 0),
+      message: String(data?.message || ''),
+      sortOrder,
+      active: data?.active === false ? false : true,
+    };
+  }
+
   // ── Chamadas ao Gateway com erro robusto ───────────────────────────────────
   private async gGet(path: string, timeout = GATEWAY_TIMEOUT) {
     try {
@@ -137,7 +249,38 @@ export class ProspectsService {
 
   // ── Envio ─────────────────────────────────────────────────────────────────
   async sendOne(data: { phone: string; text: string; imageUrl?: string; prospectId: string; scriptId?: string }) {
-    return this.gPost('/send', data);
+    const response = await this.gPost('/send', data);
+
+    if (data.prospectId && data.text) {
+      await this.prisma.prospectMessage.create({
+        data: {
+          prospectId: data.prospectId,
+          direction: 'outgoing',
+          body: data.text,
+          imageUrl: data.imageUrl || null,
+          waMessageId: response?.messageId || response?.id || null,
+          sentAt: new Date(),
+        },
+      }).catch(() => null);
+
+      const current = await this.prisma.prospect.findUnique({
+        where: { id: data.prospectId },
+        select: { status: true, column: true },
+      }).catch(() => null);
+      const canMoveToSent = !current || AUTO_SENT_STATUSES.has(current.column || current.status || '');
+      await this.prisma.prospect.update({
+        where: { id: data.prospectId },
+        data: {
+          ...(canMoveToSent ? { status: 'sent', column: 'sent' } : {}),
+          sentAt: new Date(),
+          lastMessageId: response?.messageId || response?.id || null,
+          scriptId: data.scriptId || null,
+          updatedAt: new Date(),
+        },
+      }).catch(() => null);
+    }
+
+    return response;
   }
 
   async sendBatch(messages: Array<{ phone: string; text: string; imageUrl?: string; prospectId: string; scriptId?: string }>) {
@@ -162,6 +305,70 @@ export class ProspectsService {
       create: { key: WA_BOT_SETTINGS_KEY, value: JSON.stringify(settings) },
     });
     return settings;
+  }
+
+  async listTemplates() {
+    const count = await this.prisma.prospectTemplate.count();
+    if (count === 0) {
+      await this.replaceTemplates(DEFAULT_PROSPECT_TEMPLATES);
+    }
+
+    return this.prisma.prospectTemplate.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async replaceTemplates(data: any[]) {
+    const templates = Array.isArray(data) ? data : [];
+    if (!templates.length) {
+      throw new HttpException({ error: 'templates obrigatorio' }, HttpStatus.BAD_REQUEST);
+    }
+    const sanitized = templates.map((item, index) => this.sanitizeTemplate(item, index));
+    const ids = sanitized.map((item) => item.id).filter(Boolean) as string[];
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.prospectTemplate.deleteMany({
+        where: ids.length ? { id: { notIn: ids } } : {},
+      });
+
+      for (const item of sanitized) {
+        const { id, ...rest } = item;
+        if (id) {
+          await tx.prospectTemplate.upsert({
+            where: { id },
+            update: rest,
+            create: { id, ...rest },
+          });
+        } else {
+          await tx.prospectTemplate.create({ data: rest });
+        }
+      }
+    });
+
+    return this.prisma.prospectTemplate.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createTemplate(data: any) {
+    const sortOrder = await this.prisma.prospectTemplate.count();
+    const template = this.sanitizeTemplate(data, sortOrder);
+    return this.prisma.prospectTemplate.create({ data: template });
+  }
+
+  async updateTemplate(id: string, data: any) {
+    const template = this.sanitizeTemplate({ ...data, id }, Number(data?.sortOrder ?? 0));
+    const { id: _id, ...rest } = template;
+    return this.prisma.prospectTemplate.update({
+      where: { id },
+      data: rest,
+    });
+  }
+
+  async deleteTemplate(id: string) {
+    return this.prisma.prospectTemplate.delete({ where: { id } }).catch(() => ({ ok: true }));
   }
 
   async handleAutoReply(data: { phone: string; message: string; timestamp: number; messageId: string }) {
@@ -250,7 +457,15 @@ export class ProspectsService {
 
   // ── CRUD Prospects ────────────────────────────────────────────────────────
   async list() {
-    return this.prisma.prospect.findMany({ orderBy: { createdAt: 'desc' } });
+    return this.prisma.prospect.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        messages: {
+          orderBy: { sentAt: 'asc' },
+          take: 50,
+        },
+      },
+    });
   }
 
   async upsert(data: any) {
@@ -302,7 +517,18 @@ export class ProspectsService {
   private async findOrCreateInboundProspect(phone: string, message: string) {
     const n = phone.replace(/[^\d]/g, '').slice(-10);
     const existing = await this.prisma.prospect.findFirst({ where: { phone: { contains: n } } });
-    if (existing) return existing;
+    if (existing) {
+      return this.prisma.prospect.update({
+        where: { id: existing.id },
+        data: {
+          status: 'replied',
+          column: 'replied',
+          repliedAt: new Date(),
+          lastReply: message,
+          updatedAt: new Date(),
+        },
+      });
+    }
 
     return this.prisma.prospect.create({
       data: {

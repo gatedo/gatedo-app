@@ -24,6 +24,31 @@ function toWebhookDate(value: any) {
 export class ProspectsController {
   constructor(private readonly svc: ProspectsService) {}
 
+  @Get('templates')
+  listTemplates() {
+    return this.svc.listTemplates();
+  }
+
+  @Post('templates')
+  createTemplate(@Body() body: any) {
+    return this.svc.createTemplate(body);
+  }
+
+  @Post('templates/bulk')
+  replaceTemplatesPost(@Body() body: any) {
+    return this.svc.replaceTemplates(Array.isArray(body) ? body : body?.templates);
+  }
+
+  @Patch('templates/:id')
+  updateTemplate(@Param('id') id: string, @Body() body: any) {
+    return this.svc.updateTemplate(id, body);
+  }
+
+  @Delete('templates/:id')
+  deleteTemplate(@Param('id') id: string) {
+    return this.svc.deleteTemplate(id);
+  }
+
   @Get()
   list() {
     return this.svc.list();

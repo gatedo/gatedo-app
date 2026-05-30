@@ -21,7 +21,8 @@ import {
   SkipForward, MoreHorizontal, Wifi, WifiOff,
   QrCode, Radio, Bell, MessageSquare, RefreshCw,
   Save, Inbox, Archive, AlertTriangle, Link,
-  ChevronRight, ChevronDown, Star, Layers
+  ChevronRight, ChevronDown, Star, Layers,
+  GripVertical, Timer, ArrowUp, ArrowDown
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -49,6 +50,7 @@ const LEAD_STATUS = {
 
 const KANBAN_COLS   = ['waiting','pending','sent','replied','interested','accepted','rejected','followup'];
 const QUEUE_COLS    = ['waiting','pending']; // colunas da fila de disparo
+const AUTO_SENT_COLS = new Set(['waiting', 'pending', 'sent']);
 const LS_KEY        = 'gatedo_prospects_v4';
 const LS_TMPL_KEY   = 'gatedo_templates_v4';
 const LS_STATUS_COLORS_KEY = 'gatedo_status_colors_v1';
@@ -127,33 +129,36 @@ Quer garantir antes que as vagas acabem?`,
 ];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
-function formatPhone(raw) {
-  let d = raw.replace(/[^\d+]/g, '');
-  if (d && !d.startsWith('+')) d = '+55' + d;
-  const m = d.match(/^(\+\d{2})(\d{2})(\d{4,5})(\d{4})$/);
-  if (m) return `${m[1]} ${m[2]} ${m[3]}-${m[4]}`;
+function phoneDigits(raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (d.startsWith('00')) d = d.slice(2);
+
+  // Corrige importacoes antigas que viraram +5555... ao receber +55 duplicado.
+  while (d.startsWith('5555') && d.length > 13) d = d.slice(2);
+
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) return d;
+  if (!d.startsWith('55') && (d.length === 10 || d.length === 11)) return `55${d}`;
+  if (d.startsWith('55') && d.length > 13) return d.slice(-13).startsWith('55') ? d.slice(-13) : `55${d.slice(-11)}`;
+  if (!d.startsWith('55') && d.length > 11) return `55${d.slice(-11)}`;
   return d;
 }
 
-function normalizePhone(p) { 
+function formatPhone(raw) {
+  const d = phoneDigits(raw);
+  const m = d.match(/^55(\d{2})(\d{4,5})(\d{4})$/);
+  if (m) return `+55 ${m[1]} ${m[2]}-${m[3]}`;
+  return d ? `+${d}` : '';
+}
+
+function normalizePhone(p) {
   if (!p) return '';
-  return p.replace(/[^\d]/g, '').slice(-11); 
+  return phoneDigits(p).slice(-11);
 }
 
 function toWANum(p) {
   if (!p) return '';
-  let num = p.replace(/[^\d]/g, '');
-  
-  // Regra do 9º dígito do WhatsApp no Brasil
-  if (num.startsWith('55') && num.length === 13) {
-    const ddd = parseInt(num.substring(2, 4));
-    if (ddd > 30) {
-      // Mantém o 55 e o DDD, pula o 9, e pega o restante do número
-      num = num.substring(0, 4) + num.substring(5);
-    }
-  }
-  
-  return num;
+  return phoneDigits(p);
 }
 
 function timeAgo(d) {
@@ -181,6 +186,51 @@ function loadTemplatesLocal() {
 }
 function saveTemplatesLocal(t) {
   try { localStorage.setItem(LS_TMPL_KEY, JSON.stringify(t)); } catch {}
+}
+function normalizeProspectList(data) {
+  const source = Array.isArray(data) ? data : [];
+  return source.map((item) => {
+    const messages = Array.isArray(item.messages) ? item.messages : [];
+    const sentMessages = messages.filter((msg) => ['outgoing', 'bot'].includes(msg.direction));
+    return {
+      ...item,
+      phone: formatPhone(item.phone || ''),
+      column: item.column || item.status || 'pending',
+      sentCount: Number(item.sentCount ?? sentMessages.length ?? 0),
+      sentAt: item.sentAt || sentMessages[sentMessages.length - 1]?.sentAt || null,
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      score: Number(item.score || 0),
+    };
+  });
+}
+function mergeProspectLists(current, incoming) {
+  const incomingById = new Map(incoming.map(item => [item.id, item]));
+  const merged = current
+    .filter(item => incomingById.has(item.id))
+    .map(item => ({ ...item, ...incomingById.get(item.id), phone: formatPhone(incomingById.get(item.id).phone || item.phone || '') }));
+  const known = new Set(merged.map(item => item.id));
+  incoming.forEach(item => {
+    if (!known.has(item.id)) merged.push(item);
+  });
+  return merged;
+}
+function normalizeTemplateList(data) {
+  const source = Array.isArray(data) ? data : data?.templates;
+  return Array.isArray(source) ? source.filter(Boolean) : [];
+}
+
+function normalizeTemplateFlow(list) {
+  return normalizeTemplateList(list)
+  .map((item, index) => ({
+    ...item,
+    parentTheme: item.parentTheme || item.category || 'Campanha avulsa',
+    flowCategory: item.flowCategory || item.category || 'Fluxo principal',
+    flowColor: item.flowColor || item.color || C.purple,
+    stepOrder: Number(item.stepOrder || index + 1),
+    delaySeconds: Number(item.delaySeconds || 0),
+    sortOrder: Number(item.sortOrder ?? index),
+  }))
+  .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
 }
 
 function loadStatusColorsLocal() {
@@ -256,16 +306,32 @@ function WaStatusBar({ onStatusChange }) {
   const poll = useCallback(async () => {
     try {
       const r = await api.get('/prospects/wa-status');
-      setStatus(r.data);
-      onStatusChange?.(r.data.connected);
-    } catch {}
+      const data = r.data || {};
+      const connected = Boolean(
+        data.connected ||
+        data.isConnected ||
+        data.ready ||
+        data.status === 'connected' ||
+        data.status === 'open' ||
+        data.state === 'connected' ||
+        data.state === 'open'
+      );
+      setStatus({ ...data, connected });
+      onStatusChange?.(connected);
+    } catch {
+      setStatus({ connected: false, offline: true });
+      onStatusChange?.(false);
+    }
   }, [onStatusChange]);
 
   const fetchQr = async () => {
     setLoading(true);
     setQr(null);
     setShowQr(true);
-    try { const r = await api.get('/prospects/wa-qr'); setQr(r.data.qr); }
+    try {
+      const r = await api.get('/prospects/wa-qr');
+      setQr(r.data?.qr || r.data?.qrCode || r.data?.dataUrl || r.data?.image || null);
+    }
     catch (e) { alert('Erro ao buscar QR: ' + e.message); setShowQr(false); }
     finally { setLoading(false); }
   };
@@ -358,37 +424,233 @@ function WaStatusBar({ onStatusChange }) {
 
 // ─── TEMPLATE MANAGER ─────────────────────────────────────────────────────────
 function TemplateManager({ templates, onSave, onClose }) {
-  const [list,   setList]   = useState(templates);
-  const [active, setActive] = useState(list[0]);
-  const [form,   setForm]   = useState({...list[0]});
+  const [list,   setList]   = useState(() => normalizeTemplateFlow(templates));
+  const [active, setActive] = useState(() => normalizeTemplateFlow(templates)[0] || null);
+  const [form,   setForm]   = useState(() => ({ ...(normalizeTemplateFlow(templates)[0] || {}) }));
+  const [dragId, setDragId] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
+  const [error, setError] = useState('');
   const fileRef = useRef();
+
+  useEffect(() => {
+    const normalized = normalizeTemplateFlow(templates);
+    setList(normalized);
+    const nextActive = normalized.find(t => t.id === active?.id) || normalized[0] || null;
+    setActive(nextActive);
+    setForm({ ...(nextActive || {}) });
+  }, [templates]);
 
   const select = (t) => { setActive(t); setForm({...t}); };
 
-  const save = () => {
-    const updated = list.map(t => t.id === form.id ? { ...form } : t);
+  const flowNames = useMemo(() => {
+    return [...new Set(list.map(t => t.flowCategory || t.category || 'Fluxo principal'))];
+  }, [list]);
+
+  const themeNames = useMemo(() => {
+    return [...new Set(list.map(t => t.parentTheme || 'Campanha avulsa'))];
+  }, [list]);
+
+  const groupedTemplates = useMemo(() => {
+    return list.reduce((themes, item) => {
+      const theme = item.parentTheme || 'Campanha avulsa';
+      const flow = item.flowCategory || 'Fluxo principal';
+      if (!themes[theme]) themes[theme] = {};
+      if (!themes[theme][flow]) themes[theme][flow] = [];
+      themes[theme][flow].push(item);
+      return themes;
+    }, {});
+  }, [list]);
+
+  const withOrder = (items) => {
+    const counters = {};
+    return items.map((item, index) => {
+      const key = `${item.parentTheme || 'Campanha avulsa'}::${item.flowCategory || 'Fluxo principal'}`;
+      counters[key] = (counters[key] || 0) + 1;
+      return {
+        ...item,
+        sortOrder: index,
+        stepOrder: counters[key],
+      };
+    });
+  };
+
+  const groupKey = (item) => `${item.parentTheme || 'Campanha avulsa'}::${item.flowCategory || 'Fluxo principal'}`;
+  const isInGroup = (item, theme, flow) => groupKey(item) === `${theme}::${flow}`;
+
+  const saveList = async (items = list) => {
+    const ordered = withOrder(items);
+    setList(ordered);
+    setSaving(true);
+    setError('');
+    try {
+      await onSave(ordered);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || 'Nao foi possivel salvar no servidor.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reorder = (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return;
+    setList((current) => {
+      const from = current.findIndex(t => t.id === fromId);
+      const to = current.findIndex(t => t.id === toId);
+      if (from < 0 || to < 0) return current;
+      const next = [...current];
+      const target = next[to];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, {
+        ...moved,
+        parentTheme: target.parentTheme || moved.parentTheme,
+        flowCategory: target.flowCategory || moved.flowCategory,
+        flowColor: target.flowColor || moved.flowColor,
+      });
+      return withOrder(next);
+    });
+  };
+
+  const moveGroup = (theme, flow, direction) => {
+    setList((current) => {
+      const groups = current.reduce((acc, item) => {
+        const key = groupKey(item);
+        if (!acc.order.includes(key)) acc.order.push(key);
+        if (!acc.items[key]) acc.items[key] = [];
+        acc.items[key].push(item);
+        return acc;
+      }, { order: [], items: {} });
+
+      const key = `${theme}::${flow}`;
+      const from = groups.order.indexOf(key);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= groups.order.length) return current;
+
+      const nextOrder = [...groups.order];
+      [nextOrder[from], nextOrder[to]] = [nextOrder[to], nextOrder[from]];
+      return withOrder(nextOrder.flatMap(group => groups.items[group]));
+    });
+  };
+
+  const renameGroup = (theme, flow) => {
+    const newTheme = window.prompt('Renomear tema pai / campanha:', theme);
+    if (!newTheme?.trim()) return;
+
+    const newFlow = window.prompt('Renomear conjunto / sequencia:', flow);
+    if (!newFlow?.trim()) return;
+
+    const next = withOrder(list.map((item) => (
+      isInGroup(item, theme, flow)
+        ? {
+            ...item,
+            parentTheme: newTheme.trim(),
+            flowCategory: newFlow.trim(),
+            category: item.category === flow ? newFlow.trim() : item.category,
+          }
+        : item
+    )));
+
+    const nextActive = next.find(item => item.id === active?.id) || next[0] || null;
+    setList(next);
+    setActive(nextActive);
+    setForm({ ...(nextActive || {}) });
+    saveList(next);
+  };
+
+  const deleteGroup = (theme, flow) => {
+    const items = list.filter(item => isInGroup(item, theme, flow));
+    if (!items.length) return;
+    if (!window.confirm(`Excluir o conjunto "${flow}" com ${items.length} mensagem(ns)?`)) return;
+
+    const next = withOrder(list.filter(item => !isInGroup(item, theme, flow)));
+    const nextActive = next.find(item => item.id === active?.id) || next[0] || null;
+    setList(next);
+    setActive(nextActive);
+    setForm({ ...(nextActive || {}) });
+    saveList(next);
+  };
+
+  const save = async () => {
+    const updated = withOrder(list.map(t => t.id === form.id ? { ...form } : t));
     setList([...updated]);
     setActive({ ...form });
-    onSave([...updated]);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    setSaving(true);
+    setError('');
+    try {
+      await onSave(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || 'Nao foi possivel salvar no servidor.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addNew = () => {
-    const t = { id: `tmpl_${Date.now()}`, name: 'Novo template', category: '', color: C.purple, labelColor: C.purple, bubbleColor: '#ffffff', imageUrl: '', message: '' };
-    const updated = [...list, t];
+    const t = {
+      id: `tmpl_${Date.now()}`,
+      name: 'Nova mensagem',
+      category: '',
+      parentTheme: themeNames[0] || 'Lancamento',
+      flowCategory: flowNames[0] || 'Lancamento',
+      flowColor: C.purple,
+      stepOrder: list.length + 1,
+      delaySeconds: list.length ? 30 : 0,
+      color: C.purple,
+      labelColor: C.purple,
+      bubbleColor: '#ffffff',
+      imageUrl: '',
+      message: '',
+    };
+    const updated = withOrder([...list, t]);
     setList(updated);
     setActive(t);
     setForm({...t});
   };
 
-  const remove = (id) => {
-    const updated = list.filter(t => t.id !== id);
+  const addGroup = () => {
+    const parentTheme = window.prompt('Tema pai / campanha do conjunto:', themeNames[0] || 'Lancamento');
+    if (!parentTheme?.trim()) return;
+
+    const flowCategory = window.prompt('Nome do conjunto / sequencia:', 'Primeiro contato');
+    if (!flowCategory?.trim()) return;
+
+    const flowColor = C.emerald;
+    const t = {
+      id: `tmpl_${Date.now()}`,
+      name: 'Mensagem 1',
+      category: flowCategory.trim(),
+      parentTheme: parentTheme.trim(),
+      flowCategory: flowCategory.trim(),
+      flowColor,
+      stepOrder: 1,
+      delaySeconds: 0,
+      color: flowColor,
+      labelColor: flowColor,
+      bubbleColor: '#ffffff',
+      imageUrl: '',
+      message: '',
+    };
+    const updated = withOrder([...list, t]);
     setList(updated);
-    onSave(updated);
-    if (active.id === id) { setActive(updated[0]); setForm({...updated[0]}); }
+    setActive(t);
+    setForm({...t});
+  };
+
+  const remove = async (id) => {
+    const updated = list.filter(t => t.id !== id);
+    if (!updated.length) return;
+    setList(updated);
+    if (active?.id === id) { setActive(updated[0]); setForm({...updated[0]}); }
+    try {
+      await onSave(updated);
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || 'Nao foi possivel remover no servidor.');
+    }
   };
 
   const uploadImg = async (e) => {
@@ -415,6 +677,13 @@ function TemplateManager({ templates, onSave, onClose }) {
             <h3 className="font-black text-gray-800">Templates de Mensagem</h3>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => saveList()} disabled={saving}
+              className="flex items-center gap-1 text-xs font-black px-3 py-1.5 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 disabled:opacity-60">
+              <Save size={11} /> Ordem
+            </button>
+            <button onClick={addGroup} className="flex items-center gap-1 text-xs font-black px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100">
+              <Layers size={11} /> Conjunto
+            </button>
             <button onClick={addNew} className="flex items-center gap-1 text-xs font-black px-3 py-1.5 rounded-xl border-2 border-dashed border-purple-300 text-purple-500 hover:bg-purple-50">
               <Plus size={11} /> Novo
             </button>
@@ -424,21 +693,70 @@ function TemplateManager({ templates, onSave, onClose }) {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Lista de templates */}
-          <div className="w-52 border-r border-gray-100 p-3 space-y-1 overflow-y-auto">
-            {list.map(t => (
-              <button key={t.id} onClick={() => select(t)}
-                className={`w-full text-left px-3 py-2.5 rounded-xl transition-all group relative ${active.id === t.id ? 'bg-purple-50 border-2 border-purple-200' : 'hover:bg-gray-50 border-2 border-transparent'}`}>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background: t.color || C.purple}} />
-                  <p className="text-[11px] font-black text-gray-700 truncate flex-1">{t.name}</p>
-                </div>
-                <p className="text-[9px] text-gray-400 truncate mt-0.5 ml-4">{t.category || 'Sem categoria'}</p>
-                {t.imageUrl && <span className="absolute top-2 right-6 text-[8px] text-blue-400">img</span>}
-                <button onClick={e => { e.stopPropagation(); remove(t.id); }}
-                  className="absolute top-2 right-2 p-0.5 opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500">
-                  <X size={9} />
-                </button>
-              </button>
+          <div className="w-64 border-r border-gray-100 p-3 space-y-3 overflow-y-auto">
+            {Object.entries(groupedTemplates).map(([theme, flows]) => (
+              <div key={theme} className="space-y-2">
+                <p className="px-2 text-[9px] font-black uppercase tracking-[0.18em] text-gray-300 truncate">
+                  {theme}
+                </p>
+                {Object.entries(flows).map(([flow, items]) => {
+                  const flowColor = items[0]?.flowColor || items[0]?.color || C.purple;
+                  return (
+                    <div key={`${theme}-${flow}`} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-2">
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex items-center gap-1.5">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ background: flowColor }} />
+                          <p className="truncate text-[10px] font-black text-gray-600">{flow}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[8px] font-black text-gray-300">{items.length} msg</span>
+                          <button type="button" onClick={() => moveGroup(theme, flow, -1)}
+                            className="grid h-5 w-5 place-items-center rounded-lg bg-white text-gray-300 hover:text-purple-500 hover:shadow-sm">
+                            <ArrowUp size={10} />
+                          </button>
+                          <button type="button" onClick={() => moveGroup(theme, flow, 1)}
+                            className="grid h-5 w-5 place-items-center rounded-lg bg-white text-gray-300 hover:text-purple-500 hover:shadow-sm">
+                            <ArrowDown size={10} />
+                          </button>
+                          <button type="button" onClick={() => renameGroup(theme, flow)}
+                            className="grid h-5 w-5 place-items-center rounded-lg bg-white text-gray-300 hover:text-purple-500 hover:shadow-sm">
+                            <Edit2 size={10} />
+                          </button>
+                          <button type="button" onClick={() => deleteGroup(theme, flow)}
+                            className="grid h-5 w-5 place-items-center rounded-lg bg-white text-gray-300 hover:text-red-500 hover:shadow-sm">
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        {items.map(t => (
+                          <button key={t.id} onClick={() => select(t)}
+                            draggable
+                            onDragStart={() => setDragId(t.id)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => { e.preventDefault(); reorder(dragId, t.id); setDragId(null); }}
+                            onDragEnd={() => setDragId(null)}
+                            className={`w-full text-left px-2.5 py-2 rounded-xl transition-all group relative bg-white ${active?.id === t.id ? 'border-2 border-purple-200 shadow-sm' : 'border-2 border-transparent hover:border-gray-100'} ${dragId === t.id ? 'opacity-50' : ''}`}>
+                            <div className="flex items-center gap-2">
+                              <GripVertical size={12} className="text-gray-300 flex-shrink-0 cursor-grab" />
+                              <span className="text-[9px] font-black" style={{ color: flowColor }}>M{t.stepOrder || 1}</span>
+                              <p className="text-[11px] font-black text-gray-700 truncate flex-1">{t.name}</p>
+                            </div>
+                            <div className="mt-1 ml-5 flex items-center gap-1.5 text-[9px] text-gray-400">
+                              <span className="inline-flex items-center gap-0.5"><Timer size={8} />{Number(t.delaySeconds || 0)}s</span>
+                              {t.imageUrl && <span className="text-blue-400">img</span>}
+                            </div>
+                            <button onClick={e => { e.stopPropagation(); remove(t.id); }}
+                              className="absolute top-2 right-2 p-0.5 opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500">
+                              <X size={9} />
+                            </button>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ))}
           </div>
 
@@ -455,6 +773,64 @@ function TemplateManager({ templates, onSave, onClose }) {
                 <input value={form.category || ''} onChange={f('category')} placeholder="Ex: Primeiro contato"
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-purple-400" />
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-purple-100 bg-purple-50/45 p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Layers size={13} style={{ color: C.purple }} />
+                <p className="text-[10px] font-black uppercase tracking-wider text-purple-500">Fluxo X1 / Sequencia de disparo</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Tema pai / Campanha</label>
+                  <input
+                    list="prospect-parent-themes"
+                    value={form.parentTheme || ''}
+                    onChange={f('parentTheme')}
+                    placeholder="Ex: Lancamento maio"
+                    className="w-full bg-white border border-purple-100 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-purple-400"
+                  />
+                  <datalist id="prospect-parent-themes">
+                    {themeNames.map(name => <option key={name} value={name} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Conjunto / Sequencia</label>
+                  <input
+                    list="prospect-flow-categories"
+                    value={form.flowCategory || ''}
+                    onChange={f('flowCategory')}
+                    placeholder="Ex: Primeiro contato"
+                    className="w-full bg-white border border-purple-100 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-purple-400"
+                  />
+                  <datalist id="prospect-flow-categories">
+                    {flowNames.map(name => <option key={name} value={name} />)}
+                  </datalist>
+                </div>
+              </div>
+              <div className="grid grid-cols-[96px_120px_96px] gap-3">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Etapa</label>
+                  <input type="number" min="1" value={form.stepOrder || 1} onChange={f('stepOrder')}
+                    className="w-full bg-white border border-purple-100 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-purple-400" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Delay apos envio</label>
+                  <div className="flex items-center gap-1 bg-white border border-purple-100 rounded-xl px-3 py-2">
+                    <input type="number" min="0" value={form.delaySeconds || 0} onChange={f('delaySeconds')}
+                      className="min-w-0 flex-1 bg-transparent text-sm font-medium focus:outline-none" />
+                    <span className="text-[10px] font-black text-gray-400">s</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Cor grupo</label>
+                  <input type="color" value={form.flowColor || form.color || C.purple} onChange={f('flowColor')}
+                    className="w-full h-10 bg-white border border-purple-100 rounded-xl px-2 py-1" />
+                </div>
+              </div>
+              <p className="mt-2 text-[9px] font-bold text-purple-400">
+                Organize por Tema pai {'>'} Conjunto. Ex: Lancamento {'>'} Primeiro contato: M1, espera 30s, M2, espera 15s, M3.
+              </p>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -554,10 +930,16 @@ function TemplateManager({ templates, onSave, onClose }) {
               )}
             </div>
 
-            <button onClick={save}
-              className="w-full py-3 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2 transition-all hover:brightness-110"
+            {error && (
+              <p className="text-[10px] font-bold text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            <button onClick={save} disabled={saving || uploading}
+              className="w-full py-3 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2 transition-all hover:brightness-110 disabled:opacity-60"
               style={{background:`linear-gradient(135deg,${C.purple},#5046b0)`}}>
-              {saved ? <><Check size={14} /> Salvo!</> : <><Save size={14} /> Salvar template</>}
+              {saving ? <><RefreshCw size={14} className="animate-spin" /> Salvando...</> : saved ? <><Check size={14} /> Salvo!</> : <><Save size={14} /> Salvar template</>}
             </button>
           </div>
         </div>
@@ -887,7 +1269,26 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
   const [tagIn,  setTagIn]  = useState('');
   const [copied, setCopied] = useState(false);
   const [selTmpl, setSelTmpl] = useState(activeTemplate || templates[0]);
+  const [seqSending, setSeqSending] = useState(false);
   const cfg = statusMap[contact.column] || statusMap.pending;
+  const messages = Array.isArray(contact.messages) ? contact.messages : [];
+  const groupedTemplates = useMemo(() => {
+    return normalizeTemplateFlow(templates).reduce((themes, item) => {
+      const theme = item.parentTheme || 'Campanha avulsa';
+      const flow = item.flowCategory || item.category || 'Fluxo principal';
+      if (!themes[theme]) themes[theme] = {};
+      if (!themes[theme][flow]) themes[theme][flow] = [];
+      themes[theme][flow].push(item);
+      return themes;
+    }, {});
+  }, [templates]);
+  const selectedTheme = selTmpl?.parentTheme || 'Campanha avulsa';
+  const selectedFlow = selTmpl?.flowCategory || selTmpl?.category || 'Fluxo principal';
+  const selectedSequence = useMemo(() => {
+    return normalizeTemplateFlow(templates)
+      .filter(t => (t.parentTheme || 'Campanha avulsa') === selectedTheme && (t.flowCategory || t.category || 'Fluxo principal') === selectedFlow)
+      .sort((a, b) => Number(a.stepOrder || 0) - Number(b.stepOrder || 0) || Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+  }, [templates, selectedTheme, selectedFlow]);
 
   // Alerta se já enviado
   const alreadySent = (contact.sentCount || 0) > 0;
@@ -897,6 +1298,27 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
     onSendWA({ ...contact, name, note }, selTmpl);
     onSetActiveTemplate(selTmpl);
     onClose();
+  };
+
+  const handleSendSequence = async () => {
+    if (!selectedSequence.length) return;
+    onEdit(contact.id, { note, name, score, tags });
+    onSetActiveTemplate(selTmpl);
+    setSeqSending(true);
+    try {
+      for (let i = 0; i < selectedSequence.length; i += 1) {
+        const tmpl = selectedSequence[i];
+        await onSendWA({ ...contact, name, note }, tmpl, { silent: true });
+        if (i < selectedSequence.length - 1 && Number(tmpl.delaySeconds || 0) > 0) {
+          await waitSeconds(tmpl.delaySeconds);
+        }
+      }
+      onClose();
+    } catch (e) {
+      alert('Erro ao enviar sequencia: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setSeqSending(false);
+    }
   };
 
   const handleCopy = () => {
@@ -985,21 +1407,75 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
             </div>
           </div>
 
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Historico do chat</label>
+              <span className="text-[9px] font-bold text-gray-300">{messages.length} mensagens</span>
+            </div>
+            <div className="rounded-2xl bg-[#ECE5DD] border border-gray-100 p-3 max-h-56 overflow-y-auto space-y-2">
+              {messages.length === 0 ? (
+                <div className="text-center py-5 text-gray-400">
+                  <MessageSquare size={18} className="mx-auto mb-2 opacity-40" />
+                  <p className="text-[10px] font-bold">Nenhuma mensagem registrada ainda.</p>
+                </div>
+              ) : messages.map((msg) => {
+                const isLead = ['incoming', 'in'].includes(msg.direction);
+                const isBot = msg.direction === 'bot';
+                return (
+                  <div key={msg.id} className={`flex ${isLead ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-[82%] rounded-2xl px-3 py-2 shadow-sm ${
+                      isLead ? 'rounded-tl-sm bg-white text-gray-700' : 'rounded-tr-sm bg-emerald-100 text-emerald-950'
+                    }`}>
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className={`text-[8px] font-black uppercase tracking-wider ${isLead ? 'text-gray-400' : 'text-emerald-600'}`}>
+                          {isLead ? 'Lead' : isBot ? 'Bot' : 'Gatedo'}
+                        </span>
+                        {msg.sentAt && <span className="text-[8px] text-gray-400">{timeAgo(msg.sentAt)}</span>}
+                      </div>
+                      <p className="text-[11px] font-medium leading-relaxed whitespace-pre-wrap">{msg.body}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Template selector */}
           <div>
             <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider mb-2">Template</label>
-            <div className="space-y-1 mb-3">
-              {templates.map(t => (
-                <button key={t.id} onClick={() => setSelTmpl(t)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all text-left ${selTmpl?.id === t.id ? 'border-purple-300 bg-purple-50' : 'border-gray-100 hover:border-gray-200'}`}>
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:t.color||C.purple}} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black text-gray-700 truncate">{t.name}</p>
-                    <p className="text-[9px] text-gray-400 truncate">{t.category}</p>
-                  </div>
-                  {t.imageUrl && <ImageIcon size={9} className="text-blue-400 flex-shrink-0" />}
-                  {selTmpl?.id === t.id && <Check size={11} className="text-purple-500 flex-shrink-0" />}
-                </button>
+            <div className="space-y-2 mb-3">
+              {Object.entries(groupedTemplates).map(([theme, flows]) => (
+                <div key={theme} className="space-y-1">
+                  <p className="px-1 text-[8px] font-black uppercase tracking-[0.16em] text-gray-300 truncate">{theme}</p>
+                  {Object.entries(flows).map(([flow, items]) => {
+                    const flowColor = items[0]?.flowColor || items[0]?.color || C.purple;
+                    return (
+                      <div key={`${theme}-${flow}`} className={`rounded-xl border p-1.5 ${selectedTheme === theme && selectedFlow === flow ? 'border-purple-200 bg-purple-50/60' : 'border-gray-100 bg-white'}`}>
+                        <div className="flex items-center justify-between px-1 pb-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: flowColor }} />
+                            <p className="truncate text-[9px] font-black text-gray-500">{flow}</p>
+                          </div>
+                          <span className="text-[8px] font-black text-gray-300">{items.length} msg</span>
+                        </div>
+                        <div className="space-y-1">
+                          {items.map(t => (
+                            <button key={t.id} onClick={() => setSelTmpl(t)}
+                              className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg border transition-all text-left ${selTmpl?.id === t.id ? 'border-purple-300 bg-white shadow-sm' : 'border-transparent hover:border-gray-100'}`}>
+                              <span className="text-[9px] font-black flex-shrink-0" style={{color:flowColor}}>M{t.stepOrder || 1}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-black text-gray-700 truncate">{t.name}</p>
+                                <p className="text-[8px] text-gray-400 truncate">{t.category || flow}</p>
+                              </div>
+                              {t.imageUrl && <ImageIcon size={9} className="text-blue-400 flex-shrink-0" />}
+                              {selTmpl?.id === t.id && <Check size={11} className="text-purple-500 flex-shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ))}
             </div>
 
@@ -1052,7 +1528,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
           {/* Actions */}
           <div className="space-y-2 pt-1">
             {waConnected ? (
-              <button onClick={handleSend} disabled={sending}
+              <button onClick={handleSend} disabled={sending || seqSending}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm text-white shadow-lg disabled:opacity-60"
                 style={{background:'linear-gradient(135deg,#25D366,#128C7E)', boxShadow:'0 6px 20px rgba(37,211,102,0.35)'}}>
                 {sending ? <RefreshCw size={15} className="animate-spin" /> : <Send size={15} />}
@@ -1067,6 +1543,13 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
                 <MessageCircle size={15} /> Abrir WA (manual) + Marcar Enviado
               </a>
             )}
+            {waConnected && selectedSequence.length > 1 && (
+              <button onClick={handleSendSequence} disabled={sending || seqSending}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm border-2 border-emerald-200 bg-emerald-50 text-emerald-600 disabled:opacity-60">
+                {seqSending ? <RefreshCw size={14} className="animate-spin" /> : <Layers size={14} />}
+                {seqSending ? 'Enviando sequencia...' : `Enviar sequencia ${selectedFlow} (${selectedSequence.length})`}
+              </button>
+            )}
             <button onClick={() => { onEdit(contact.id, { note, name, score, tags }); onClose(); }}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-black text-sm border-2 border-gray-200 text-gray-500 hover:border-purple-300 hover:text-purple-500">
               <Save size={13} /> Salvar sem enviar
@@ -1079,14 +1562,18 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
 }
 
 // ─── SEQUENCE FIRE ────────────────────────────────────────────────────────────
-function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, waConnected }) {
+const waitSeconds = (seconds) => new Promise(resolve => window.setTimeout(resolve, Math.max(0, Number(seconds || 0)) * 1000));
+
+function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, sequenceTemplates = [], waConnected }) {
   // Apenas pendentes (não waiting, não já enviados recentemente)
   const queue = contacts.filter(c => c.column === 'pending');
   const [idx,      setIdx]      = useState(0);
   const [fired,    setFired]    = useState(0);
   const [sending,  setSending]  = useState(false);
   const [batchSent,setBatchSent]= useState(false);
+  const [progress, setProgress] = useState('');
   const current = queue[idx];
+  const flow = sequenceTemplates.length ? sequenceTemplates : [activeTemplate].filter(Boolean);
 
   const handleBatch = async () => {
     setSending(true);
@@ -1111,12 +1598,81 @@ function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, waConnected
     setIdx(i => i + 1);
   };
 
+  const handleSequenceBatch = async () => {
+    setSending(true);
+    try {
+      let sentTotal = 0;
+      let failedTotal = 0;
+      for (const contact of queue) {
+        for (let i = 0; i < flow.length; i += 1) {
+          const tmpl = flow[i];
+          if (!String(tmpl?.message || '').trim() && !tmpl?.imageUrl && !tmpl?.linkUrl) {
+            failedTotal += 1;
+            continue;
+          }
+          setProgress(`${contact.name || contact.phone} - M${tmpl.stepOrder || i + 1}/${flow.length}`);
+          try {
+            await onSendWA(contact, tmpl, { silent: true });
+            sentTotal += 1;
+            setFired(sentTotal);
+          } catch {
+            failedTotal += 1;
+          }
+          if (i < flow.length - 1 && Number(tmpl.delaySeconds || 0) > 0) {
+            setProgress(`Aguardando ${tmpl.delaySeconds}s antes da proxima mensagem...`);
+            await waitSeconds(tmpl.delaySeconds);
+          }
+        }
+      }
+      setBatchSent(true);
+      if (failedTotal > 0) alert(`${failedTotal} mensagem(ns) da sequencia falharam ou estavam vazias. As demais continuaram.`);
+    } catch (e) {
+      alert('Erro: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setSending(false);
+      setProgress('');
+    }
+  };
+
+  const handleSequenceFire = async () => {
+    if (!current) return;
+    setSending(true);
+    try {
+      let failedTotal = 0;
+      for (let i = 0; i < flow.length; i += 1) {
+        const tmpl = flow[i];
+        if (!String(tmpl?.message || '').trim() && !tmpl?.imageUrl && !tmpl?.linkUrl) {
+          failedTotal += 1;
+          continue;
+        }
+        setProgress(`M${tmpl.stepOrder || i + 1}/${flow.length}`);
+        try {
+          await onSendWA(current, tmpl, { silent: true });
+          setFired(f => f + 1);
+        } catch {
+          failedTotal += 1;
+        }
+        if (i < flow.length - 1 && Number(tmpl.delaySeconds || 0) > 0) {
+          setProgress(`Aguardando ${tmpl.delaySeconds}s...`);
+          await waitSeconds(tmpl.delaySeconds);
+        }
+      }
+      if (failedTotal > 0) alert(`${failedTotal} mensagem(ns) da sequencia falharam ou estavam vazias. As demais continuaram.`);
+      setIdx(i => i + 1);
+    } catch (e) {
+      alert('Erro: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setSending(false);
+      setProgress('');
+    }
+  };
+
   if (batchSent) return (
     <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
         <div className="text-5xl mb-4">🚀</div>
         <h3 className="font-black text-gray-800 text-lg mb-2">Lote na fila!</h3>
-        <p className="text-gray-500 text-sm mb-6">{queue.length} mensagens agendadas com delay humanizado.</p>
+        <p className="text-gray-500 text-sm mb-6">{fired} mensagens enviadas respeitando a sequencia e os delays.</p>
         <button onClick={onClose} className="w-full py-3 rounded-2xl font-black text-white"
           style={{background:`linear-gradient(135deg,${C.purple},#5046b0)`}}>Fechar</button>
       </div>
@@ -1153,11 +1709,14 @@ function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, waConnected
           {waConnected && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 mb-4">
               <p className="text-xs font-black text-emerald-700 mb-1">Gateway conectado — envio automatico</p>
-              <p className="text-[10px] text-emerald-600 mb-3">Dispara todos os {queue.length} pendentes com delay humanizado (4-12s).</p>
-              <button onClick={handleBatch} disabled={sending}
+              <p className="text-[10px] text-emerald-600 mb-3">
+                Dispara {flow.length} mensagem(ns) por contato, na ordem do conjunto, respeitando o delay configurado.
+              </p>
+              {progress && <p className="text-[10px] font-bold text-emerald-700 mb-2">{progress}</p>}
+              <button onClick={handleSequenceBatch} disabled={sending}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-xs text-white"
                 style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
-                {sending ? <><RefreshCw size={11} className="animate-spin" /> Enviando...</> : <><Zap size={11} /> Disparar {queue.length} de uma vez</>}
+                {sending ? <><RefreshCw size={11} className="animate-spin" /> Enviando...</> : <><Zap size={11} /> Disparar {queue.length} contatos</>}
               </button>
             </div>
           )}
@@ -1177,6 +1736,9 @@ function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, waConnected
           </div>
 
           <div className="bg-gray-50 rounded-xl p-3 mb-4 max-h-24 overflow-y-auto">
+            <p className="text-[10px] font-black text-gray-400 mb-1">
+              {flow.length > 1 ? `${flow.length} mensagens no conjunto` : activeTemplate?.name}
+            </p>
             <p className="text-[10px] text-gray-600 leading-relaxed whitespace-pre-wrap">{activeTemplate?.message}</p>
           </div>
 
@@ -1185,10 +1747,11 @@ function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, waConnected
               <SkipForward size={12} /> Pular
             </button>
             {waConnected ? (
-              <button onClick={handleFire}
+              <button onClick={handleSequenceFire} disabled={sending}
                 className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm text-white flex-[2]"
                 style={{background:'linear-gradient(135deg,#25D366,#128C7E)'}}>
-                <Send size={12} /> Enviar
+                {sending ? <RefreshCw size={12} className="animate-spin" /> : <Send size={12} />}
+                {sending ? 'Enviando...' : 'Enviar sequencia'}
               </button>
             ) : (
               <a href={`https://wa.me/${toWANum(current.phone)}?text=${encodeURIComponent(activeTemplate?.message||'')}`}
@@ -1461,8 +2024,8 @@ function WaitingList({ contacts, onMoveToQueue, onDelete, onOpenDetail }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminProspects() {
   const [tab,          setTab]          = useState('kanban');
-  const [contacts,     setContacts]     = useState(() => loadLocal());
-  const [templates,    setTemplates]    = useState(() => loadTemplatesLocal());
+  const [contacts,     setContacts]     = useState(() => normalizeProspectList(loadLocal()));
+  const [templates,    setTemplates]    = useState(() => normalizeTemplateFlow(loadTemplatesLocal()));
   const [activeTemplate, setActiveTemplate] = useState(null);
   const [search,       setSearch]       = useState('');
   const [filterCol,    setFilterCol]    = useState('all');
@@ -1480,6 +2043,44 @@ export default function AdminProspects() {
 
   const activeTmpl = activeTemplate || templates[0];
   const statusMap = useMemo(() => applyStatusCustomColors(LEAD_STATUS, statusColors), [statusColors]);
+  const activeSequenceTemplates = useMemo(() => {
+    if (!activeTmpl) return [];
+    const theme = activeTmpl.parentTheme || 'Campanha avulsa';
+    const flow = activeTmpl.flowCategory || activeTmpl.category || 'Fluxo principal';
+    return templates
+      .filter(t => (t.parentTheme || 'Campanha avulsa') === theme && (t.flowCategory || t.category || 'Fluxo principal') === flow)
+      .sort((a, b) => Number(a.stepOrder || 0) - Number(b.stepOrder || 0) || Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+  }, [activeTmpl, templates]);
+  const loadProspectsFromAPI = useCallback(async () => {
+    const r = await api.get('/prospects');
+    if (Array.isArray(r.data)) {
+      const incoming = normalizeProspectList(r.data);
+      setContacts(current => mergeProspectLists(current, incoming));
+    }
+  }, []);
+  const loadTemplatesFromAPI = useCallback(async () => {
+    const r = await api.get('/prospects/templates');
+    const next = normalizeTemplateFlow(r.data);
+    if (next.length > 0) {
+      setTemplates(next);
+      saveTemplatesLocal(next);
+      setActiveTemplate(current => current && next.some(t => t.id === current.id) ? current : next[0]);
+    }
+  }, []);
+
+  const saveTemplates = useCallback(async (nextTemplates) => {
+    const next = normalizeTemplateFlow(nextTemplates);
+    if (!next.length) return;
+    setTemplates(next);
+    saveTemplatesLocal(next);
+    const r = await api.post('/prospects/templates/bulk', { templates: next });
+    const saved = normalizeTemplateFlow(r.data);
+    if (saved.length > 0) {
+      setTemplates(saved);
+      saveTemplatesLocal(saved);
+      setActiveTemplate(current => current && saved.some(t => t.id === current.id) ? current : saved[0]);
+    }
+  }, []);
 
   // Persiste no localStorage toda vez que contacts muda
   useEffect(() => { saveLocal(contacts); }, [contacts]);
@@ -1488,10 +2089,13 @@ export default function AdminProspects() {
 
   // Tenta carregar da API na montagem
   useEffect(() => {
-    api.get('/prospects').then(r => {
-      if (Array.isArray(r.data) && r.data.length > 0) setContacts(r.data);
-    }).catch(() => {/* usa localStorage */});
-  }, []);
+    loadProspectsFromAPI().catch(() => {/* usa localStorage */});
+    loadTemplatesFromAPI().catch(() => {/* usa localStorage */});
+    const timer = window.setInterval(() => {
+      loadProspectsFromAPI().catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [loadProspectsFromAPI, loadTemplatesFromAPI]);
 
   useEffect(() => {
     api.get('/prospects/wa-bot')
@@ -1506,7 +2110,12 @@ export default function AdminProspects() {
   }, []);
 
   const editContact = useCallback((id, fields) => {
-    setContacts(prev => prev.map(c => c.id === id ? { ...c, ...fields } : c));
+    setContacts(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const updated = { ...c, ...fields };
+      api.post('/prospects', updated).catch(() => {});
+      return updated;
+    }));
   }, []);
 
   const deleteContact = useCallback((id) => {
@@ -1532,7 +2141,7 @@ export default function AdminProspects() {
   }, []);
 
  // Envio via Gateway ou fallback manual
-  const sendWA = useCallback(async (contact, template) => {
+  const sendWA = useCallback(async (contact, template, options = {}) => {
     const tmpl   = template || activeTmpl;
     // Só envia URL pública — base64 não funciona no WA Gateway
     const imgUrl = (tmpl?.imageUrl && tmpl.imageUrl.startsWith('http')) ? tmpl.imageUrl : undefined;
@@ -1572,22 +2181,37 @@ export default function AdminProspects() {
             scriptId:   `${tmpl?.id}_link`,
           });
         }
+        const sentAt = new Date().toISOString();
         setContacts(prev => prev.map(c => c.id === contact.id
-          ? { ...c, column: 'sent', sentAt: new Date().toISOString(), sentCount: (c.sentCount || 0) + 1 }
+          ? {
+              ...c,
+              column: AUTO_SENT_COLS.has(c.column) ? 'sent' : c.column,
+              sentAt,
+              sentCount: (c.sentCount || 0) + 1,
+            }
           : c
         ));
       } catch (e) {
-        alert('Erro ao enviar: ' + (e.response?.data?.error || e.message));
+        if (!options.silent) alert('Erro ao enviar: ' + (e.response?.data?.error || e.message));
+        throw e;
       } finally { setSending(false); }
     } else {
       // Fallback manual — abre WA com texto
       const fullText = linkUrl ? `${text}\n\n${linkUrl}` : text;
       window.open(`https://wa.me/${toWANum(contact.phone)}?text=${encodeURIComponent(fullText)}`, '_blank');
+      const sentAt = new Date().toISOString();
       setContacts(prev => prev.map(c => c.id === contact.id
-        ? { ...c, column: 'sent', sentAt: new Date().toISOString(), sentCount: (c.sentCount || 0) + 1 }
+        ? {
+            ...c,
+            column: AUTO_SENT_COLS.has(c.column) ? 'sent' : c.column,
+            sentAt,
+            sentCount: (c.sentCount || 0) + 1,
+          }
         : c
       ));
-      api.patch(`/prospects/${contact.id}/status`, { status: 'sent' }).catch(() => {});
+      if (AUTO_SENT_COLS.has(contact.column)) {
+        api.patch(`/prospects/${contact.id}/status`, { status: 'sent' }).catch(() => {});
+      }
     }
   }, [waConnected, activeTmpl]);
 
@@ -1595,6 +2219,7 @@ export default function AdminProspects() {
     setSyncing(true);
     try {
       await Promise.all(contacts.map(c => api.post('/prospects', c).catch(() => {})));
+      await loadProspectsFromAPI().catch(() => {});
     } finally { setSyncing(false); }
   };
 
@@ -1723,6 +2348,10 @@ export default function AdminProspects() {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 text-[10px] font-black transition-all ${activeTmpl?.id===t.id?'border-purple-300 bg-purple-50 text-purple-600':'border-gray-100 text-gray-400 hover:border-gray-200'}`}>
               <div className="w-1.5 h-1.5 rounded-full" style={{background:t.color||C.purple}} />
               {t.name}
+              <span className="text-[8px] font-black text-gray-300">{t.parentTheme || 'Campanha'}</span>
+              <span className="text-[8px] font-black" style={{ color: t.flowColor || t.color || C.purple }}>{t.flowCategory || 'Fluxo'}</span>
+              <span className="text-[8px] font-black text-gray-300">M{t.stepOrder || 1}</span>
+              {Number(t.delaySeconds || 0) > 0 && <span className="text-[8px] font-black text-amber-500">{t.delaySeconds}s</span>}
               {t.imageUrl && <ImageIcon size={8} className="text-blue-400" />}
             </button>
           ))}
@@ -1893,7 +2522,7 @@ export default function AdminProspects() {
         <AddContactModal onClose={() => setShowAdd(false)} onAdd={addContacts} existingContacts={contacts} />
       )}
       {showTemplates && (
-        <TemplateManager templates={templates} onSave={setTemplates} onClose={() => setShowTemplates(false)} />
+        <TemplateManager templates={templates} onSave={saveTemplates} onClose={() => setShowTemplates(false)} />
       )}
       {showAutomation && (
         <AutomationSettingsModal
@@ -1907,7 +2536,7 @@ export default function AdminProspects() {
       )}
       {showSequence && (
         <SequenceFire contacts={contacts} onSendWA={sendWA} onClose={() => setShowSequence(false)}
-          activeTemplate={activeTmpl} waConnected={waConnected} />
+          activeTemplate={activeTmpl} sequenceTemplates={activeSequenceTemplates} waConnected={waConnected} />
       )}
       {detailContact && (
         <LeadDetailDrawer

@@ -782,6 +782,31 @@ model ProspectMessage {
   @@index([prospectId])
 }
 
+model ProspectTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  category    String?
+  color       String?
+  labelColor  String?
+  bubbleColor String?
+  imageUrl    String?
+  linkUrl     String?
+  parentTheme String?
+  flowCategory String?
+  flowColor   String?
+  stepOrder   Int      @default(1)
+  delaySeconds Int     @default(0)
+  message     String
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@index([parentTheme, flowCategory, stepOrder])
+  @@index([active])
+}
+
 model InstagramLead {
   id                       String                     @id @default(cuid())
   instagramUserId          String?                    @unique
