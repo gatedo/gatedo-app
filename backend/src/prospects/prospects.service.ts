@@ -249,38 +249,7 @@ export class ProspectsService {
 
   // ── Envio ─────────────────────────────────────────────────────────────────
   async sendOne(data: { phone: string; text: string; imageUrl?: string; prospectId: string; scriptId?: string }) {
-    const response = await this.gPost('/send', data);
-
-    if (data.prospectId && data.text) {
-      await this.prisma.prospectMessage.create({
-        data: {
-          prospectId: data.prospectId,
-          direction: 'outgoing',
-          body: data.text,
-          imageUrl: data.imageUrl || null,
-          waMessageId: response?.messageId || response?.id || null,
-          sentAt: new Date(),
-        },
-      }).catch(() => null);
-
-      const current = await this.prisma.prospect.findUnique({
-        where: { id: data.prospectId },
-        select: { status: true, column: true },
-      }).catch(() => null);
-      const canMoveToSent = !current || AUTO_SENT_STATUSES.has(current.column || current.status || '');
-      await this.prisma.prospect.update({
-        where: { id: data.prospectId },
-        data: {
-          ...(canMoveToSent ? { status: 'sent', column: 'sent' } : {}),
-          sentAt: new Date(),
-          lastMessageId: response?.messageId || response?.id || null,
-          scriptId: data.scriptId || null,
-          updatedAt: new Date(),
-        },
-      }).catch(() => null);
-    }
-
-    return response;
+    return this.gPost('/send', data);
   }
 
   async sendBatch(messages: Array<{ phone: string; text: string; imageUrl?: string; prospectId: string; scriptId?: string }>) {
@@ -498,6 +467,44 @@ export class ProspectsService {
     return this.prisma.prospect.updateMany({
       where: { phone: { contains: n } },
       data:  { status, column: status, ...extra, updatedAt: new Date() },
+    });
+  }
+
+  async markMessageSent(data: { phone: string; prospectId?: string; scriptId?: string; messageId?: string; timestamp?: number; text?: string; imageUrl?: string }) {
+    const sentAt = toDateFromGatewayTimestamp(data.timestamp || Date.now());
+    const where = data.prospectId
+      ? { id: data.prospectId }
+      : { phone: { contains: String(data.phone || '').replace(/[^\d]/g, '').slice(-10) } };
+
+    const prospect = data.prospectId
+      ? await this.prisma.prospect.findUnique({ where: { id: data.prospectId } }).catch(() => null)
+      : await this.prisma.prospect.findFirst({ where: where as any }).catch(() => null);
+
+    if (!prospect) return { ok: false, reason: 'prospect_not_found' };
+    const canMoveToSent = AUTO_SENT_STATUSES.has(prospect.column || prospect.status || '');
+
+    if (data.text) {
+      await this.prisma.prospectMessage.create({
+        data: {
+          prospectId: prospect.id,
+          direction: 'outgoing',
+          body: data.text,
+          imageUrl: data.imageUrl || null,
+          waMessageId: data.messageId || null,
+          sentAt,
+        },
+      }).catch(() => null);
+    }
+
+    return this.prisma.prospect.update({
+      where: { id: prospect.id },
+      data: {
+        ...(canMoveToSent ? { status: 'sent', column: 'sent' } : {}),
+        sentAt,
+        lastMessageId: data.messageId || null,
+        scriptId: data.scriptId || prospect.scriptId || null,
+        updatedAt: new Date(),
+      },
     });
   }
 

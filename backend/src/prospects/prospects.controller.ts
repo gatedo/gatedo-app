@@ -124,10 +124,10 @@ export class WebhooksController {
   @HttpCode(200)
   async messageSent(
     @Headers('x-gateway-secret') s: string,
-    @Body() b: { phone: string; prospectId: string; scriptId?: string; messageId: string; timestamp: number },
+    @Body() b: { phone: string; prospectId: string; scriptId?: string; messageId: string; timestamp: number; text?: string; imageUrl?: string },
   ) {
     assertSecret(s);
-    await this.svc.updateStatusByPhone(b.phone, 'sent', { lastMessageId: b.messageId, sentAt: new Date(b.timestamp) });
+    await this.svc.markMessageSent(b);
     return { ok: true };
   }
 

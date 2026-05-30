@@ -2181,16 +2181,7 @@ export default function AdminProspects() {
             scriptId:   `${tmpl?.id}_link`,
           });
         }
-        const sentAt = new Date().toISOString();
-        setContacts(prev => prev.map(c => c.id === contact.id
-          ? {
-              ...c,
-              column: AUTO_SENT_COLS.has(c.column) ? 'sent' : c.column,
-              sentAt,
-              sentCount: (c.sentCount || 0) + 1,
-            }
-          : c
-        ));
+        await loadProspectsFromAPI().catch(() => {});
       } catch (e) {
         if (!options.silent) alert('Erro ao enviar: ' + (e.response?.data?.error || e.message));
         throw e;
@@ -2213,7 +2204,7 @@ export default function AdminProspects() {
         api.patch(`/prospects/${contact.id}/status`, { status: 'sent' }).catch(() => {});
       }
     }
-  }, [waConnected, activeTmpl]);
+  }, [waConnected, activeTmpl, loadProspectsFromAPI]);
 
   const syncToAPI = async () => {
     setSyncing(true);
