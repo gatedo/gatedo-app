@@ -86,6 +86,11 @@ export class ProspectsController {
     return this.svc.reconnect();
   }
 
+  @Post('wa-clear-queue')
+  clearWaQueue() {
+    return this.svc.clearGatewayQueue();
+  }
+
   @Post('send')
   send(@Body() body: any) {
     if (!body?.phone || !body?.text) {

@@ -342,6 +342,23 @@ function WaStatusBar({ onStatusChange }) {
     finally { setLoading(false); }
   };
 
+  const clearQueue = async () => {
+    const confirmed = window.confirm('Limpar jobs antigos da fila WA? Use antes de uma nova campanha para evitar envios atrasados.');
+    if (!confirmed) return;
+    setLoading(true);
+    try {
+      const r = await api.post('/prospects/wa-clear-queue');
+      await poll();
+      const removed = r.data?.removed ?? 0;
+      const skipped = r.data?.skipped ?? 0;
+      alert(`Fila limpa: ${removed} removidos${skipped ? `, ${skipped} em processamento` : ''}.`);
+    } catch (e) {
+      alert('Erro ao limpar fila: ' + (e?.response?.data?.error || e.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Poll a cada 8s
   useEffect(() => { poll(); const id = setInterval(poll, 8000); return () => clearInterval(id); }, [poll]);
 
@@ -367,6 +384,12 @@ function WaStatusBar({ onStatusChange }) {
           </span>
         )}
         {/* Botão QR sempre visível */}
+        {status && (
+          <button onClick={clearQueue} disabled={loading}
+            className="flex items-center gap-1 text-[10px] font-black px-3 py-1.5 rounded-xl bg-white border border-amber-200 text-amber-600 hover:bg-amber-50">
+            <Archive size={10} /> Limpar fila
+          </button>
+        )}
         <button onClick={fetchQr} disabled={loading}
           className={`flex items-center gap-1 text-[10px] font-black px-3 py-1.5 rounded-xl border transition-all ${status?.connected ? 'bg-white border-emerald-200 text-emerald-600 hover:bg-emerald-50' : 'bg-white border-red-200 text-red-600 hover:bg-red-50'}`}>
           <QrCode size={10} /> {loading ? '...' : status?.connected ? 'Ver QR' : 'Conectar WA'}

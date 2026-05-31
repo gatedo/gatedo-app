@@ -424,6 +424,11 @@ export class ProspectsService {
     catch { return { ok: false }; }
   }
 
+  async clearGatewayQueue() {
+    try { return await this.gPost('/clear-queue', {}); }
+    catch { return { ok: false, error: 'Gateway offline ou indisponivel' }; }
+  }
+
   // ── CRUD Prospects ────────────────────────────────────────────────────────
   async list() {
     return this.prisma.prospect.findMany({
