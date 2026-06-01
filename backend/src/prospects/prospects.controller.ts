@@ -91,6 +91,11 @@ export class ProspectsController {
     return this.svc.clearGatewayQueue();
   }
 
+  @Post('merge-duplicates')
+  mergeDuplicates() {
+    return this.svc.mergeDuplicateProspects();
+  }
+
   @Post('send')
   send(@Body() body: any) {
     if (!body?.phone || !body?.text) {

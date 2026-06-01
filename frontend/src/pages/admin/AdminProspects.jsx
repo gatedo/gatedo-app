@@ -189,7 +189,7 @@ function saveTemplatesLocal(t) {
 }
 function normalizeProspectList(data) {
   const source = Array.isArray(data) ? data : [];
-  return source.map((item) => {
+  return mergeDuplicateContacts(source.map((item) => {
     const messages = Array.isArray(item.messages) ? item.messages : [];
     const sentMessages = messages.filter((msg) => ['outgoing', 'bot'].includes(msg.direction));
     return {
@@ -201,7 +201,43 @@ function normalizeProspectList(data) {
       tags: Array.isArray(item.tags) ? item.tags : [],
       score: Number(item.score || 0),
     };
+  }));
+}
+function mergeContactRecord(a, b) {
+  const messages = [...(Array.isArray(a.messages) ? a.messages : []), ...(Array.isArray(b.messages) ? b.messages : [])]
+    .filter(Boolean)
+    .sort((x, y) => new Date(x.sentAt || 0) - new Date(y.sentAt || 0));
+  const sentMessages = messages.filter((msg) => ['outgoing', 'bot'].includes(msg.direction));
+  const replied = [a, b].find(item => item.column === 'replied' || item.status === 'replied' || item.repliedAt);
+  const base = [a, b].sort((x, y) => {
+    const scoreX = (x.name ? 1000 : 0) + ((x.sentCount || 0) * 20) + (Array.isArray(x.messages) ? x.messages.length : 0);
+    const scoreY = (y.name ? 1000 : 0) + ((y.sentCount || 0) * 20) + (Array.isArray(y.messages) ? y.messages.length : 0);
+    return scoreY - scoreX;
+  })[0];
+  return {
+    ...a,
+    ...b,
+    ...base,
+    phone: formatPhone(base.phone || a.phone || b.phone || ''),
+    name: base.name || a.name || b.name || '',
+    note: base.note || a.note || b.note || '',
+    messages,
+    sentCount: Math.max(Number(a.sentCount || 0), Number(b.sentCount || 0), sentMessages.length),
+    sentAt: [a.sentAt, b.sentAt, sentMessages[sentMessages.length - 1]?.sentAt].filter(Boolean).sort().at(-1) || null,
+    tags: [...new Set([...(a.tags || []), ...(b.tags || [])])],
+    score: Math.max(Number(a.score || 0), Number(b.score || 0)),
+    ...(replied ? { status: 'replied', column: 'replied', repliedAt: replied.repliedAt, lastReply: replied.lastReply } : {}),
+  };
+}
+function mergeDuplicateContacts(items) {
+  const byPhone = new Map();
+  const withoutPhone = [];
+  items.forEach((item) => {
+    const key = normalizePhone(item.phone);
+    if (!key) return withoutPhone.push(item);
+    byPhone.set(key, byPhone.has(key) ? mergeContactRecord(byPhone.get(key), item) : item);
   });
+  return [...byPhone.values(), ...withoutPhone];
 }
 function mergeProspectLists(current, incoming) {
   const incomingById = new Map(incoming.map(item => [item.id, item]));
@@ -212,7 +248,7 @@ function mergeProspectLists(current, incoming) {
   incoming.forEach(item => {
     if (!known.has(item.id)) merged.push(item);
   });
-  return merged;
+  return mergeDuplicateContacts(merged);
 }
 function normalizeTemplateList(data) {
   const source = Array.isArray(data) ? data : data?.templates;

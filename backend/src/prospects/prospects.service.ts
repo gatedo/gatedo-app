@@ -171,6 +171,16 @@ function phoneLookupTokens(phone: string) {
   return [...tokens].filter(Boolean);
 }
 
+function canonicalPhone(phone: string) {
+  const digits = String(phone || '').replace(/[^\d]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('55') && digits.length === 13 && digits[4] === '9') return digits;
+  if (digits.startsWith('55') && digits.length === 12) return digits.slice(0, 4) + '9' + digits.slice(4);
+  if (!digits.startsWith('55') && digits.length === 11) return `55${digits}`;
+  if (!digits.startsWith('55') && digits.length === 10) return `55${digits.slice(0, 2)}9${digits.slice(2)}`;
+  return digits;
+}
+
 function mergeBotSettings(raw: any) {
   const settings = raw && typeof raw === 'object' ? raw : {};
   const customRules = Array.isArray(settings.rules) ? settings.rules : [];
@@ -463,6 +473,9 @@ export class ProspectsService {
 
   // ── CRUD Prospects ────────────────────────────────────────────────────────
   async list() {
+    await this.mergeDuplicateProspects().catch((err) => {
+      this.logger.warn({ err: err?.message }, 'Falha ao unificar prospects duplicados');
+    });
     return this.prisma.prospect.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
@@ -471,6 +484,82 @@ export class ProspectsService {
           take: 50,
         },
       },
+    });
+  }
+
+  async mergeDuplicateProspects() {
+    const prospects = await this.prisma.prospect.findMany({
+      include: { _count: { select: { messages: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const groups = new Map<string, typeof prospects>();
+
+    for (const prospect of prospects) {
+      const key = canonicalPhone(prospect.phone);
+      if (!key) continue;
+      const list = groups.get(key) || [];
+      list.push(prospect);
+      groups.set(key, list);
+    }
+
+    let merged = 0;
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      const primary = [...group].sort((a: any, b: any) => {
+        const scoreA = (a.name ? 1000 : 0) + (a.sentAt ? 500 : 0) + (a._count?.messages || 0) * 10 + new Date(a.createdAt).getTime() / 1e13;
+        const scoreB = (b.name ? 1000 : 0) + (b.sentAt ? 500 : 0) + (b._count?.messages || 0) * 10 + new Date(b.createdAt).getTime() / 1e13;
+        return scoreB - scoreA;
+      })[0];
+      const duplicates = group.filter((item) => item.id !== primary.id);
+      await this.mergeProspectsInto(primary.id, duplicates.map((item) => item.id));
+      merged += duplicates.length;
+    }
+
+    return { ok: true, merged };
+  }
+
+  private async mergeProspectsInto(primaryId: string, duplicateIds: string[]) {
+    if (!duplicateIds.length) return null;
+    const [primary, duplicates] = await Promise.all([
+      this.prisma.prospect.findUnique({ where: { id: primaryId } }),
+      this.prisma.prospect.findMany({ where: { id: { in: duplicateIds } } }),
+    ]);
+    if (!primary || !duplicates.length) return primary;
+
+    const all = [primary, ...duplicates];
+    const latestReply = all
+      .filter((item) => item.lastReply || item.repliedAt)
+      .sort((a, b) => Number(b.repliedAt || b.updatedAt) - Number(a.repliedAt || a.updatedAt))[0];
+    const latestSent = all
+      .filter((item) => item.sentAt)
+      .sort((a, b) => Number(b.sentAt) - Number(a.sentAt))[0];
+    const tags = [...new Set(all.flatMap((item) => Array.isArray(item.tags) ? item.tags : []))];
+    const anyReplied = all.some((item) => (item.column || item.status) === 'replied' || item.repliedAt);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.prospectMessage.updateMany({
+        where: { prospectId: { in: duplicateIds } },
+        data: { prospectId: primaryId },
+      });
+      const updated = await tx.prospect.update({
+        where: { id: primaryId },
+        data: {
+          phone: primary.phone || duplicates.find((item) => item.phone)?.phone || '',
+          name: primary.name || duplicates.find((item) => item.name)?.name || null,
+          note: primary.note || duplicates.find((item) => item.note)?.note || null,
+          score: Math.max(...all.map((item) => Number(item.score || 0))),
+          tags,
+          ...(anyReplied ? { status: 'replied', column: 'replied' } : {}),
+          sentAt: latestSent?.sentAt || primary.sentAt || null,
+          repliedAt: latestReply?.repliedAt || primary.repliedAt || null,
+          lastReply: latestReply?.lastReply || primary.lastReply || null,
+          lastMessageId: latestSent?.lastMessageId || primary.lastMessageId || null,
+          scriptId: latestSent?.scriptId || primary.scriptId || null,
+          updatedAt: new Date(),
+        },
+      });
+      await tx.prospect.deleteMany({ where: { id: { in: duplicateIds } } });
+      return updated;
     });
   }
 
@@ -561,6 +650,49 @@ export class ProspectsService {
     });
   }
 
+  private async findProspectByPhoneNormalized(phone: string) {
+    const targetTokens = new Set(phoneLookupTokens(phone));
+    const targetCanonical = canonicalPhone(phone);
+    if (!targetCanonical && !targetTokens.size) return null;
+
+    const prospects = await this.prisma.prospect.findMany({
+      include: { _count: { select: { messages: true } } },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const matches = prospects.filter((item) => {
+      const itemCanonical = canonicalPhone(item.phone);
+      if (itemCanonical && itemCanonical === targetCanonical) return true;
+      const itemTokens = phoneLookupTokens(item.phone);
+      return itemTokens.some((token) => targetTokens.has(token));
+    });
+
+    return matches.sort((a: any, b: any) => {
+      const scoreA = (a.name ? 1000 : 0) + (a.sentAt ? 500 : 0) + (a._count?.messages || 0) * 10 + new Date(a.updatedAt).getTime() / 1e13;
+      const scoreB = (b.name ? 1000 : 0) + (b.sentAt ? 500 : 0) + (b._count?.messages || 0) * 10 + new Date(b.updatedAt).getTime() / 1e13;
+      return scoreB - scoreA;
+    })[0] || null;
+  }
+
+  private async findDuplicateProspectIds(primaryId: string, phone: string) {
+    const targetTokens = new Set(phoneLookupTokens(phone));
+    const targetCanonical = canonicalPhone(phone);
+    if (!targetCanonical && !targetTokens.size) return [];
+
+    const prospects = await this.prisma.prospect.findMany({
+      where: { id: { not: primaryId } },
+      select: { id: true, phone: true },
+    });
+
+    return prospects
+      .filter((item) => {
+        const itemCanonical = canonicalPhone(item.phone);
+        if (itemCanonical && itemCanonical === targetCanonical) return true;
+        return phoneLookupTokens(item.phone).some((token) => targetTokens.has(token));
+      })
+      .map((item) => item.id);
+  }
+
   private async findOrCreateInboundProspect(data: InboundWaMessage) {
     const phone = String(data.phone || '').replace(/[^\d]/g, '');
     const message = data.message;
@@ -590,6 +722,14 @@ export class ProspectsService {
           orderBy: { updatedAt: 'desc' },
         });
       }
+    }
+
+    if (!existing) {
+      existing = await this.findProspectByPhoneNormalized(phone);
+    }
+
+    if (existing) {
+      existing = await this.mergeProspectsInto(existing.id, (await this.findDuplicateProspectIds(existing.id, phone))) || existing;
     }
 
     if (existing) {
