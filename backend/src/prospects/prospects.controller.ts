@@ -140,11 +140,18 @@ export class WebhooksController {
   @HttpCode(200)
   async messageReceived(
     @Headers('x-gateway-secret') s: string,
-    @Body() b: { phone: string; message: string; timestamp: number; messageId: string },
+    @Body() b: {
+      phone: string;
+      message: string;
+      timestamp: number;
+      messageId: string;
+      remoteJid?: string;
+      participantJid?: string;
+      quotedMessageId?: string | null;
+      quotedParticipant?: string | null;
+    },
   ) {
     assertSecret(s);
-    const receivedAt = toWebhookDate(b.timestamp);
-    await this.svc.updateStatusByPhone(b.phone, 'replied', { lastReply: b.message, repliedAt: receivedAt });
     await this.svc.saveIncomingMessage(b);
     const botResult = await this.svc.handleAutoReply(b).catch((err) => {
       this.logger.warn({ err: err?.message, phone: b.phone }, 'WA bot nao respondeu');

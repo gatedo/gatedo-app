@@ -127,6 +127,17 @@ const DEFAULT_WA_BOT_SETTINGS = {
 };
 const AUTO_SENT_STATUSES = new Set(['waiting', 'pending', 'sent']);
 
+type InboundWaMessage = {
+  phone: string;
+  message: string;
+  timestamp: number;
+  messageId: string;
+  remoteJid?: string;
+  participantJid?: string;
+  quotedMessageId?: string | null;
+  quotedParticipant?: string | null;
+};
+
 function normalizeText(value: string) {
   return String(value || '')
     .replace(/Ã¡|Ã |Ã¢|Ã£/g, 'a')
@@ -138,6 +149,25 @@ function normalizeText(value: string) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+}
+
+function phoneLookupTokens(phone: string) {
+  const digits = String(phone || '').replace(/[^\d]/g, '');
+  const tokens = new Set<string>();
+  if (digits) tokens.add(digits);
+  if (digits.length >= 11) tokens.add(digits.slice(-11));
+  if (digits.length >= 10) tokens.add(digits.slice(-10));
+  if (digits.startsWith('55') && digits.length === 13 && digits[4] === '9') {
+    const withoutNine = digits.slice(0, 4) + digits.slice(5);
+    tokens.add(withoutNine);
+    tokens.add(withoutNine.slice(-10));
+  }
+  if (digits.startsWith('55') && digits.length === 12) {
+    const withNine = digits.slice(0, 4) + '9' + digits.slice(4);
+    tokens.add(withNine);
+    tokens.add(withNine.slice(-11));
+  }
+  return [...tokens].filter(Boolean);
 }
 
 function mergeBotSettings(raw: any) {
@@ -340,7 +370,7 @@ export class ProspectsService {
     return this.prisma.prospectTemplate.delete({ where: { id } }).catch(() => ({ ok: true }));
   }
 
-  async handleAutoReply(data: { phone: string; message: string; timestamp: number; messageId: string }) {
+  async handleAutoReply(data: InboundWaMessage) {
     const settings = await this.getBotSettings();
     if (!settings.enabled) return { skipped: true, reason: 'bot_disabled' };
 
@@ -361,7 +391,7 @@ export class ProspectsService {
       };
     }
 
-    const prospect = await this.findOrCreateInboundProspect(phone, data.message);
+    const prospect = await this.findOrCreateInboundProspect(data);
     const recentBotReply = await this.prisma.prospectMessage.findFirst({
       where: {
         prospectId: prospect.id,
@@ -373,7 +403,7 @@ export class ProspectsService {
     if (recentBotReply) return { skipped: true, reason: 'bot_cooldown', prospectId: prospect.id };
 
     const response = await this.sendOne({
-      phone,
+      phone: prospect.phone || phone,
       text: responseText,
       prospectId: prospect.id,
       scriptId: `wa_bot_${matchedRule?.id || 'fallback'}`,
@@ -468,7 +498,9 @@ export class ProspectsService {
   }
 
   async updateStatusByPhone(phone: string, status: string, extra: Record<string, any> = {}) {
-    const n = phone.replace(/[^\d]/g, '').slice(-10);
+    const tokens = phoneLookupTokens(phone);
+    const n = tokens[tokens.length - 1] || '';
+    if (!n) return { count: 0 };
     return this.prisma.prospect.updateMany({
       where: { phone: { contains: n } },
       data:  { status, column: status, ...extra, updatedAt: new Date() },
@@ -513,8 +545,8 @@ export class ProspectsService {
     });
   }
 
-  async saveIncomingMessage(data: { phone: string; message: string; timestamp: number; messageId: string }) {
-    const p = await this.findOrCreateInboundProspect(data.phone, data.message);
+  async saveIncomingMessage(data: InboundWaMessage) {
+    const p = await this.findOrCreateInboundProspect(data);
     return this.prisma.prospectMessage.create({
       data: {
         prospectId:  p.id,
@@ -526,9 +558,37 @@ export class ProspectsService {
     });
   }
 
-  private async findOrCreateInboundProspect(phone: string, message: string) {
-    const n = phone.replace(/[^\d]/g, '').slice(-10);
-    const existing = await this.prisma.prospect.findFirst({ where: { phone: { contains: n } } });
+  private async findOrCreateInboundProspect(data: InboundWaMessage) {
+    const phone = String(data.phone || '').replace(/[^\d]/g, '');
+    const message = data.message;
+    let existing: any = null;
+
+    if (data.quotedMessageId) {
+      const quoted = await this.prisma.prospectMessage.findFirst({
+        where: { waMessageId: data.quotedMessageId },
+        include: { prospect: true },
+        orderBy: { sentAt: 'desc' },
+      });
+      existing = quoted?.prospect || null;
+    }
+
+    if (!existing && data.quotedMessageId) {
+      existing = await this.prisma.prospect.findFirst({
+        where: { lastMessageId: data.quotedMessageId },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
+
+    if (!existing) {
+      const tokens = phoneLookupTokens(phone);
+      if (tokens.length) {
+        existing = await this.prisma.prospect.findFirst({
+          where: { OR: tokens.map((token) => ({ phone: { contains: token } })) },
+          orderBy: { updatedAt: 'desc' },
+        });
+      }
+    }
+
     if (existing) {
       return this.prisma.prospect.update({
         where: { id: existing.id },
