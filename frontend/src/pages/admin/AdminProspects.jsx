@@ -378,6 +378,23 @@ function WaStatusBar({ onStatusChange }) {
     finally { setLoading(false); }
   };
 
+  const resetSession = async () => {
+    const confirmed = window.confirm('Resetar a sessao WA atual? Depois escaneie o QR pelo WhatsApp Business correto.');
+    if (!confirmed) return;
+    setLoading(true);
+    setQr(null);
+    setShowQr(false);
+    try {
+      await api.post('/prospects/wa-disconnect');
+      await poll();
+      alert('Sessao WA resetada. Clique em Conectar WA e escaneie pelo WhatsApp Business correto.');
+    } catch (e) {
+      alert('Erro ao resetar sessao: ' + (e?.response?.data?.error || e.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const clearQueue = async () => {
     const confirmed = window.confirm('Limpar jobs antigos da fila WA? Use antes de uma nova campanha para evitar envios atrasados.');
     if (!confirmed) return;
@@ -424,6 +441,12 @@ function WaStatusBar({ onStatusChange }) {
           <button onClick={clearQueue} disabled={loading}
             className="flex items-center gap-1 text-[10px] font-black px-3 py-1.5 rounded-xl bg-white border border-amber-200 text-amber-600 hover:bg-amber-50">
             <Archive size={10} /> Limpar fila
+          </button>
+        )}
+        {status && (
+          <button onClick={resetSession} disabled={loading}
+            className="flex items-center gap-1 text-[10px] font-black px-3 py-1.5 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50">
+            <WifiOff size={10} /> Reset sessao
           </button>
         )}
         <button onClick={fetchQr} disabled={loading}

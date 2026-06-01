@@ -466,6 +466,11 @@ export class ProspectsService {
     catch { return { ok: false }; }
   }
 
+  async disconnectGateway() {
+    try { return await this.gPost('/disconnect', {}); }
+    catch { return { ok: false, error: 'Gateway offline ou indisponivel' }; }
+  }
+
   async clearGatewayQueue() {
     try { return await this.gPost('/clear-queue', {}); }
     catch { return { ok: false, error: 'Gateway offline ou indisponivel' }; }

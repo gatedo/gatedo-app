@@ -86,6 +86,11 @@ export class ProspectsController {
     return this.svc.reconnect();
   }
 
+  @Post('wa-disconnect')
+  disconnectWa() {
+    return this.svc.disconnectGateway();
+  }
+
   @Post('wa-clear-queue')
   clearWaQueue() {
     return this.svc.clearGatewayQueue();
