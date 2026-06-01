@@ -126,6 +126,7 @@ const DEFAULT_WA_BOT_SETTINGS = {
   ],
 };
 const AUTO_SENT_STATUSES = new Set(['waiting', 'pending', 'sent']);
+const ALLOW_UNKNOWN_WA_INBOUND = process.env.ALLOW_UNKNOWN_WA_INBOUND === 'true';
 
 type InboundWaMessage = {
   phone: string;
@@ -392,6 +393,7 @@ export class ProspectsService {
     }
 
     const prospect = await this.findOrCreateInboundProspect(data);
+    if (!prospect) return { skipped: true, reason: 'unknown_inbound' };
     const recentBotReply = await this.prisma.prospectMessage.findFirst({
       where: {
         prospectId: prospect.id,
@@ -547,6 +549,7 @@ export class ProspectsService {
 
   async saveIncomingMessage(data: InboundWaMessage) {
     const p = await this.findOrCreateInboundProspect(data);
+    if (!p) return { ok: true, skipped: true, reason: 'unknown_inbound' };
     return this.prisma.prospectMessage.create({
       data: {
         prospectId:  p.id,
@@ -600,6 +603,11 @@ export class ProspectsService {
           updatedAt: new Date(),
         },
       });
+    }
+
+    if (!ALLOW_UNKNOWN_WA_INBOUND) {
+      this.logger.log({ phone, remoteJid: data.remoteJid }, 'Inbound WA desconhecido ignorado');
+      return null;
     }
 
     return this.prisma.prospect.create({
