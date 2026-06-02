@@ -426,7 +426,7 @@ function WaStatusBar({ onStatusChange }) {
     <>
       <div className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl border-2 transition-all ${status?.connected ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
         {status?.connected
-          ? <><Wifi size={14} className="text-emerald-500 flex-shrink-0" /><span className="text-xs font-black text-emerald-700 flex-1">Gateway WA conectado</span></>
+          ? <><Wifi size={14} className="text-emerald-500 flex-shrink-0" /><span className="text-xs font-black text-emerald-700 flex-1">{status.provider === 'meta' ? 'Meta WhatsApp ativo' : 'Gateway WA conectado'}</span></>
           : status
             ? <><WifiOff size={14} className="text-red-500 flex-shrink-0" /><span className="text-xs font-black text-red-700 flex-1">Gateway desconectado — clique em Conectar WA</span></>
             : <><RefreshCw size={14} className="text-gray-400 animate-spin flex-shrink-0" /><span className="text-xs font-black text-gray-400 flex-1">Verificando gateway...</span></>

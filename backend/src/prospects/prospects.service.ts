@@ -7,6 +7,12 @@ const GATEWAY_SECRET  = process.env.GATEWAY_SECRET || process.env.WA_GATEWAY_SEC
 const GATEWAY_TIMEOUT = Number(process.env.WA_GATEWAY_TIMEOUT_MS || process.env.GATEWAY_TIMEOUT_MS || 45000);
 const GATEWAY_STATUS_TIMEOUT = Number(process.env.WA_GATEWAY_STATUS_TIMEOUT_MS || 8000);
 const WA_BOT_SETTINGS_KEY = 'wa_bot_settings';
+const META_WHATSAPP_ACCESS_TOKEN = process.env.META_WHATSAPP_ACCESS_TOKEN || '';
+const META_WHATSAPP_PHONE_NUMBER_ID = process.env.META_WHATSAPP_PHONE_NUMBER_ID || '';
+const META_WHATSAPP_TEMPLATE_INVITE = process.env.META_WHATSAPP_TEMPLATE_INVITE || '';
+const META_WHATSAPP_TEMPLATE_LANG = process.env.META_WHATSAPP_TEMPLATE_LANG || 'pt_BR';
+const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v20.0';
+const META_WA_ENABLED = Boolean(META_WHATSAPP_ACCESS_TOKEN && META_WHATSAPP_PHONE_NUMBER_ID && META_WHATSAPP_TEMPLATE_INVITE);
 
 const DEFAULT_PROSPECT_TEMPLATES = [
   {
@@ -137,6 +143,17 @@ type InboundWaMessage = {
   participantJid?: string;
   quotedMessageId?: string | null;
   quotedParticipant?: string | null;
+};
+
+type ProspectSendData = {
+  phone: string;
+  text: string;
+  imageUrl?: string;
+  prospectId: string;
+  scriptId?: string;
+  mode?: 'template' | 'text';
+  templateName?: string;
+  templateLang?: string;
 };
 
 function normalizeText(value: string) {
@@ -289,11 +306,116 @@ export class ProspectsService {
   }
 
   // ── Envio ─────────────────────────────────────────────────────────────────
-  async sendOne(data: { phone: string; text: string; imageUrl?: string; prospectId: string; scriptId?: string }) {
+  private async metaSendTemplate(data: ProspectSendData) {
+    const to = String(data.phone || '').replace(/[^\d]/g, '');
+    const templateName = data.templateName || META_WHATSAPP_TEMPLATE_INVITE;
+    const lang = data.templateLang || META_WHATSAPP_TEMPLATE_LANG;
+    if (!to) throw new HttpException({ error: 'phone obrigatorio' }, HttpStatus.BAD_REQUEST);
+    if (!templateName) throw new HttpException({ error: 'template Meta nao configurado' }, HttpStatus.BAD_REQUEST);
+
+    const r = await axios.post(
+      `https://graph.facebook.com/${META_GRAPH_VERSION}/${META_WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: lang },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${META_WHATSAPP_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: GATEWAY_TIMEOUT,
+      },
+    );
+
+    return {
+      ok: true,
+      provider: 'meta',
+      type: 'template',
+      messageId: r.data?.messages?.[0]?.id || null,
+      raw: r.data,
+    };
+  }
+
+  private async metaSendText(data: ProspectSendData) {
+    const to = String(data.phone || '').replace(/[^\d]/g, '');
+    if (!to) throw new HttpException({ error: 'phone obrigatorio' }, HttpStatus.BAD_REQUEST);
+
+    const r = await axios.post(
+      `https://graph.facebook.com/${META_GRAPH_VERSION}/${META_WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'text',
+        text: {
+          preview_url: false,
+          body: data.text,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${META_WHATSAPP_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: GATEWAY_TIMEOUT,
+      },
+    );
+
+    return {
+      ok: true,
+      provider: 'meta',
+      type: 'text',
+      messageId: r.data?.messages?.[0]?.id || null,
+      raw: r.data,
+    };
+  }
+
+  async sendOne(data: ProspectSendData) {
+    if (META_WA_ENABLED) {
+      try {
+        const mode = data.mode || 'template';
+        const response = mode === 'text'
+          ? await this.metaSendText(data)
+          : await this.metaSendTemplate(data);
+
+        await this.markMessageSent({
+          phone: data.phone,
+          prospectId: data.prospectId,
+          scriptId: data.scriptId || data.templateName || META_WHATSAPP_TEMPLATE_INVITE,
+          messageId: response.messageId || undefined,
+          timestamp: Date.now(),
+          text: mode === 'template' ? `[Template Meta] ${data.templateName || META_WHATSAPP_TEMPLATE_INVITE}` : data.text,
+          imageUrl: data.imageUrl,
+        });
+
+        return response;
+      } catch (err) {
+        const e = err as AxiosError<any>;
+        this.logger.warn({ status: e.response?.status, data: e.response?.data, err: e.message }, 'Meta WhatsApp send falhou');
+        throw new HttpException(
+          { error: e.response?.data?.error?.message || e.message, meta: e.response?.data?.error },
+          e.response?.status || HttpStatus.BAD_GATEWAY,
+        );
+      }
+    }
+
     return this.gPost('/send', data);
   }
 
-  async sendBatch(messages: Array<{ phone: string; text: string; imageUrl?: string; prospectId: string; scriptId?: string }>) {
+  async sendBatch(messages: ProspectSendData[]) {
+    if (META_WA_ENABLED) {
+      const results = [];
+      for (const message of messages) {
+        results.push(await this.sendOne({ ...message, mode: message.mode || 'template' }));
+      }
+      return { ok: true, provider: 'meta', total: results.length, results };
+    }
+
     return this.gPost('/send-batch', { messages });
   }
 
@@ -419,6 +541,7 @@ export class ProspectsService {
       text: responseText,
       prospectId: prospect.id,
       scriptId: `wa_bot_${matchedRule?.id || 'fallback'}`,
+      mode: 'text',
     });
 
     await this.prisma.prospectMessage.create({
@@ -446,6 +569,17 @@ export class ProspectsService {
 
   // ── Status — NUNCA retorna 500, sempre retorna JSON seguro ────────────────
   async getGatewayStatus() {
+    if (META_WA_ENABLED) {
+      return {
+        connected: true,
+        hasQR: false,
+        queueSize: 0,
+        provider: 'meta',
+        phoneNumberId: META_WHATSAPP_PHONE_NUMBER_ID,
+        template: META_WHATSAPP_TEMPLATE_INVITE,
+      };
+    }
+
     try {
       return await this.gGet('/status', GATEWAY_STATUS_TIMEOUT);
     } catch {
