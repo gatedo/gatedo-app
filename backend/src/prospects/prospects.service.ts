@@ -382,6 +382,13 @@ export class ProspectsService {
         const response = mode === 'text'
           ? await this.metaSendText(data)
           : await this.metaSendTemplate(data);
+        this.logger.log({
+          provider: 'meta',
+          mode,
+          to: String(data.phone || '').replace(/[^\d]/g, ''),
+          template: mode === 'template' ? data.templateName || META_WHATSAPP_TEMPLATE_INVITE : undefined,
+          messageId: response.messageId,
+        }, 'Meta WhatsApp send aceito');
 
         await this.markMessageSent({
           phone: data.phone,
