@@ -1,11 +1,12 @@
 import {
   Controller, Post, Patch, Get, Delete,
   Body, Param, Headers, UnauthorizedException,
-  HttpCode, Logger, BadRequestException,
+  HttpCode, Logger, BadRequestException, Query, Res,
 } from '@nestjs/common';
 import { ProspectsService } from './prospects.service';
 
 const GATEWAY_SECRET = process.env.GATEWAY_SECRET || process.env.WA_GATEWAY_SECRET || 'change-me-in-render-env';
+const META_WEBHOOK_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || 'gatedo_meta_verify_2026';
 
 function assertSecret(s: string) {
   if (s !== GATEWAY_SECRET) throw new UnauthorizedException();
@@ -134,6 +135,31 @@ export class ProspectsController {
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
   constructor(private readonly svc: ProspectsService) {}
+
+  @Get('meta/whatsapp')
+  verifyMetaWhatsapp(
+    @Query('hub.mode') mode: string,
+    @Query('hub.verify_token') token: string,
+    @Query('hub.challenge') challenge: string,
+    @Res() res: any,
+  ) {
+    if (mode === 'subscribe' && token === META_WEBHOOK_VERIFY_TOKEN) {
+      this.logger.log('Meta WhatsApp webhook verificado');
+      return res.status(200).send(challenge);
+    }
+
+    this.logger.warn({ mode, tokenOk: token === META_WEBHOOK_VERIFY_TOKEN }, 'Meta WhatsApp webhook recusado');
+    return res.sendStatus(403);
+  }
+
+  @Post('meta/whatsapp')
+  @HttpCode(200)
+  async metaWhatsapp(@Body() body: any) {
+    await this.svc.handleMetaWebhook(body).catch((err) => {
+      this.logger.warn({ err: err?.message }, 'Meta WhatsApp webhook falhou');
+    });
+    return { ok: true };
+  }
 
   @Post('wa/message-sent')
   @HttpCode(200)

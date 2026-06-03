@@ -796,6 +796,93 @@ export class ProspectsService {
     });
   }
 
+  async handleMetaWebhook(body: any) {
+    const entries = Array.isArray(body?.entry) ? body.entry : [];
+    let messages = 0;
+    let statuses = 0;
+
+    for (const entry of entries) {
+      const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+      for (const change of changes) {
+        const value = change?.value || {};
+        const phoneNumberId = value?.metadata?.phone_number_id || null;
+
+        for (const status of Array.isArray(value?.statuses) ? value.statuses : []) {
+          statuses += 1;
+          await this.handleMetaStatus(status, phoneNumberId);
+        }
+
+        for (const message of Array.isArray(value?.messages) ? value.messages : []) {
+          messages += 1;
+          await this.handleMetaIncomingMessage(message, phoneNumberId);
+        }
+      }
+    }
+
+    if (messages || statuses) {
+      this.logger.log({ messages, statuses }, 'Meta WhatsApp webhook processado');
+    }
+
+    return { ok: true, messages, statuses };
+  }
+
+  private async handleMetaStatus(status: any, phoneNumberId?: string | null) {
+    const messageId = String(status?.id || '');
+    const state = String(status?.status || '');
+    const recipientId = String(status?.recipient_id || '');
+    const errors = Array.isArray(status?.errors) ? status.errors : [];
+
+    if (state === 'failed' || errors.length) {
+      this.logger.warn({ messageId, state, recipientId, phoneNumberId, errors }, 'Meta WhatsApp entrega falhou');
+      return;
+    }
+
+    this.logger.log({ messageId, state, recipientId, phoneNumberId }, 'Meta WhatsApp status');
+  }
+
+  private async handleMetaIncomingMessage(message: any, phoneNumberId?: string | null) {
+    const from = String(message?.from || '');
+    if (!from) return;
+
+    const inbound: InboundWaMessage = {
+      phone: from,
+      message: this.extractMetaMessageText(message),
+      timestamp: Number(message?.timestamp || Date.now()),
+      messageId: String(message?.id || ''),
+      remoteJid: `${from}@meta`,
+      quotedMessageId: message?.context?.id ? String(message.context.id) : null,
+      quotedParticipant: message?.context?.from ? String(message.context.from) : null,
+    };
+
+    await this.saveIncomingMessage(inbound);
+    await this.handleAutoReply(inbound).catch((err) => {
+      this.logger.warn({ err: err?.message, phone: inbound.phone, phoneNumberId }, 'Meta WhatsApp bot nao respondeu');
+    });
+  }
+
+  private extractMetaMessageText(message: any) {
+    const type = String(message?.type || '');
+    if (type === 'text') return String(message?.text?.body || '');
+    if (type === 'button') return String(message?.button?.text || message?.button?.payload || '[botao]');
+    if (type === 'interactive') {
+      return String(
+        message?.interactive?.button_reply?.title ||
+        message?.interactive?.list_reply?.title ||
+        message?.interactive?.button_reply?.id ||
+        message?.interactive?.list_reply?.id ||
+        '[interativo]',
+      );
+    }
+    if (type === 'image') return String(message?.image?.caption || '[midia]');
+    if (type === 'video') return String(message?.video?.caption || '[midia]');
+    if (type === 'document') return String(message?.document?.caption || message?.document?.filename || '[documento]');
+    if (type === 'audio') return '[audio]';
+    if (type === 'sticker') return '[figurinha]';
+    if (type === 'location') return '[localizacao]';
+    if (type === 'contacts') return '[contato]';
+    return type ? `[${type}]` : '[mensagem]';
+  }
+
   private async findProspectByPhoneNormalized(phone: string) {
     const targetTokens = new Set(phoneLookupTokens(phone));
     const targetCanonical = canonicalPhone(phone);
