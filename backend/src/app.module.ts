@@ -18,6 +18,12 @@ import { NoticesModule } from './notices/notices.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { StudioModule } from './studio/studio.module';
 import { MemorialModule } from './memorial/memorial.module';
+import { AdminIntelligenceModule } from './admin-intelligence/admin-intelligence.module';
+import { AdminKnowledgeModule } from './admin-knowledge/admin-knowledge.module';
+import { EmailModule } from './email/email.module';
+import { ContentModule } from './content/content.module';
+import { EntitlementsModule } from './entitlements/entitlements.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 // Controllers
 import { HealthController } from './health.controller';
@@ -30,6 +36,7 @@ import { ProductsController } from './controllers/products.controller';
 // Services
 import { PrismaService } from './prisma/prisma.service';
 import { IgentService } from './igent/igent.service';
+import { IgentCreditsService } from './igent/igent-credits.service';
 import { GamificationIntegration } from './gamification/gamification.integration';
 import { NotificationService } from './notifications/notification.service';
 import { ProspectsModule } from './prospects/prospects.module';
@@ -55,7 +62,13 @@ import { ProspectsModule } from './prospects/prospects.module';
     GamificationModule,
     StudioModule,
     MemorialModule,
-    ProspectsModule
+    ProspectsModule,
+    AdminIntelligenceModule,
+    AdminKnowledgeModule,
+    EmailModule,
+    ContentModule,
+    EntitlementsModule,
+    AnalyticsModule,
   ],
   controllers: [
     HealthController,
@@ -68,6 +81,7 @@ import { ProspectsModule } from './prospects/prospects.module';
   providers: [
     PrismaService,
     IgentService,
+    IgentCreditsService,
     NotificationService,
     GamificationIntegration,
   ],

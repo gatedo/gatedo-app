@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   Syringe,
   FileText,
+  History,
 } from 'lucide-react';
 
 const TABS = [
@@ -56,6 +57,15 @@ const TABS = [
     border: 'border-indigo-100',
   },
   {
+    id: 'LINHATEMPO',
+    label: 'Linha do tempo',
+    mobileLabel: 'Timeline',
+    icon: History,
+    color: 'bg-cyan-500',
+    text: 'text-cyan-600',
+    border: 'border-cyan-100',
+  },
+  {
     id: 'DOCUMENTOS',
     label: 'Docs',
     mobileLabel: 'Docs',
@@ -66,12 +76,7 @@ const TABS = [
   },
 ];
 
-const spring = {
-  type: 'spring',
-  stiffness: 360,
-  damping: 32,
-  mass: 0.72,
-};
+const tabTransition = { duration: 0.12, ease: 'easeOut' };
 
 const TabButton = memo(function TabButton({ tab, isActive, onPress }) {
   const Icon = tab.icon;
@@ -84,9 +89,9 @@ const TabButton = memo(function TabButton({ tab, isActive, onPress }) {
       animate={{
         flexGrow: isActive ? 2.35 : 1,
         opacity: isActive ? 1 : 0.98,
-        scale: isActive ? 1 : 0.985,
+        scale: 1,
       }}
-      transition={spring}
+      transition={tabTransition}
       className={`
         relative flex items-center justify-center h-11 rounded-2xl border transition-colors duration-200
         min-w-[50px] sm:min-w-[56px] will-change-transform [transform:translateZ(0)]
@@ -111,7 +116,7 @@ const TabButton = memo(function TabButton({ tab, isActive, onPress }) {
             width: isActive ? 'auto' : 0,
             marginLeft: isActive ? 0 : -2,
           }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
+          transition={tabTransition}
           className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.08em] sm:tracking-[0.12em] text-white whitespace-nowrap overflow-hidden"
         >
           <span className="sm:hidden">{tab.mobileLabel}</span>
@@ -128,7 +133,7 @@ function ProfileTabs({ activeTab, setActiveTab, touch }) {
   const handleTabClick = useCallback(
     (tabId) => {
       if (tabId === activeTab) return;
-      touch?.();
+      touch?.('nav');
       setActiveTab(tabId);
     },
     [activeTab, setActiveTab, touch]
@@ -136,7 +141,7 @@ function ProfileTabs({ activeTab, setActiveTab, touch }) {
 
   return (
     <div className="w-full py-3 mb-2">
-      <div className="max-w-lg mx-auto px-2">
+      <div className="max-w-[720px] mx-auto px-2">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] pb-1">
           {tabs.map((tab) => (
             <TabButton

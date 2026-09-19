@@ -20,6 +20,12 @@ export const MEMBERSHIP_BADGES = {
   TESTER_FRIENDLY: 'TESTER_FRIENDLY',
   TUTOR_PLUS: 'TUTOR_PLUS',
   TUTOR_MASTER: 'TUTOR_MASTER',
+  TUTOR_SUPREME: 'TUTOR_SUPREME',
+  TUTOR_GENESIS: 'TUTOR_GENESIS',
+  TUTOR_RAIZ: 'TUTOR_RAIZ',
+  TUTOR_CERNE: 'TUTOR_CERNE',
+  TUTOR_PRIME: 'TUTOR_PRIME',
+  TUTOR_VIP: 'TUTOR_VIP',
 } as const;
 
 export const LEGACY_BADGE_MAP: Record<string, string> = {
@@ -28,19 +34,56 @@ export const LEGACY_BADGE_MAP: Record<string, string> = {
   VIP: MEMBERSHIP_BADGES.TESTER_FRIENDLY,
   PREMIUM: MEMBERSHIP_BADGES.TESTER_FRIENDLY,
   TESTER_VIP: MEMBERSHIP_BADGES.TESTER_FRIENDLY,
+  GENESIS: MEMBERSHIP_BADGES.TUTOR_GENESIS,
+  TUTOR_GENESE: MEMBERSHIP_BADGES.TUTOR_GENESIS,
+  TUTOR_GÊNESE: MEMBERSHIP_BADGES.TUTOR_GENESIS,
 };
 
 export const FOUNDER_PHASES = [
-  { phase: 1, price: 47, maxSlots: 100, label: 'Founder Early · Fase 1' },
-  { phase: 2, price: 67, maxSlots: 100, label: 'Founder Early · Fase 2' },
-  { phase: 3, price: 97, maxSlots: 200, label: 'Founder Early · Fase 3' },
+  { phase: 1, price: 47, maxSlots: 50, label: 'Tutor Genese - Fase 1' },
+  { phase: 2, price: 67, maxSlots: 100, label: 'Tutor Raiz - Fase 2' },
+  { phase: 3, price: 97, maxSlots: 150, label: 'Tutor Cerne - Fase 3' },
 ] as const;
 
 export const POINTS_PACKS = [
-  { points: 100, price: 4.9, label: 'Points Starter' },
-  { points: 500, price: 19.9, label: 'Points Popular' },
-  { points: 1500, price: 49.9, label: 'Points Pro' },
+  { points: 50, price: 9.9, label: 'Points Starter' },
+  { points: 100, price: 17.9, label: 'Points Essencial' },
+  { points: 500, price: 59.9, label: 'Points Popular' },
+  { points: 1000, price: 99.9, label: 'Points Pro' },
 ] as const;
+
+export const FOUNDER_TIER_RULES = [
+  { badge: MEMBERSHIP_BADGES.TUTOR_GENESIS, label: 'Tutor Gênese', min: 1, max: 50 },
+  { badge: MEMBERSHIP_BADGES.TUTOR_RAIZ, label: 'Tutor Raiz', min: 51, max: 150 },
+  { badge: MEMBERSHIP_BADGES.TUTOR_CERNE, label: 'Tutor Cerne', min: 151, max: 300 },
+  { badge: MEMBERSHIP_BADGES.TUTOR_PRIME, label: 'Tutor Prime', min: 301, max: Infinity },
+] as const;
+
+export function getFounderTierByPosition(position: number) {
+  const safePosition = Math.max(1, Number(position || 1));
+  return (
+    FOUNDER_TIER_RULES.find((tier) => safePosition >= tier.min && safePosition <= tier.max) ||
+    FOUNDER_TIER_RULES[FOUNDER_TIER_RULES.length - 1]
+  );
+}
+
+export function getFounderTierByPhase(phase: number) {
+  const safePhase = Math.max(1, Number(phase || 1));
+
+  if (safePhase === 2) {
+    return { badge: MEMBERSHIP_BADGES.TUTOR_RAIZ, label: 'Tutor Raiz' };
+  }
+
+  if (safePhase === 3) {
+    return { badge: MEMBERSHIP_BADGES.TUTOR_CERNE, label: 'Tutor Cerne' };
+  }
+
+  if (safePhase > 3) {
+    return { badge: MEMBERSHIP_BADGES.TUTOR_PRIME, label: 'Tutor Prime' };
+  }
+
+  return { badge: MEMBERSHIP_BADGES.TUTOR_GENESIS, label: 'Tutor Genese' };
+}
 
 export type MembershipPlanKey = (typeof PLAN_KEYS)[keyof typeof PLAN_KEYS];
 export type MembershipPlanType = (typeof PLAN_TYPES)[keyof typeof PLAN_TYPES];
@@ -143,8 +186,8 @@ export function getMembershipGrantFromPlanType(
       pointsGranted: 300,
       renewalDiscountPercent: 0,
       autoRenew: false,
-      isUnlimitedCats: false,
-      maxActiveCats: 3,
+      isUnlimitedCats: true,
+      maxActiveCats: null,
       ...overrides,
     };
   }
@@ -160,8 +203,8 @@ export function getMembershipGrantFromPlanType(
       pointsGranted: 100,
       renewalDiscountPercent: 0,
       autoRenew: false,
-      isUnlimitedCats: false,
-      maxActiveCats: 3,
+      isUnlimitedCats: true,
+      maxActiveCats: null,
       ...overrides,
     };
   }
@@ -232,14 +275,17 @@ export function getPlanFromUser(user: any): MembershipPlanKey {
 
 export function getMembershipRulesForUser(user: any) {
   const plan = getPlanFromUser(user);
+  // isUnlimitedCats/maxActiveCats vêm sempre de getUserEntitlements — esta
+  // função só decide o rótulo/selo/desconto de exibição para cada plano.
+  const { isUnlimitedCats, maxActiveCats } = getUserEntitlements(user);
 
   if (plan === PLAN_KEYS.FOUNDER_EARLY) {
     return {
       plan,
       label: 'Founder Early',
       renewalDiscountPercent: 25,
-      isUnlimitedCats: true,
-      maxActiveCats: null,
+      isUnlimitedCats,
+      maxActiveCats,
       badge: MEMBERSHIP_BADGES.FOUNDER_EARLY,
     };
   }
@@ -249,8 +295,8 @@ export function getMembershipRulesForUser(user: any) {
       plan,
       label: 'Tester Friendly',
       renewalDiscountPercent: 0,
-      isUnlimitedCats: true,
-      maxActiveCats: null,
+      isUnlimitedCats,
+      maxActiveCats,
       badge: MEMBERSHIP_BADGES.TESTER_FRIENDLY,
     };
   }
@@ -260,8 +306,8 @@ export function getMembershipRulesForUser(user: any) {
       plan,
       label: 'Tutor Master',
       renewalDiscountPercent: 0,
-      isUnlimitedCats: true,
-      maxActiveCats: null,
+      isUnlimitedCats,
+      maxActiveCats,
       badge: MEMBERSHIP_BADGES.TUTOR_MASTER,
     };
   }
@@ -271,8 +317,8 @@ export function getMembershipRulesForUser(user: any) {
       plan,
       label: 'Tutor Plus',
       renewalDiscountPercent: 0,
-      isUnlimitedCats: false,
-      maxActiveCats: 3,
+      isUnlimitedCats,
+      maxActiveCats,
       badge: MEMBERSHIP_BADGES.TUTOR_PLUS,
     };
   }
@@ -281,8 +327,8 @@ export function getMembershipRulesForUser(user: any) {
     plan: PLAN_KEYS.FREE,
     label: 'Free',
     renewalDiscountPercent: 0,
-    isUnlimitedCats: false,
-    maxActiveCats: null,
+    isUnlimitedCats,
+    maxActiveCats,
     badge: null,
   };
 }
@@ -307,6 +353,55 @@ export function getActiveCatsLimit(user: any) {
 
 export function getRenewalDiscountPercent(user: any) {
   return getMembershipRulesForUser(user).renewalDiscountPercent ?? 0;
+}
+
+/**
+ * Fonte única da decisão de acesso do app. Qualquer tela/endpoint que
+ * precise saber "o que esse usuário pode fazer" consulta esta função —
+ * nunca `user.plan` ou `user.badges` diretamente.
+ *
+ * - "free": padrão, sem compra. Acesso completo ao que está no ar hoje.
+ * - "founder": quem já pagou (qualquer plano pago existente). Mantém selo,
+ *   pontos e tudo que já tinha — hoje não ganha nenhum privilégio extra
+ *   de acesso porque o free também é ilimitado.
+ * - "pro": reservado para o futuro. Nenhum fluxo concede esse tier ainda.
+ */
+export type EntitlementsTier = 'free' | 'founder' | 'pro';
+
+export type UserEntitlements = {
+  tier: EntitlementsTier;
+  isUnlimitedCats: boolean;
+  maxActiveCats: number | null;
+  igentMonthlyQuestions: number | null;
+  canAccessProtocols: boolean;
+};
+
+export function getEntitlementsTier(user: any): EntitlementsTier {
+  return getPlanFromUser(user) === PLAN_KEYS.FREE ? 'free' : 'founder';
+}
+
+/**
+ * Teto mensal de perguntas ao iGentVet por tier. `null` = sem limite.
+ * Parâmetro de configuração — mude aqui para ajustar o teto de qualquer
+ * tier sem tocar em controller, service ou tela nenhuma.
+ */
+export const IGENT_MONTHLY_QUESTION_LIMITS: Record<EntitlementsTier, number | null> = {
+  free: 10,
+  founder: 60,
+  pro: null,
+};
+
+export function getUserEntitlements(user: any): UserEntitlements {
+  const tier = getEntitlementsTier(user);
+  return {
+    tier,
+    isUnlimitedCats: true,
+    maxActiveCats: null,
+    igentMonthlyQuestions: IGENT_MONTHLY_QUESTION_LIMITS[tier],
+    // Protocolos (conteúdo estruturado multi-dia) exigem founder ou pro.
+    // Guias (almanaque) continuam livres para todo mundo, sem checar isso.
+    canAccessProtocols: tier !== 'free',
+  };
 }
 
 export function resolveKiwifyOffer(input: {
@@ -378,7 +473,7 @@ export function resolveKiwifyOffer(input: {
         pointsGranted: pack.points,
         renewalDiscountPercent: 0,
         autoRenew: false,
-        isUnlimitedCats: false,
+        isUnlimitedCats: true,
         maxActiveCats: null,
         offerLabel: pack.label,
       };

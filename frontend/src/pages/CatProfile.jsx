@@ -20,6 +20,7 @@ const ALLOWED_TABS = new Set([
   'EVOLUCAO',
   'COMPORTAMENTO',
   'IMUNIZANTES',
+  'LINHATEMPO',
   'DOCUMENTOS',
 ]);
 
@@ -190,7 +191,7 @@ export default function CatProfile() {
 
   return (
     <div
-      className={`min-h-screen pb-40 pt-6 px-0 transition-all duration-700 ${
+      className={`min-h-screen pb-40 pt-0 px-0 ${
         isInMemoriam && !showMemorialContent ? 'bg-gray-200 overflow-hidden' : 'bg-[var(--gatedo-light-bg)]'
       }`}
     >
@@ -199,7 +200,7 @@ export default function CatProfile() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.8 } }}
+            exit={{ opacity: 0, transition: { duration: 0.18 } }}
             className="fixed inset-0 z-[2000] bg-gray-200/95 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center"
           >
             <motion.div
@@ -245,7 +246,7 @@ export default function CatProfile() {
       </AnimatePresence>
 
       <div
-        className={`transition-all duration-1000 ${
+        className={`transition-opacity duration-150 ${
           isInMemoriam && !showMemorialContent
             ? 'blur-2xl grayscale opacity-20 scale-90 pointer-events-none'
             : 'blur-0 grayscale-0 opacity-100 scale-100'
@@ -305,6 +306,7 @@ export default function CatProfile() {
 
         <ProfileContent
           activeTab={activeTab}
+          setActiveTab={setActiveTab}
           cat={cat}
           touch={touch}
           navigate={navigate}

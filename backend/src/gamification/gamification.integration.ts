@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notifications/notification.service';
+import { XP_ACTIONS, getHealthRecordXp } from './xp.config';
 
 @Injectable()
 export class GamificationIntegration {
@@ -129,15 +130,18 @@ return updatedPet
 async onHealthRecord(
 userId: string,
 petId: string,
-type: string
+type: string,
+title?: string,
 ) {
+
+const xp = getHealthRecordXp(type, title)
 
 await this.credit({
 userId,
 petId,
-action: 'HEALTH_RECORD',
-tutorXp: 5,
-catXp: 3
+action: `HEALTH_RECORD_${type}`,
+tutorXp: xp.tutorXp,
+catXp: xp.catXp,
 })
 
 }
@@ -148,12 +152,15 @@ petId: string,
 first: boolean
 ) {
 
+// Uso do app (perguntar à IA), não dado clínico — XP zero por configuração.
+const xp = XP_ACTIONS.IGENT_CONSULT
+
 await this.credit({
 userId,
 petId,
 action: 'IGENT_CONSULT',
-tutorXp: first ? 30 : 10,
-catXp: 10
+tutorXp: xp.tutorXp,
+catXp: xp.catXp
 })
 
 }
@@ -164,13 +171,67 @@ async onStudioCreation(data: {
   toolSlug: string
   publishToFeed?: boolean
 }) {
+  // Uso do app (geração de arte via IA), não dado clínico — XP zero por configuração.
+  const xp = XP_ACTIONS.STUDIO_CREATION
+
   await this.credit({
     userId: data.userId,
     petId: data.petId,
     action: 'STUDIO_CREATION',
-    tutorXp: 8,
-    catXp: 6,
+    tutorXp: xp.tutorXp,
+    catXp: xp.catXp,
   });
+}
+
+async onDiaryEntry(
+userId: string,
+petId: string,
+) {
+
+const xp = XP_ACTIONS.DIARY_ENTRY
+
+await this.credit({
+userId,
+petId,
+action: 'DIARY_ENTRY',
+tutorXp: xp.tutorXp,
+catXp: xp.catXp,
+})
+
+}
+
+async onProfileComplete(
+userId: string,
+petId: string,
+) {
+
+const xp = XP_ACTIONS.PROFILE_COMPLETE
+
+await this.credit({
+userId,
+petId,
+action: 'PROFILE_COMPLETE',
+tutorXp: xp.tutorXp,
+catXp: xp.catXp,
+})
+
+}
+
+async onProtocolDayComplete(
+userId: string,
+petId: string,
+) {
+
+const xp = XP_ACTIONS.PROTOCOL_DAY_COMPLETE
+
+await this.credit({
+userId,
+petId,
+action: 'PROTOCOL_DAY_COMPLETE',
+tutorXp: xp.tutorXp,
+catXp: xp.catXp,
+})
+
 }
 
 async spendPoints(

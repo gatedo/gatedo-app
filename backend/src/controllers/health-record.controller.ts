@@ -100,7 +100,7 @@ export class HealthRecordController {
         .findUnique({ where: { id: data.petId }, select: { ownerId: true } })
         .then((pet) => {
           if (pet?.ownerId) {
-            this.gamif.onHealthRecord(pet.ownerId, data.petId, data.type).catch(() => {});
+            this.gamif.onHealthRecord(pet.ownerId, data.petId, data.type, data.title).catch(() => {});
           }
         })
         .catch(() => {});

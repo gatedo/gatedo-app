@@ -16,6 +16,7 @@ import {
   PLAN_KEYS,
   PLAN_TYPES,
   addMonths,
+  getFounderTierByPhase,
   getMembershipGrantFromPlanType,
   getPlanFromUser,
   normalizeBadges,
@@ -41,6 +42,8 @@ type InviteResolution = {
   autoRenew?: boolean | null;
   purchaseDate?: Date | null;
   expiresAt?: Date | null;
+  badge?: string | null;
+  badgeLabel?: string | null;
 };
 
 @Injectable()
@@ -52,6 +55,13 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
   ) {}
+
+  private normalizeTutorTitle(value: any): string {
+    const normalized = String(value || '').trim().toUpperCase();
+    if (normalized === 'TUTORA' || normalized === 'FEMALE' || normalized === 'MULHER') return 'TUTORA';
+    if (normalized === 'PESSOA_TUTORA' || normalized === 'NEUTRAL' || normalized === 'OUTRO') return 'PESSOA_TUTORA';
+    return 'TUTOR';
+  }
 
   private generateInviteToken(type: 'founder' | 'vip', phase = 1) {
     const prefix = type === 'founder' ? `FND${phase}` : 'VIP';
@@ -67,6 +77,8 @@ export class AuthService {
         "name"       TEXT,
         "phase"      INTEGER DEFAULT 1,
         "source"     TEXT DEFAULT 'ADMIN',
+        "badge"      TEXT,
+        "badgeLabel" TEXT,
         "orderId"    TEXT,
         "used"       BOOLEAN DEFAULT false,
         "usedAt"     TIMESTAMP,
@@ -88,6 +100,16 @@ export class AuthService {
     await this.prisma.$executeRawUnsafe(`
       ALTER TABLE "FounderInvite"
       ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMP
+    `).catch(() => {});
+
+    await this.prisma.$executeRawUnsafe(`
+      ALTER TABLE "FounderInvite"
+      ADD COLUMN IF NOT EXISTS "badge" TEXT
+    `).catch(() => {});
+
+    await this.prisma.$executeRawUnsafe(`
+      ALTER TABLE "FounderInvite"
+      ADD COLUMN IF NOT EXISTS "badgeLabel" TEXT
     `).catch(() => {});
   }
 
@@ -146,10 +168,18 @@ export class AuthService {
     await this.ensurePurchaseInviteTable();
   }
 
-  private getFounderPhaseGrant(phase?: number | null) {
+  private getFounderPhaseGrant(
+    phase?: number | null,
+    badge?: string | null,
+    badgeLabel?: string | null,
+  ) {
+    const phaseTier = getFounderTierByPhase(Number(phase || 1));
+
     return getMembershipGrantFromPlanType(PLAN_TYPES.FOUNDER_EARLY_ANNUAL, {
       phase: Number(phase || 1),
       source: 'FOUNDER_CAMPAIGN',
+      badge: phaseTier.badge,
+      badgeLabel: phaseTier.label,
       offerLabel: `Founder Early · Fase ${Number(phase || 1)}`,
     });
   }
@@ -157,7 +187,9 @@ export class AuthService {
   private getVipGrant() {
     return getMembershipGrantFromPlanType(PLAN_TYPES.TESTER_FRIENDLY_VIP, {
       source: 'ADMIN_VIP',
-      offerLabel: 'Tester Friendly VIP',
+      offerLabel: 'Tutor VIP',
+      badge: MEMBERSHIP_BADGES.TUTOR_VIP,
+      badgeLabel: 'Tutor VIP',
     });
   }
 
@@ -314,6 +346,7 @@ export class AuthService {
           name: true,
           email: true,
           phone: true,
+          tutorTitle: true,
           plan: true,
           badges: true,
           planExpires: true,
@@ -392,10 +425,12 @@ export class AuthService {
           name,
           phase,
           used,
-          "usedAt",
-          "expiresAt",
-          source,
-          "orderId"
+	          "usedAt",
+	          "expiresAt",
+	          source,
+	          badge,
+	          "badgeLabel",
+	          "orderId"
         FROM "FounderInvite"
         WHERE token = $1
         LIMIT 1
@@ -406,7 +441,11 @@ export class AuthService {
 
     if (founderRows.length > 0) {
       const invite = founderRows[0];
-      const founderGrant = this.getFounderPhaseGrant(invite.phase || 1);
+      const founderGrant = this.getFounderPhaseGrant(
+        invite.phase || 1,
+        invite.badge || null,
+        invite.badgeLabel || null,
+      );
       const expired =
         invite.expiresAt && new Date(invite.expiresAt).getTime() < Date.now();
 
@@ -425,6 +464,8 @@ export class AuthService {
           pointsGranted: founderGrant?.pointsGranted || 0,
           discountPercent: founderGrant?.renewalDiscountPercent || 0,
           autoRenew: founderGrant?.autoRenew || false,
+          badge: founderGrant?.badge || null,
+          badgeLabel: founderGrant?.badgeLabel || null,
           message: 'Este link de ativação já foi utilizado.',
         };
       }
@@ -444,6 +485,8 @@ export class AuthService {
           pointsGranted: founderGrant?.pointsGranted || 0,
           discountPercent: founderGrant?.renewalDiscountPercent || 0,
           autoRenew: founderGrant?.autoRenew || false,
+          badge: founderGrant?.badge || null,
+          badgeLabel: founderGrant?.badgeLabel || null,
           message: 'Este link de ativação expirou. Solicite um novo link.',
         };
       }
@@ -462,6 +505,8 @@ export class AuthService {
         pointsGranted: founderGrant?.pointsGranted || 0,
         discountPercent: founderGrant?.renewalDiscountPercent || 0,
         autoRenew: founderGrant?.autoRenew || false,
+        badge: founderGrant?.badge || null,
+        badgeLabel: founderGrant?.badgeLabel || null,
         message: 'Convite fundador válido.',
       };
     }
@@ -616,7 +661,7 @@ export class AuthService {
           autoRenew: Boolean(invite.autoRenew),
           purchaseDate: invite.purchaseDate || null,
           expiresAt: invite.expiresAt || null,
-          message: 'Este link de compra jÃ¡ foi utilizado.',
+          message: 'Este link de compra já foi utilizado.',
         };
       }
 
@@ -686,6 +731,8 @@ export class AuthService {
     email: string;
     name?: string;
     phase?: number;
+    badge?: string | null;
+    badgeLabel?: string | null;
     source?: 'ADMIN' | 'KIWIFY';
     orderId?: string | null;
     expiresInDays?: number;
@@ -700,15 +747,17 @@ export class AuthService {
     await this.prisma.$executeRawUnsafe(
       `
       INSERT INTO "FounderInvite"
-        (id, token, email, name, phase, source, "orderId", "expiresAt")
+        (id, token, email, name, phase, source, badge, "badgeLabel", "orderId", "expiresAt")
       VALUES
-        (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7)
+        (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9)
     `,
       token,
       data.email || null,
       data.name || null,
       data.phase || 1,
       data.source || 'ADMIN',
+      data.badge || null,
+      data.badgeLabel || null,
       data.orderId || null,
       expiresAt,
     );
@@ -734,6 +783,8 @@ export class AuthService {
       }
 
       const created = await this.createFounderInvite({
+        badge: getFounderTierByPhase(Number(data.phase || 1)).badge,
+        badgeLabel: getFounderTierByPhase(Number(data.phase || 1)).label,
         email: data.email,
         name: data.name,
         phase: data.phase || 1,
@@ -770,7 +821,11 @@ export class AuthService {
     if (!invite?.valid) return null;
 
     if (invite.kind === 'founder') {
-      return this.getFounderPhaseGrant(invite.phase || 1);
+      return this.getFounderPhaseGrant(
+        invite.phase || 1,
+        invite.badge || null,
+        invite.badgeLabel || null,
+      );
     }
 
     if (invite.kind === 'vip') {
@@ -801,7 +856,7 @@ export class AuthService {
         pointsGranted: Number(invite.pointsGranted || 0),
         renewalDiscountPercent: Number(invite.discountPercent || 0),
         autoRenew: Boolean(invite.autoRenew),
-        isUnlimitedCats: false,
+        isUnlimitedCats: true,
         maxActiveCats: null,
         purchaseDate: invite.purchaseDate || new Date(),
         expiresAt: invite.expiresAt || null,
@@ -865,7 +920,7 @@ export class AuthService {
     }
   }
 
-  async register(data: RegisterDto & { origin?: string; token?: string }) {
+  async register(data: RegisterDto & { origin?: string; token?: string; source?: string }) {
     const specialOrigin = String(data.origin || '').toLowerCase();
 
     if (
@@ -916,9 +971,11 @@ export class AuthService {
         email: data.email,
         password: hashedPassword,
         phone: data.phone,
+        tutorTitle: this.normalizeTutorTitle(data.tutorTitle),
         role: 'USER',
         plan: userPlan as any,
         badges: userBadges,
+        signupSource: String(data.source || '').trim().slice(0, 100) || null,
       },
     });
 
@@ -938,6 +995,7 @@ export class AuthService {
             email: true,
             phone: true,
             city: true,
+            tutorTitle: true,
             photoUrl: true,
             plan: true,
             planExpires: true,
@@ -1014,13 +1072,17 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    this.prisma.user
+      .update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+      .catch(() => {});
+
     return this.generateToken(user);
   }
 
   async verifyEmail(token: string) {
     const users = await this.prisma.$queryRawUnsafe<any[]>(
       `
-      SELECT id
+      SELECT id, name, plan, role, badges
       FROM "User"
       WHERE "emailVerifyToken" = $1
       LIMIT 1
@@ -1042,7 +1104,48 @@ export class AuthService {
       users[0].id,
     );
 
-    return { success: true, message: 'Email verificado!' };
+    const user = users[0] || {};
+    const plan = String(user.plan || '').toUpperCase();
+    const role = String(user.role || '').toUpperCase();
+    const badges = Array.isArray(user.badges) ? user.badges.map((item: any) => String(item).toUpperCase()) : [];
+    const nameQs = user.name ? `name=${encodeURIComponent(user.name)}` : '';
+    const founderPhase = badges.includes(MEMBERSHIP_BADGES.TUTOR_CERNE)
+      ? 3
+      : badges.includes(MEMBERSHIP_BADGES.TUTOR_RAIZ)
+        ? 2
+        : badges.includes(MEMBERSHIP_BADGES.TUTOR_PRIME)
+          ? 4
+          : 1;
+    const founderQs = `?${[nameQs, `phase=${founderPhase}`].filter(Boolean).join('&')}`;
+    const qs = nameQs ? `?${nameQs}` : '';
+    const isFounder =
+      plan === 'FOUNDER' ||
+      plan === 'FOUNDER_EARLY' ||
+      badges.some((item: string) => item.includes('FOUNDER'));
+    const isVip =
+      plan === 'TESTER_FRIENDLY' ||
+      role === 'TESTER_VIP' ||
+      badges.some((item: string) => item.includes('VIP') || item.includes('TESTER'));
+    const isPrime =
+      plan === 'TUTOR_PLUS' ||
+      plan === 'TUTOR_MASTER' ||
+      plan === 'PRIME' ||
+      badges.some((item: string) => item.includes('PRIME'));
+
+    const welcomePath = isFounder
+      ? `/welcome-founder${founderQs}`
+      : isVip
+        ? `/welcome-vip${qs}`
+        : isPrime
+          ? `/welcome-prime${qs}`
+          : '/home';
+
+    return {
+      success: true,
+      message: 'Email verificado!',
+      welcomePath,
+      welcomeType: isFounder ? 'founder' : isVip ? 'vip' : isPrime ? 'prime' : 'default',
+    };
   }
 
   async forgotPassword(email: string) {
@@ -1117,6 +1220,10 @@ export class AuthService {
   private generateToken(user: any) {
     const normalizedPlan = getPlanFromUser(user);
     const normalizedBadges = normalizeBadges(user?.badges);
+    const responseBadges =
+      user?.role === 'ADMIN' && !normalizedBadges.includes(MEMBERSHIP_BADGES.TUTOR_SUPREME)
+        ? [...normalizedBadges, MEMBERSHIP_BADGES.TUTOR_SUPREME]
+        : normalizedBadges;
 
     const payload = {
       sub: user.id,
@@ -1134,11 +1241,12 @@ export class AuthService {
         email: user.email,
         phone: user.phone || null,
         city: user.city || null,
+        tutorTitle: user.tutorTitle || 'TUTOR',
         photoUrl: user.photoUrl || null,
         plan: normalizedPlan,
         planExpires: user.planExpires || null,
         role: user.role || 'USER',
-        badges: normalizedBadges,
+        badges: responseBadges,
         xpt: Number(user.xpt || 0),
         gatedoPoints: Number(user.gatedoPoints || 0),
         level: Number(user.level || 1),

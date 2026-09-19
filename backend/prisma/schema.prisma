@@ -15,6 +15,7 @@ model User {
   phone                  String?
   password               String
   name                   String?
+  tutorTitle             String                 @default("TUTOR")
   photoUrl               String?
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
@@ -33,6 +34,8 @@ model User {
   founderGrantedAt       DateTime?
   gatedoPoints           Int                    @default(0)
   xpt                    Int                    @default(0)
+  signupSource           String?
+  lastLoginAt            DateTime?
   balanceActionsMade     BalanceAdjustmentLog[] @relation("BalanceActor")
   balanceLogs            BalanceAdjustmentLog[] @relation("BalanceTarget")
   comments               Comment[]
@@ -59,6 +62,9 @@ model User {
   vetProfile             VetPartner?
   vetRecommendations     VetRecommendation[]
   noticeReads            NoticeRead[]
+  igentUsageLogs         IgentUsageLog[]
+  protocolEnrollments    ProtocolEnrollment[]
+  productEntitlements    ProductEntitlement[]
 }
 
 model Pet {
@@ -125,10 +131,13 @@ model Pet {
   hasBehaviorIssues     Boolean             @default(false)
   hasTraumaHistory      Boolean             @default(false)
   preExistingConditions String[]            @default([])
+  profileCompletedAt    DateTime?
   diaryEntries          DiaryEntry[]
   documents             Document[]
   healthRecords         HealthRecord[]
   igentSessions         IgentSession[]
+  igentUsageLogs        IgentUsageLog[]
+  protocolEnrollments   ProtocolEnrollment[]
   memorial              MemorialTribute?
   owner                 User                @relation(fields: [ownerId], references: [id])
   achievements          PetAchievement[]
@@ -185,6 +194,230 @@ model IgentSession {
   pet              Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@index([petId])
+}
+
+model IgentUsageLog {
+  id           String   @id @default(cuid())
+  userId       String
+  petId        String?
+  action       String   @default("QUESTION")
+  provider     String?
+  tokensUsed   Int?
+  costEstimate Float?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet          Pet?     @relation(fields: [petId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([petId, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MÓDULO DE CONTEÚDO — dois tipos: Guia (livre) e Protocolo (com entitlement)
+// ═══════════════════════════════════════════════════════════════════════
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// ── GUIA (almanaque) — navegável por tema/busca, sem trava, sem XP ──────
+enum GuideUrgency {
+  ROTINA
+  ATENCAO
+  EMERGENCIA
+}
+
+// Categoria do almanaque — id vem direto do JSON de origem (ex.: "caixa").
+model GuideCategory {
+  id        String       @id
+  nome      String
+  descricao String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  entries   GuideEntry[]
+}
+
+model GuideEntry {
+  id               String        @id @default(cuid())
+  slug             String        @unique
+  title            String
+  theme            String
+  categoryId       String?
+  category         GuideCategory? @relation(fields: [categoryId], references: [id])
+  excerpt          String?
+  body             String
+  tags             String[]      @default([])
+  urgency          GuideUrgency?
+  vejaTambem       String[]      @default([])
+  perguntaIgentvet String?
+  status           ContentStatus @default(DRAFT)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([theme])
+  @@index([status])
+  @@index([categoryId])
+}
+
+// ── PROTOCOLO — triagem (D0) + N dias + fechamento, requer entitlement ──
+model Protocol {
+  id                  String        @id @default(cuid())
+  slug                String        @unique
+  title               String
+  summary             String?
+  requiresFounder     Boolean       @default(true)
+  totalDays           Int
+  status              ContentStatus @default(DRAFT)
+  // Protocolos "ricos" (triagem com blocos, checklist, campos tipados,
+  // fechamento com cenários) guardam o JSON de origem aqui, intacto —
+  // reimportar troca só este campo, nunca as tabelas de progresso.
+  spec                Json?
+  // Quando setado, o acesso é por ProductEntitlement (produto Kiwify),
+  // não pelo tier founder/pro — substitui requiresFounder para este protocolo.
+  entitlementProductId String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  steps               ProtocolStep[]
+  enrollments         ProtocolEnrollment[]
+
+  @@index([status])
+}
+
+enum ProtocolStepKind {
+  TRIAGE
+  DAY
+  CLOSING
+}
+
+// dayNumber: 0 = triagem, 1..N = dias, N+1 = fechamento
+model ProtocolStep {
+  id         String           @id @default(cuid())
+  protocolId String
+  kind       ProtocolStepKind
+  dayNumber  Int
+  title      String
+  taskShort  String?
+  whyText    String?
+  asksRating Boolean          @default(false)
+  protocol   Protocol         @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+
+  @@unique([protocolId, dayNumber])
+}
+
+enum ProtocolEnrollmentStatus {
+  NAO_INICIADO
+  EM_ANDAMENTO
+  CONCLUIDO
+  INTERROMPIDO_EMERGENCIA
+}
+
+model ProtocolEnrollment {
+  id             String                   @id @default(cuid())
+  protocolId     String
+  userId         String
+  petId          String
+  status         ProtocolEnrollmentStatus @default(EM_ANDAMENTO)
+  currentDay     Int                      @default(0)
+  startedAt      DateTime                 @default(now())
+  completedAt    DateTime?
+  resolved       Boolean?
+  // Respostas da triagem (blocos "emergencia"/"veterinario" e quaisquer outros do spec).
+  triageAnswers  Json?
+  // tarefa_fixa do bloco veterinário ("nao" → agendar consulta) — visível em
+  // todos os dias até ser marcada como concluída.
+  fixedTaskDone  Boolean                  @default(false)
+  protocol       Protocol                 @relation(fields: [protocolId], references: [id])
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet            Pet                      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  logs           ProtocolDayLog[]
+
+  @@index([userId])
+  @@index([petId])
+}
+
+model ProtocolDayLog {
+  id            String             @id @default(cuid())
+  enrollmentId  String
+  dayNumber     Int
+  unlockedAt    DateTime           @default(now())
+  completedAt   DateTime?
+  note          String?
+  severityScore Int?
+  advancedEarly Boolean            @default(false)
+  // Itens de checklist marcados: { "itemId": true|false }
+  checklist     Json?
+  enrollment    ProtocolEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  entries       ProtocolDayEntry[]
+
+  @@unique([enrollmentId, dayNumber])
+}
+
+// Uma linha por registro salvo — cobre "repetivel" (várias ocorrências no
+// mesmo dia) guardando os campos tipados do spec como vieram.
+model ProtocolDayEntry {
+  id        String         @id @default(cuid())
+  dayLogId  String
+  data      Json
+  createdAt DateTime       @default(now())
+  dayLog    ProtocolDayLog @relation(fields: [dayLogId], references: [id], onDelete: Cascade)
+
+  @@index([dayLogId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ENTITLEMENTS DE PRODUTO — liberação de produtos externos (Kiwify) por e-mail
+// ═══════════════════════════════════════════════════════════════════════
+
+// Produto liberado para um usuário já cadastrado.
+model ProductEntitlement {
+  id         String   @id @default(cuid())
+  userId     String
+  productId  String
+  source     String   @default("KIWIFY")
+  externalId String?
+  grantedAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([externalId])
+}
+
+// Compra aprovada para um e-mail que ainda não tem conta — aplicada no primeiro login/cadastro.
+model PendingProductEntitlement {
+  id         String   @id @default(cuid())
+  email      String
+  productId  String
+  source     String   @default("KIWIFY")
+  externalId String?
+  createdAt  DateTime @default(now())
+
+  @@index([email])
+}
+
+model AdminKnowledgeSection {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  scope       String   @default("IGENT_FELINE_ALMANAC")
+  title       String
+  content     String
+  excerpt     String?
+  tags        String[] @default([])
+  metadata    Json?
+  status      String   @default("PUBLISHED")
+  version     Int      @default(1)
+  active      Boolean  @default(true)
+  source      String   @default("ADMIN")
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([scope])
+  @@index([status])
+  @@index([active])
 }
 
 model Document {
@@ -896,6 +1129,65 @@ model InstagramComplianceLog {
   @@index([leadId])
   @@index([action])
   @@index([createdAt])
+}
+
+model AdminVenture {
+  id            String   @id
+  title         String
+  subtitle      String?
+  stage         String?
+  pipelineStage String   @default("Ideia")
+  horizon       String?
+  owner         String?
+  score         Int      @default(0)
+  impact        Int      @default(0)
+  complexity    Int      @default(0)
+  revenue       String?
+  model         String?
+  thesis        String?
+  risk          String?
+  revenueLines  String[] @default([])
+  kpis          String[] @default([])
+  partners      String[] @default([])
+  nextMoves     String[] @default([])
+  doneMoves     Int[]    @default([])
+  note          String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([pipelineStage])
+  @@index([score])
+  @@index([updatedAt])
+}
+
+model AdminCampaign {
+  id        String   @id
+  name      String
+  type      String
+  status    String   @default("Briefing")
+  channels  String[] @default([])
+  objective String?
+  audience  String[] @default([])
+  budget    String?
+  deadline  String?
+  formats   String[] @default([])
+  hook      String?
+  headline  String?
+  cta       String?
+  caption   String?
+  assets    String[] @default([])
+  notes     String?
+  results   String?
+  owner     String?
+  kpis      String[] @default([])
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@index([updatedAt])
 }
 
 enum Role {

@@ -6,7 +6,9 @@ import { JwtService } from '@nestjs/jwt';
 import { Express } from 'express'; 
 import 'multer'; 
 import { calcCatLevelMeta } from '../gamification/gamification.constants';
-import { getActiveCatsLimit, getMembershipRulesForUser } from '../membership/membership.constants';
+import { getUserEntitlements } from '../membership/membership.constants';
+import { GamificationIntegration } from '../gamification/gamification.integration';
+import { isProfileComplete } from '../gamification/xp.config';
 
 @Controller('pets')
 export class PetsController {
@@ -14,6 +16,7 @@ export class PetsController {
     private readonly prisma: PrismaService,
     private readonly cloudflare: CloudflareService,
     private readonly jwtService: JwtService,
+    private readonly gamif: GamificationIntegration,
   ) {}
 
   private getAuthUser(req: any): { id: string | null; role: string | null } {
@@ -67,7 +70,10 @@ export class PetsController {
               name: true,
               email: true,
               photoUrl: true,
+              tutorTitle: true,
               plan: true,
+              role: true,
+              badges: true,
             },
           },
         },
@@ -84,7 +90,10 @@ export class PetsController {
             name: true,
             email: true,
             photoUrl: true,
+            tutorTitle: true,
             plan: true,
+            role: true,
+            badges: true,
           },
         },
       },
@@ -100,6 +109,24 @@ findOne(@Param('id') id: string) {
       owner: true,
       healthRecords: { orderBy: { date: 'desc' } },
       diaryEntries:  { orderBy: { date: 'desc' } },
+      protocolEnrollments: {
+        select: {
+          id: true,
+          protocol: { select: { title: true } },
+          logs: {
+            where: {
+              OR: [{ note: { not: null } }, { entries: { some: {} } }],
+            },
+            select: {
+              id: true,
+              dayNumber: true,
+              note: true,
+              completedAt: true,
+              entries: { select: { id: true, data: true, createdAt: true } },
+            },
+          },
+        },
+      },
     },
   });
 }
@@ -263,10 +290,22 @@ if (typeof body.coexistsWith === 'string') {
     delete dataToUpdate.pedigree;
     delete dataToUpdate.pedigreeBack;
 
-    return this.prisma.pet.update({
+    const updated = await this.prisma.pet.update({
       where: { id },
       data: dataToUpdate,
     });
+
+    // Ficha do gato completa — XP médio, uma única vez por gato.
+    if (!updated.profileCompletedAt && isProfileComplete(updated)) {
+      const withTimestamp = await this.prisma.pet.update({
+        where: { id },
+        data: { profileCompletedAt: new Date() },
+      });
+      this.gamif.onProfileComplete(updated.ownerId, id).catch(() => {});
+      return withTimestamp;
+    }
+
+    return updated;
   }
 
   @Post()
@@ -296,6 +335,7 @@ if (typeof body.coexistsWith === 'string') {
       select: {
         id: true,
         plan: true,
+        role: true,
         badges: true,
       },
     });
@@ -304,14 +344,13 @@ if (typeof body.coexistsWith === 'string') {
       throw new BadRequestException('Tutor responsável não encontrado.');
     }
 
-    const membership = getMembershipRulesForUser(owner);
-    const maxActiveCats = getActiveCatsLimit(owner);
+    const entitlements = getUserEntitlements(owner);
     const incomingIsMemorial =
       petData.isMemorial === true || petData.isMemorial === 'true';
     const incomingIsArchived =
       petData.isArchived === true || petData.isArchived === 'true';
 
-    if (Number.isFinite(maxActiveCats) && !incomingIsMemorial && !incomingIsArchived) {
+    if (!entitlements.isUnlimitedCats && !incomingIsMemorial && !incomingIsArchived) {
       const activeCatsCount = await this.prisma.pet.count({
         where: {
           ownerId: owner.id,
@@ -320,9 +359,9 @@ if (typeof body.coexistsWith === 'string') {
         },
       });
 
-      if (activeCatsCount >= maxActiveCats) {
+      if (activeCatsCount >= entitlements.maxActiveCats!) {
         throw new BadRequestException(
-          `O plano ${membership.label} permite até ${maxActiveCats} gatos ativos. Coloque um gato no memorial/arquivo ou faça upgrade para continuar.`,
+          `Seu plano permite até ${entitlements.maxActiveCats} gatos ativos. Coloque um gato no memorial/arquivo para continuar.`,
         );
       }
     }
@@ -479,6 +518,18 @@ optionalStrings.forEach((f) => {
   if (petData[f] === '') petData[f] = null;
 });
 
-    return this.prisma.pet.create({ data: petData });
+    const created = await this.prisma.pet.create({ data: petData });
+
+    // Cadastro já veio completo — ficha do gato completa, XP médio, uma única vez.
+    if (isProfileComplete(created)) {
+      const withTimestamp = await this.prisma.pet.update({
+        where: { id: created.id },
+        data: { profileCompletedAt: new Date() },
+      });
+      this.gamif.onProfileComplete(created.ownerId, created.id).catch(() => {});
+      return withTimestamp;
+    }
+
+    return created;
   }
 }

@@ -11,6 +11,7 @@ import { HealthBanner } from '../components/BannerAlert';
 import { useSound } from '../hooks/useSound';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import NotificationCenter from '../components/NotificationCenter';
+import { Smartphone, X } from 'lucide-react';
 
 // Autenticação e Entrada
 import Splash from '../pages/Splash';
@@ -21,6 +22,8 @@ import ResetPassword from '../pages/ResetPassword';
 import VerifyEmail from '../pages/VerifyEmail';
 import Welcome from '../pages/Welcome';
 import WelcomeFounder from '../pages/WelcomeFounder';
+import WelcomeMembership from '../pages/WelcomeMembership';
+import GatedoEmbaixadoras from '../pages/GatedoEmbaixadoras';
 import ThankYou from '../pages/Thankyou';
 import TermsOfUse from '../pages/legal/TermsOfUse';
 import PrivacyPolicy from '../pages/legal/PrivacyPolicy';
@@ -32,6 +35,10 @@ import CatProfile from '../pages/CatProfile';
 import CatEdit from '../pages/CatEdit';
 import CatDiary from '../pages/CatDiary';
 import CatAlmanac from '../pages/CatAlmanac';
+import Guia from '../pages/Guia';
+import GuiaEntry from '../pages/GuiaEntry';
+import Protocolos from '../pages/Protocolos';
+import Protocolo from '../pages/Protocolo';
 import AddCat from '../pages/AddCat';
 import FolderList from '../pages/FolderList';
 import CatGame from '../pages/CatGame';
@@ -40,6 +47,7 @@ import CatGame from '../pages/CatGame';
 import HealthForm from '../pages/HealthForm';
 import IGentHelp from '../pages/IGentHelp';
 import IGentVet from '../pages/IGentVet';
+import IGentVetAbout from '../pages/IGentVetAbout';
 import WikiVaccines from '../pages/WikiVaccines';
 import VetsDoBem from '../pages/VetsDoBem';
 
@@ -52,7 +60,11 @@ import Store from '../pages/Store';
 import Studio from '../pages/Studio';
 import Wiki from '../pages/Wiki';
 import WikiBreeds from '../pages/WikiBreeds';
+import WikiBreedDetail from '../pages/WikiBreedDetail';
 import WikiSRD from '../pages/WikiSRD';
+import WikiSRDDetail from '../pages/WikiSRDDetail';
+import WikiWildFelines from '../pages/WikiWildFelines';
+import WikiWildFelineDetail from '../pages/WikiWildFelineDetail';
 import JornadaGatedo from '../pages/JornadaGatedo';
 
 // Studio e Novidades
@@ -81,6 +93,7 @@ import AdminOverview from '../pages/admin/AdminOverview';
 import AdminPartners from '../pages/admin/AdminPartners';
 import AdminStore from '../pages/admin/AdminStore';
 import AdminNoticesPage from '../pages/AdminNoticesPage';
+import AdminMarketIntelligence from '../pages/admin/AdminMarketIntelligence';
 
 import NotFound from '../pages/NotFound';
 import Comunigato from '../pages/Comunigato';
@@ -92,6 +105,7 @@ const NO_LOADING_ROUTES = [
   '/splash',
   '/welcome',
   '/welcome-founder',
+  '/embaixadoras',
   '/login',
   '/register',
   '/forgot-password',
@@ -108,9 +122,6 @@ const NO_LOADING_ROUTES = [
 ];
 
 // ─── Rotas que exibem a BottomNav ─────────────────────────────────────────────
-// ⚠️  Formulários de adição/edição foram REMOVIDOS desta lista:
-//    - /cat-new   → formulário de adicionar gato
-//    As demais exceções são tratadas em shouldShowBottomNav (sufixos /edit, /health-new)
 const APP_ROUTES_WITH_NAV = [
   '/home',
   '/cats',
@@ -124,6 +135,9 @@ const APP_ROUTES_WITH_NAV = [
   '/memorial',
   '/igent-help',
   '/igent-vet',
+  '/igent-vet/sobre',
+  '/guia',
+  '/protocolos',
   '/vets',
   '/tutor-profile',
   '/gamificacao',
@@ -158,6 +172,7 @@ const PUBLIC_ROUTES_WITHOUT_NAV = [
   '/verify-email',
   '/welcome',
   '/welcome-founder',
+  '/embaixadoras',
   '/clube',
   '/planos',
   '/obrigado',
@@ -167,7 +182,6 @@ const PUBLIC_ROUTES_WITHOUT_NAV = [
   '/privacidade',
   '/auth/register',
   '/auth/login',
-  // Formulários de adição de gato e dados pessoais
   '/cat-new',
   '/profile/edit',
 ];
@@ -181,10 +195,10 @@ const AppShell = () => {
   const { installPrompt, handleInstallClick } = usePWAInstall();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [bottomNavForcedHidden, setBottomNavForcedHidden] = useState(false);
+  const [installDismissed, setInstallDismissed] = useState(() => {
+    try { return sessionStorage.getItem('gatedo_pwa_install_dismissed') === '1'; } catch { return false; }
+  });
 
-  // Congela o estado da nav durante a transição para não desmontar/remontar
-  // o BottomNav no meio do loading — isso quebraria o efeito morph dos botões.
-  // O valor só é atualizado depois que a animação de loading termina.
   const [navVisible, setNavVisible] = useState(false);
 
   const pathname = location.pathname;
@@ -197,7 +211,6 @@ const AppShell = () => {
 
   useEffect(() => {
     if (isNoLoadingRoute(pathname)) {
-      // Sem loading: atualiza nav imediatamente
       setNavVisible(shouldShowBottomNav);
       return;
     }
@@ -207,8 +220,6 @@ const AppShell = () => {
 
     const timer = setTimeout(() => {
       setIsTransitioning(false);
-      // Só atualiza a nav DEPOIS que o loading fecha —
-      // assim o BottomNav nunca é desmontado no meio da animação morph.
       setNavVisible(shouldShowBottomNav);
     }, 1200);
 
@@ -260,16 +271,21 @@ const AppShell = () => {
     if (APP_ROUTES_WITH_NAV.includes(pathname)) return true;
 
     if (APP_ROUTE_PREFIXES_WITH_NAV.some((prefix) => pathname.startsWith(prefix))) {
-      // ── Exceções: formulários de edição e saúde sob /cat/:id ──────────────
       if (pathname.startsWith('/cat/')) {
-        if (pathname.endsWith('/edit'))       return false; // editar gato
-        if (pathname.endsWith('/health-new')) return false; // novo registro de saúde
+        if (pathname.endsWith('/edit'))       return false;
+        if (pathname.endsWith('/health-new')) return false;
       }
       return true;
     }
 
     return false;
   }, [pathname]);
+
+  const dismissInstallPrompt = (event) => {
+    event.stopPropagation();
+    setInstallDismissed(true);
+    try { sessionStorage.setItem('gatedo_pwa_install_dismissed', '1'); } catch {}
+  };
 
 
   return (
@@ -293,13 +309,48 @@ const AppShell = () => {
 
         <HealthBanner />
 
-        {installPrompt && (
+        {false && installPrompt && (
           <div
             onClick={handleInstallClick}
             className="bg-[#823fff] p-2 text-white text-[10px] font-black uppercase tracking-[2px] text-center cursor-pointer relative z-50"
           >
             Instalar Gatedo no seu Celular 🐾
           </div>
+        )}
+
+        {installPrompt && !installDismissed && (
+          <motion.div
+            initial={{ opacity: 0, y: -12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            className="fixed top-0 inset-x-0 z-[90] pointer-events-none flex justify-center"
+          >
+            <div
+              onClick={handleInstallClick}
+              className="pointer-events-auto flex h-[52px] max-h-[60px] w-full items-center justify-center gap-3 rounded-b-[26px] px-4 shadow-[0_14px_34px_rgba(70,30,150,0.28)] cursor-pointer"
+              style={{
+                width: 'clamp(260px, 50vw, 460px)',
+                background: 'rgba(130,63,255,0.94)',
+                border: '1px solid rgba(255,255,255,0.22)',
+                borderTop: 0,
+                backdropFilter: 'blur(14px)',
+              }}
+            >
+              <span className="w-8 h-8 rounded-full bg-white/16 flex items-center justify-center flex-shrink-0">
+                <Smartphone size={15} className="text-white" />
+              </span>
+              <span className="text-white text-[10px] sm:text-xs font-black uppercase tracking-[1.4px] whitespace-nowrap">
+                Instalar Gatedo
+              </span>
+              <button
+                onClick={dismissInstallPrompt}
+                className="w-7 h-7 rounded-full bg-white/14 flex items-center justify-center flex-shrink-0"
+                aria-label="Fechar instalador"
+              >
+                <X size={13} className="text-white/80" />
+              </button>
+            </div>
+          </motion.div>
         )}
 
         <main className="flex-1 overflow-x-hidden w-full">
@@ -315,6 +366,10 @@ const AppShell = () => {
 
               <Route path="/welcome" element={<Welcome />} />
               <Route path="/welcome-founder" element={<WelcomeFounder />} />
+              <Route path="/welcome-prime" element={<WelcomeMembership variant="prime" />} />
+              <Route path="/welcome-vip" element={<WelcomeMembership variant="vip" />} />
+              <Route path="/embaixadoras" element={<GatedoEmbaixadoras />} />
+              <Route path="/embaixadoras/:token" element={<GatedoEmbaixadoras />} />
               <Route path="/clube" element={<Clube />} />
               <Route path="/planos" element={<Clube />} />
               <Route path="/obrigado" element={<ThankYou />} />
@@ -332,6 +387,10 @@ const AppShell = () => {
                 <Route path="/cat/:id/edit" element={<CatEdit />} />
                 <Route path="/cat/:id/diary" element={<CatDiary />} />
                 <Route path="/cat/:id/almanac" element={<CatAlmanac />} />
+                <Route path="/guia" element={<Guia />} />
+                <Route path="/guia/:slug" element={<GuiaEntry />} />
+                <Route path="/protocolos" element={<Protocolos />} />
+                <Route path="/protocolos/:slug" element={<Protocolo />} />
                 <Route path="/cat/:id/folder/:folderId" element={<FolderList />} />
                 <Route path="/cat/:id/health-new" element={<HealthForm />} />
                 <Route path="/memorial/intro/:petId" element={<Memorial />} />
@@ -342,11 +401,16 @@ const AppShell = () => {
                 <Route path="/wiki" element={<Wiki />} />
                 <Route path="/wiki-vaccines" element={<WikiVaccines />} />
                 <Route path="/wiki-breeds" element={<WikiBreeds />} />
+                <Route path="/wiki/breeds/:id" element={<WikiBreedDetail />} />
                 <Route path="/wiki-srd" element={<WikiSRD />} />
+                <Route path="/wiki-srd/:id" element={<WikiSRDDetail />} />
+                <Route path="/wiki-wild-felines" element={<WikiWildFelines />} />
+                <Route path="/wiki-wild-felines/:id" element={<WikiWildFelineDetail />} />
                 <Route path="/memorial" element={<Memorial />} />
 
                 <Route path="/igent-help" element={<IGentHelp />} />
                 <Route path="/igent-vet" element={<IGentVet />} />
+                <Route path="/igent-vet/sobre" element={<IGentVetAbout />} />
                 <Route path="/vets" element={<VetsDoBem />} />
                 <Route path="/tutor-profile" element={<TutorProfile />} />
                 <Route path="/gamificacao" element={<TutorProfile />} />
@@ -375,15 +439,9 @@ const AppShell = () => {
                 <Route path="/mundo-gatedo" element={<MundoGatedo />} />
                 <Route path="/cat-game" element={<CatGame />} />
 
+                {/* ── Admin Routes ── */}
                 <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/users" element={<AdminUsers />} />
-                <Route path="/admin/cats" element={<AdminCats />} />
-                <Route path="/admin/content" element={<AdminContent />} />
-                <Route path="/admin/financial" element={<AdminFinancial />} />
-                <Route path="/admin/overview" element={<AdminOverview />} />
-                <Route path="/admin/partners" element={<AdminPartners />} />
-                <Route path="/admin/store" element={<AdminStore />} />
-                <Route path="/admin/notices" element={<AdminNoticesPage />} />
+                <Route path="/admin/:tab" element={<AdminDashboard />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

@@ -8,12 +8,14 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EmailModule } from '../email/email.module';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AdminInviteController } from './admin-invite.controller';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 
 @Module({
   imports: [
     PrismaModule,
     EmailModule,
     PassportModule,
+    EntitlementsModule,
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: process.env.JWT_SECRET,

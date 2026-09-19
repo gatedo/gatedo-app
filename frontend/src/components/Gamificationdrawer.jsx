@@ -539,7 +539,7 @@ export default function GamificationDrawer({ isOpen, onClose }) {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed bottom-0 left-0 right-0 z-50 max-w-[800px] mx-auto rounded-t-[34px] bg-white overflow-hidden"
+            className="fixed bottom-0 left-0 right-0 z-50 max-w-[920px] mx-auto rounded-t-[34px] bg-white overflow-hidden"
             style={{ maxHeight: '92vh' }}
           >
             <div className="flex justify-center pt-3 pb-1">
@@ -695,10 +695,10 @@ export default function GamificationDrawer({ isOpen, onClose }) {
 
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: 'Consulta iGentVet', val: '-20 GPTS · +10 XPT · +8 XPG', icon: '🤖' },
-                    { label: 'Vacina registrada', val: '+4 XPT · +12 XPG', icon: '💉' },
-                    { label: 'Studio imagem', val: '-15 GPTS · +12 XPT · +6 XPG', icon: '🎨' },
-                    { label: 'Post na comunidade', val: '+6 XPT · +6 XPG', icon: '💬' },
+                    { label: 'Pesagem / consulta', val: '+20 XPT · +15 XPG', icon: '⚖️' },
+                    { label: 'Vacina / vermífugo / antipulgas', val: '+10 XPT · +8 XPG', icon: '💉' },
+                    { label: 'Diário do dia', val: '+3 XPT · +3 XPG', icon: '📓' },
+                    { label: 'Curtir, postar, iGentVet, Studio', val: 'sem XP', icon: '✨' },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-2 px-3 py-2.5 bg-white rounded-2xl border border-gray-100">
                       <span className="text-sm">{item.icon}</span>

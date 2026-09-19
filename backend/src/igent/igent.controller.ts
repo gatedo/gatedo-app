@@ -1,15 +1,57 @@
-import { Controller, Post, Get, Body, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, BadRequestException } from '@nestjs/common';
 import { IgentService } from './igent.service';
+import { IgentCreditsService } from './igent-credits.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationIntegration } from '../gamification/gamification.integration';
+import { NotificationService } from '../notifications/notification.service';
 
 @Controller('igent')
 export class IgentController {
   constructor(
     private readonly igentService: IgentService,
+    private readonly igentCredits: IgentCreditsService,
     private readonly prisma: PrismaService,
     private readonly gamif: GamificationIntegration,
+    private readonly notifService: NotificationService,
   ) {}
+
+  @Get('credits')
+  async getCredits(@Query('userId') userId?: string, @Query('petId') petId?: string) {
+    const resolvedUserId = userId || (petId ? await this.getPetOwnerId(petId) : null);
+    if (!resolvedUserId) {
+      throw new BadRequestException('userId ou petId é obrigatório.');
+    }
+    return this.igentCredits.getStatus(resolvedUserId);
+  }
+
+  @Post('credits/notify-reset')
+  async notifyOnReset(@Body() body: { userId?: string; petId?: string }) {
+    const resolvedUserId = body.userId || (body.petId ? await this.getPetOwnerId(body.petId) : null);
+    if (!resolvedUserId) {
+      throw new BadRequestException('userId ou petId é obrigatório.');
+    }
+
+    const status = await this.igentCredits.getStatus(resolvedUserId);
+    const resetLabel = status.resetsAt
+      ? new Date(status.resetsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+      : 'no início do próximo mês';
+
+    await this.notifService.create({
+      userId: resolvedUserId,
+      type: 'SYSTEM',
+      message: `⏳ Combinado! Vamos te avisar quando suas perguntas do iGentVet renovarem em ${resetLabel}.`,
+    });
+
+    return { ok: true, resetsAt: status.resetsAt };
+  }
+
+  private async getPetOwnerId(petId: string): Promise<string | null> {
+    const pet = await this.prisma.pet.findUnique({
+      where: { id: petId },
+      select: { ownerId: true },
+    });
+    return pet?.ownerId || null;
+  }
 
   @Post('analyze')
   async analyze(
@@ -20,12 +62,32 @@ export class IgentController {
       clinicalContext?: any;
     },
   ) {
-    return this.igentService.analyzeSymptom(
+    const ownerId = await this.getPetOwnerId(body.petId);
+    if (ownerId) {
+      const status = await this.igentCredits.getStatus(ownerId);
+      if (status.blocked) {
+        return { blocked: true, reason: 'MONTHLY_LIMIT', ...status };
+      }
+    }
+
+    const result = await this.igentService.analyzeSymptom(
       body.petId,
       body.symptom,
       body.symptomId,
       body.clinicalContext,
     );
+
+    if (ownerId && result?.aiUsage) {
+      await this.igentCredits.logUsage({
+        userId: ownerId,
+        petId: body.petId,
+        provider: result.aiUsage.provider,
+        tokensUsed: result.aiUsage.tokensUsed,
+      });
+      return { ...result, credits: await this.igentCredits.getStatus(ownerId) };
+    }
+
+    return result;
   }
 
   @Post('chat')
@@ -36,16 +98,48 @@ export class IgentController {
       symptom?: string;
       symptomId?: string;
       clinicalContext?: any;
+      imageBase64?: string;
+      imageMimeType?: string;
+      imageContext?: string;
+      referenceImages?: Array<{ url?: string; label?: string; notes?: string; patternTitle?: string; mimeType?: string }>;
+      conversationContext?: Array<{ sender?: string; text?: string; type?: string }>;
     },
   ) {
+    const ownerId = await this.getPetOwnerId(body.petId);
+    if (ownerId) {
+      const status = await this.igentCredits.getStatus(ownerId);
+      if (status.blocked) {
+        return { blocked: true, reason: 'MONTHLY_LIMIT', ...status };
+      }
+    }
+
     // Usa chatWithVet — endpoint correto com contexto de chat
-    return this.igentService.chatWithVet(
+    const result = await this.igentService.chatWithVet(
       body.petId,
       body.message,
       body.symptom,
       body.symptomId,
       body.clinicalContext,
+      {
+        imageBase64: body.imageBase64,
+        imageMimeType: body.imageMimeType,
+        imageContext: body.imageContext,
+        referenceImages: body.referenceImages,
+      },
+      body.conversationContext,
     );
+
+    if (ownerId && result?.aiUsage) {
+      await this.igentCredits.logUsage({
+        userId: ownerId,
+        petId: body.petId,
+        provider: result.aiUsage.provider,
+        tokensUsed: result.aiUsage.tokensUsed,
+      });
+      return { ...result, credits: await this.igentCredits.getStatus(ownerId) };
+    }
+
+    return result;
   }
 
   @Post('report')
@@ -105,5 +199,10 @@ export class IgentController {
   @Post('record-update')
   async recordUpdate(@Body() body: any) {
     return this.igentService.recordUpdate(body);
+  }
+
+  @Post('feedback')
+  async feedback(@Body() body: any) {
+    return this.igentService.recordFeedback(body);
   }
 }

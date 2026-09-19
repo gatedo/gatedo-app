@@ -18,7 +18,9 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import api from '../services/api';
+import { getAmbassadorByToken, setAmbassadorAttribution } from '../services/ambassadorProgramStore';
 import { AuthContext } from '../context/AuthContext';
+import { brandAssets } from '../brand/assets';
 
 const PLAN_BADGE = {
   vip: {
@@ -44,7 +46,7 @@ const PLAN_BADGE = {
   },
   free: {
     icon: null,
-    label: 'Ativação por convite',
+    label: '',
     color: '#9CA3AF',
     bg: 'transparent',
     border: 'transparent',
@@ -121,7 +123,7 @@ const OnboardingPopup = ({ name, type, phase, onClose }) => {
             >
               <div className="w-24 h-24 bg-[#f8f4ff83] rounded-full flex items-center justify-center shadow-lg">
                 <img
-                  src="/assets/App_gatedo_logo1.webp"
+                  src={brandAssets.appLogo}
                   className="w-24 h-24 object-contain"
                   alt="Logo"
                   onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -298,8 +300,10 @@ export default function Register() {
 
   const query = new URLSearchParams(location.search);
   const token = query.get('token') || '';
+  const ambassadorToken = query.get('amb') || query.get('affiliate') || '';
   const queryType = (query.get('type') || 'free').toLowerCase();
   const queryPhase = Number(query.get('phase') || 1);
+  const signupSource = query.get('src') || query.get('utm_source') || (ambassadorToken ? 'ambassador' : 'organic');
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -311,6 +315,7 @@ export default function Register() {
     name: '',
     email: '',
     phone: '',
+    tutorTitle: 'TUTOR',
     password: '',
     confirmPassword: '',
   });
@@ -320,6 +325,15 @@ export default function Register() {
 
     async function validateInvite() {
       const specialQueryFlow = queryType === 'vip' || queryType === 'founder';
+      const ambassadorProfile = getAmbassadorByToken(ambassadorToken);
+
+      if (!token && ambassadorProfile) {
+        setAmbassadorAttribution(ambassadorProfile);
+        setInviteError('');
+        setInviteInfo({ kind: 'ambassador', name: '', valid: true });
+        setShowOnboarding(true);
+        return;
+      }
 
       if (!token && specialQueryFlow) {
         setInviteError('Link de convite incompleto. Solicite um novo link.');
@@ -327,7 +341,9 @@ export default function Register() {
       }
 
       if (!token) {
-        setInviteError('Cadastro disponível apenas para convites válidos ou compras aprovadas.');
+        // Cadastro livre: qualquer pessoa pode criar conta sem convite/compra.
+        setInviteError('');
+        setShowOnboarding(true);
         return;
       }
 
@@ -368,7 +384,7 @@ export default function Register() {
     return () => {
       cancelled = true;
     };
-  }, [token, queryType]);
+  }, [token, queryType, ambassadorToken]);
 
   const actualKind =
     inviteInfo?.kind || (queryType === 'vip' || queryType === 'founder' ? queryType : 'free');
@@ -427,9 +443,12 @@ export default function Register() {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        tutorTitle: formData.tutorTitle,
         password: formData.password,
         token: token || undefined,
-        origin: actualKind,
+        origin: ambassadorToken ? 'ambassador' : actualKind,
+        ambassadorToken: ambassadorToken || undefined,
+        source: signupSource,
       });
 
       if (signIn) {
@@ -441,6 +460,10 @@ export default function Register() {
         navigate(
           `/welcome-founder?name=${encodeURIComponent(formData.name)}&phase=${actualPhase}`,
         );
+      } else if (actualKind === 'vip') {
+        navigate(`/welcome-vip?name=${encodeURIComponent(formData.name)}`);
+      } else if (actualKind === 'purchase') {
+        navigate(`/welcome-prime?name=${encodeURIComponent(formData.name)}`);
       } else {
         navigate('/home');
       }
@@ -475,7 +498,7 @@ export default function Register() {
       style={{ background: 'linear-gradient(135deg,#936cff,#8b4dff,#682adb)' }}
     >
       <img
-        src="/assets/logo-fundo1.svg"
+        src={brandAssets.gatedoWatermark}
         alt=""
         className="absolute bottom-[-15%] left-[-35%] w-[140%] max-w-none opacity-100 pointer-events-none z-0 rotate-12"
         onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -502,7 +525,7 @@ export default function Register() {
         <div className="absolute -top-12 left-1/2 -translate-x-1/2">
           <div className="w-24 h-24 bg-[#f8f4ff83] rounded-full flex items-center justify-center shadow-lg">
             <img
-              src="/assets/App_gatedo_logo1.webp"
+              src={brandAssets.appLogo}
               alt=""
               className="w-32 h-32 object-contain"
               onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -529,7 +552,7 @@ export default function Register() {
             </div>
           ) : (
             <p className="text-gray-400 text-[10px] font-bold uppercase tracking-[2px] mt-1">
-              Ativação por convite ou compra aprovada
+              Cadastre seus gatos gratuitamente
             </p>
           )}
         </div>
@@ -648,6 +671,36 @@ export default function Register() {
                 />
               </div>
             ))}
+          </div>
+
+          <div>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[2px] mb-2 px-1">
+              Como quer aparecer no Gatedo?
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: 'TUTOR', label: 'Tutor' },
+                { value: 'TUTORA', label: 'Tutora' },
+                { value: 'PESSOA_TUTORA', label: 'Pessoa tutora' },
+              ].map((option) => {
+                const active = formData.tutorTitle === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={blocked || loading}
+                    onClick={() => setFormData({ ...formData, tutorTitle: option.value })}
+                    className={`rounded-2xl px-2 py-3 text-[9px] font-black uppercase tracking-[1px] border transition-all ${
+                      active
+                        ? 'bg-[#8B4AFF] text-white border-[#8B4AFF] shadow-lg shadow-violet-100'
+                        : 'bg-white text-gray-400 border-gray-100'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {emailLocked && (

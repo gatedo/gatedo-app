@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PostVisibility, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { XP_TIERS } from '../gamification/xp.config';
 
 const XP_TO_PUBLISH = 100;
 const COST_PUBLISH_NORMAL = 5;
@@ -28,6 +29,8 @@ export class SocialService {
   private normalizeFeedPost(post: any, currentUserId?: string) {
     return {
       ...post,
+      isMine: post?.userId === currentUserId,
+      canDelete: post?.userId === currentUserId,
       likedByMe: Array.isArray(post.likedBy)
         ? post.likedBy.some((item: any) => item.userId === currentUserId)
         : false,
@@ -200,6 +203,10 @@ const where: any = {
             id: true,
             name: true,
             photoUrl: true,
+            tutorTitle: true,
+            role: true,
+            plan: true,
+            badges: true,
           },
         },
       } as any,
@@ -306,6 +313,10 @@ const where: any = {
           id: pet.owner?.id || null,
           name: pet.owner?.name || 'Tutor',
           photoUrl: pet.owner?.photoUrl || null,
+          tutorTitle: pet.owner?.tutorTitle || 'TUTOR',
+          role: pet.owner?.role || null,
+          plan: pet.owner?.plan || null,
+          badges: Array.isArray(pet.owner?.badges) ? pet.owner.badges : [],
         },
         tutorName: pet.owner?.name || 'Tutor',
         tutorAvatar: pet.owner?.photoUrl || null,
@@ -416,8 +427,9 @@ const where: any = {
           userId: currentUser.id,
           petId: post.petId,
           action: 'COMMUNITY_COMMENT',
-          xptDelta: 2,
-          xpgDelta: 1,
+          // Interação social — não é dado clínico. Ver backend/src/gamification/xp.config.ts.
+          xptDelta: XP_TIERS.ZERO.tutorXp,
+          xpgDelta: XP_TIERS.ZERO.catXp,
           gptsDelta: 0,
           metadata: {
             postId,
@@ -626,8 +638,9 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
           userId: currentUser.id,
           petId: body.petId,
           action: 'COMMUNITY_POST',
-          xptDelta: 6,
-          xpgDelta: 3,
+          // Interação social — não é dado clínico. Ver backend/src/gamification/xp.config.ts.
+          xptDelta: XP_TIERS.ZERO.tutorXp,
+          xpgDelta: XP_TIERS.ZERO.catXp,
           gptsDelta: 0,
           metadata: {
             postId: post.id,
@@ -669,6 +682,35 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
       bypass: isAdmin,
       chargedPoints: isAdmin ? 0 : cost,
       post: this.normalizeFeedPost(result, currentUser.id),
+    };
+  }
+
+  async deletePost(currentUser: any, postId: string) {
+    if (!currentUser?.id) throw new ForbiddenException('Usuário não autenticado');
+
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: {
+        id: true,
+        userId: true,
+      },
+    });
+
+    if (!post) throw new NotFoundException('Post não encontrado');
+
+    if (!this.isAdmin(currentUser) && post.userId !== currentUser.id) {
+      throw new ForbiddenException(
+        'Você só pode excluir publicações criadas pelo seu usuário',
+      );
+    }
+
+    await this.prisma.post.delete({
+      where: { id: postId },
+    });
+
+    return {
+      ok: true,
+      deletedPostId: postId,
     };
   }
 
@@ -715,8 +757,9 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
           userId: currentUser.id,
           petId: (post as any).petId,
           action: 'COMMUNITY_LIKE',
-          xptDelta: 0,
-          xpgDelta: 1,
+          // Curtir é ação sem dado — XP zero. Ver backend/src/gamification/xp.config.ts.
+          xptDelta: XP_TIERS.ZERO.tutorXp,
+          xpgDelta: XP_TIERS.ZERO.catXp,
           gptsDelta: 0,
           metadata: { postId },
         },
@@ -800,8 +843,9 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
           userId: currentUser.id,
           petId: (post as any).petId,
           action: 'COMMUNITY_SAVE',
-          xptDelta: 0,
-          xpgDelta: 1,
+          // Interação social — não é dado clínico. Ver backend/src/gamification/xp.config.ts.
+          xptDelta: XP_TIERS.ZERO.tutorXp,
+          xpgDelta: XP_TIERS.ZERO.catXp,
           gptsDelta: 0,
           metadata: { postId },
         },
@@ -967,6 +1011,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
           email: true,
           name: true,
           photoUrl: true,
+          tutorTitle: true,
           role: true,
           xpt: true,
           gatedoPoints: true,

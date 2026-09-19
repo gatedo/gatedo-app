@@ -19,9 +19,13 @@ import {
   Stethoscope,
   Shield,
   UserRound,
+  AlertOctagon,
+  ClipboardCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resolveThemeHex } from './CatIdentityCard';
+import EmergencyCheckModal from './EmergencyCheckModal';
+import { getCatLifeBadge, getPrimaryTutorBadge } from '../../utils/membershipMeta';
 
 const NUN = { fontFamily: 'Nunito, sans-serif' };
 
@@ -104,6 +108,26 @@ const NAV_ITEMS = [
     bg: '#FCE7F3',
     action: 'tab',
     targetTab: 'DOCUMENTOS',
+  },
+  {
+    id: 'GUIA',
+    label: 'Guia felino',
+    subtitle: 'Almanaque',
+    icon: BookOpen,
+    color: '#0EA5E9',
+    bg: '#E0F2FE',
+    action: 'route',
+    to: '/guia',
+  },
+  {
+    id: 'PROTOCOLOS',
+    label: 'Protocolos',
+    subtitle: 'Passo a passo',
+    icon: ClipboardCheck,
+    color: '#8B4AFF',
+    bg: '#F1E9FF',
+    action: 'route',
+    to: '/protocolos',
   },
 ];
 
@@ -215,6 +239,7 @@ const RightSidebar = memo(function RightSidebar({
   onOpenSocial,
   onOpenDiary,
 }) {
+  const navigate = useNavigate();
   const photo = cat?.photoUrl || null;
   const name = cat?.name || 'Gato';
   const breed = cat?.breed || 'Sem raça definida';
@@ -235,6 +260,12 @@ const RightSidebar = memo(function RightSidebar({
   const handleNavItemClick = (item) => {
     if (item.action === 'route' && item.id === 'DIARIO') {
       onOpenDiary?.();
+      onClose?.();
+      return;
+    }
+
+    if (item.action === 'route' && item.to) {
+      navigate(item.to, { state: { catId: cat?.id } });
       onClose?.();
       return;
     }
@@ -273,7 +304,7 @@ const RightSidebar = memo(function RightSidebar({
           initial={{ x: '100%' }}
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
-          transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
           style={{
             ...NUN,
             position: 'fixed',
@@ -690,6 +721,7 @@ function ProfileHeader({
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
 
   const themeHex = useMemo(() => {
     return resolveThemeHex(cat?.themeColor || cat?.theme || cat?.profileColor || '#8B4AFF');
@@ -714,6 +746,8 @@ function ProfileHeader({
   }, [activeTab]);
 
   const socialTargetId = cat?.id || id;
+  const tutorBadge = getPrimaryTutorBadge(cat?.owner || cat?.tutor || cat?.user || {});
+  const lifeBadge = getCatLifeBadge(cat);
 
   const handleOpenSocial = useCallback(() => {
     if (!socialTargetId) return;
@@ -773,13 +807,16 @@ function ProfileHeader({
           ...NUN,
           position: 'sticky',
           top: 0,
-          zIndex: 0,
-          
-          
-          padding: '16px 14px 40px',
-          background: 'linear-gradient(to bottom, rgb(130, 63, 255), rgba(130, 63, 255, 0.51),)',
+          zIndex: 50,
+          width: '100vw',
+          marginLeft: 'calc(50% - 50vw)',
+          marginRight: 'calc(50% - 50vw)',
+          padding: '10px max(14px, calc((100vw - 920px) / 2 + 14px)) 26px',
+          background: 'linear-gradient(to bottom, rgba(130,63,255,0.94) 0%, rgba(130,63,255,0.56) 42%, rgba(130,63,255,0.18) 72%, rgba(130,63,255,0) 100%)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
+          transform: 'translateZ(0)',
+          willChange: 'transform',
         }}
       >
         <div
@@ -805,8 +842,8 @@ function ProfileHeader({
               minWidth: 44,
               borderRadius: '50%',
               border: 'none',
-              background: '#dedce4',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              background: '#F1E9FF',
+              boxShadow: '0 2px 8px rgba(139,74,255,0.16)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -865,7 +902,7 @@ function ProfileHeader({
                   fontWeight: 900,
                   letterSpacing: '0.10em',
                   textTransform: 'uppercase',
-                  color: '#6B4F00',
+              color: '#8B4AFF',
                   marginBottom: 5,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -888,6 +925,51 @@ function ProfileHeader({
               >
                 {cat?.name || 'Perfil do Gato'}
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, minWidth: 0 }}>
+                {tutorBadge && (
+                  <span
+                    style={{
+                      ...NUN,
+                      position: 'relative',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      overflow: 'visible',
+                      maxWidth: 118,
+                      marginLeft: 10,
+                      padding: '3px 7px 3px 18px',
+                      borderRadius: 999,
+                      background: tutorBadge.gradient || tutorBadge.pillBg || tutorBadge.color || themeHex,
+                      color: tutorBadge.pillText || '#ebfc66',
+                      fontSize: 7,
+                      fontWeight: 900,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {tutorBadge.launchBadge ? (
+                      <img src={tutorBadge.asset} alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translate(-50%, -50%)', zIndex: 1, width: 28, height: 28, objectFit: 'contain', flexShrink: 0 }} />
+                    ) : null}
+                    <span style={{ position: 'relative', zIndex: 1, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 86 }}>{tutorBadge.petLabel || tutorBadge.label}</span>
+                  </span>
+                )}
+                <span
+                  style={{
+                    ...NUN,
+                    padding: '3px 6px',
+                    borderRadius: 999,
+                    background: `${themeHex}12`,
+                    color: themeHex,
+                    fontSize: 7,
+                    fontWeight: 900,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {lifeBadge}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -905,8 +987,8 @@ function ProfileHeader({
               minWidth: 44,
               borderRadius: '50%',
               border: 'none',
-              background: '#dedce4',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              background: '#F1E9FF',
+              boxShadow: '0 2px 8px rgba(139,74,255,0.16)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -917,6 +999,35 @@ function ProfileHeader({
             <MoreVertical size={18} color="#111827" />
           </motion.button>
         </div>
+
+        {/* Acesso sempre visível — sinais graves, sem gamificação, sem IA */}
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setIsEmergencyOpen(true)}
+          style={{
+            ...NUN,
+            marginTop: 10,
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '10px 14px',
+            borderRadius: 999,
+            border: 'none',
+            background: '#DC2626',
+            boxShadow: '0 6px 20px rgba(220,38,38,0.4)',
+            color: '#fff',
+            fontSize: 11,
+            fontWeight: 900,
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+          }}
+        >
+          <AlertOctagon size={16} />
+          Meu gato está estranho agora
+        </motion.button>
       </div>
 
       <RightSidebar
@@ -930,6 +1041,16 @@ function ProfileHeader({
         onOpenSocial={handleOpenSocial}
         onOpenDiary={handleDiaryOpen}
       />
+
+      <AnimatePresence>
+        {isEmergencyOpen && (
+          <EmergencyCheckModal
+            cat={cat}
+            navigate={navigate}
+            onClose={() => setIsEmergencyOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

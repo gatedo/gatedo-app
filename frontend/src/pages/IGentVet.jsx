@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send, ChevronLeft, ChevronRight, Sparkles, Eye, Ear, Brain,
@@ -7,9 +7,16 @@ import {
   CheckCircle, X, Heart, Stethoscope, History, ChevronDown,
   TrendingUp, ShieldCheck, Zap, Camera, ImagePlus, StopCircle
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
+import { brandAssets } from '../brand/assets';
+import {
+  buildIgentAlmanacContext,
+  IGENT_ALMANAC_SCOPE,
+  IGENT_VISUAL_ATLAS_SCOPE,
+  syncIgentAlmanacFromApi,
+} from '../services/igentAlmanacStore';
 
 // ─── // ─── SONS (Web Audio API — zero dependência) ──────────────────────────────────
 const SFX = (() => {
@@ -21,7 +28,7 @@ const SFX = (() => {
     return ctx;
   };
 
-  const tone = (freq, dur, vol = 0.08, type = 'sine', delay = 0) => {
+  const tone = (freq, dur, vol = 0.025, type = 'sine', delay = 0) => {
     try {
       const c = getCtx();
       const o = c.createOscillator();
@@ -43,12 +50,12 @@ const SFX = (() => {
   };
 
   return {
-    keyTap:  () => play(() => tone(800, 0.06, 0.04, 'sine')),
-    send:    () => play(() => { tone(600, 0.08, 0.07); tone(900, 0.1, 0.06, 'sine', 0.06); }),
-    receive: () => play(() => { tone(440, 0.12, 0.06); tone(550, 0.1, 0.05, 'sine', 0.08); }),
-    confirm: () => play(() => { tone(523, 0.1, 0.08); tone(659, 0.1, 0.08, 'sine', 0.1); tone(784, 0.15, 0.09, 'sine', 0.2); }),
-    error:   () => play(() => tone(200, 0.2, 0.07, 'sawtooth')),
-    select:  () => play(() => tone(700, 0.07, 0.06)),
+    keyTap:  () => play(() => tone(960, 0.05, 0.014, 'sine')),
+    send:    () => play(() => { tone(880, 0.08, 0.016); tone(1240, 0.09, 0.014, 'sine', 0.045); }),
+    receive: () => play(() => { tone(1040, 0.08, 0.014); tone(1320, 0.1, 0.012, 'sine', 0.055); }),
+    confirm: () => play(() => { tone(880, 0.08, 0.017); tone(1180, 0.1, 0.015, 'sine', 0.055); tone(1460, 0.11, 0.012, 'sine', 0.11); }),
+    error:   () => play(() => tone(360, 0.12, 0.014, 'triangle')),
+    select:  () => play(() => { tone(920, 0.06, 0.014); tone(1260, 0.08, 0.011, 'sine', 0.04); }),
   };
 })();
 
@@ -92,6 +99,206 @@ const adj  = (cat, w) => (cat?.gender === 'FEMALE' && w.endsWith('o')) ? w.slice
 // ─── AVATAR HELPER ────────────────────────────────────────────────────────────
 const catAvatar = (cat) => cat?.photoUrl || cat?.image || '/assets/cat-placeholder.png';
 
+const cleanPlainText = (value = '') =>
+  String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildTutorContextPrompt = ({ cat, ownerName, symptom }) => {
+  const owner = ownerName || 'Tutor';
+  const catName = cat?.name || 'seu gato';
+  const prep = art(cat);
+  const pronoun = pron(cat);
+  const age = cat?.ageYears ? `${cat.ageYears} ano${Number(cat.ageYears) === 1 ? '' : 's'}` : 'a idade atual';
+  const neutered = cat?.neutered ? 'ja castrad' + (cat?.gender === 'FEMALE' ? 'a' : 'o') : 'ainda nao castrad' + (cat?.gender === 'FEMALE' ? 'a' : 'o');
+  const base = `${owner}, quero entender com calma o contexto d${prep} <b>${catName}</b>.`;
+  const theme = symptom?.id || 'other';
+
+  if (theme === 'behavior') {
+    return {
+      text:
+        `${base} Pelo perfil d${prep} <b>${catName}</b>, com ${age} e ${neutered}, alguns comportamentos podem ter relacao com fase de vida, hormonios, territorio, rotina ou algum desconforto fisico. ` +
+        `Mas para eu nao te dar uma resposta fria ou generica, me conta o que de fato esta acontecendo com ${pronoun}: escolha uma opcao abaixo ou descreva do teu ponto de vista.`,
+      replies: [
+        { label: 'Agressividade', text: `${catName} esta mostrando agressividade.` },
+        { label: 'Miando muito', text: `${catName} esta miando muito.` },
+        { label: 'Tentando fugir', text: `${catName} esta tentando fugir.` },
+        { label: 'Marcacao de territorio', text: `${catName} esta marcando territorio.` },
+        { label: 'Urinando fora da caixa', text: `${catName} esta urinando fora da caixa.` },
+        { label: 'Vou explicar melhor', text: 'Vou explicar melhor com minhas palavras.' },
+      ],
+    };
+  }
+
+  if (theme === 'skin') {
+    return {
+      text:
+        `${base} Em pele e pelo, foto e detalhes mudam muito a leitura: coceira, lambedura, ferida, falha de pelo, crosta ou secrecao apontam caminhos diferentes. ` +
+        `Se voce enviou imagem, eu vou considerar o achado visual no laudo; agora me diga o que mais chama atencao.`,
+      replies: [
+        { label: 'Cocando muito', text: `${catName} esta se cocando muito.` },
+        { label: 'Ferida ou crosta', text: `${catName} tem ferida ou crosta.` },
+        { label: 'Falha de pelo', text: `${catName} esta com falha de pelo.` },
+        { label: 'Lambendo a area', text: `${catName} esta lambendo a area.` },
+        { label: 'Tem secrecao', text: 'Notei secrecao ou pus.' },
+      ],
+    };
+  }
+
+  if (theme === 'eyes') {
+    return {
+      text:
+        `${base} Nos olhos eu preciso ser mais cuidadoso, porque dor, olho fechado, opacidade ou secrecao intensa podem pedir avaliacao presencial rapida. ` +
+        `Se voce mandou foto, ela entra como referencia visual no laudo. Qual detalhe descreve melhor o que voce esta vendo?`,
+      replies: [
+        { label: 'Olho fechado', text: 'O olho esta quase totalmente fechado.' },
+        { label: 'Secrecao', text: 'Percebi secrecao no olho.' },
+        { label: 'Olho opaco', text: 'O olho parece opaco ou esbranquicado.' },
+        { label: 'Vermelhidao', text: 'Tem vermelhidao ou inchaco.' },
+        { label: 'So um olho', text: 'A alteracao aparece em apenas um olho.' },
+      ],
+    };
+  }
+
+  if (theme === 'urinary') {
+    return {
+      text:
+        `${base} Quando envolve xixi ou caixa de areia, eu preciso separar comportamento de dor urinaria, porque esforco para urinar, sangue ou idas repetidas a caixa podem ser urgencia em gatos. ` +
+        `Me diga qual sinal esta mais presente agora.`,
+      replies: [
+        { label: 'Faz forca', text: `${catName} faz forca para urinar.` },
+        { label: 'Pouco xixi', text: `${catName} faz pouco xixi.` },
+        { label: 'Sangue no xixi', text: 'Percebi sangue no xixi.' },
+        { label: 'Fora da caixa', text: `${catName} esta urinando fora da caixa.` },
+        { label: 'Vai muitas vezes', text: `${catName} vai muitas vezes a caixa.` },
+      ],
+    };
+  }
+
+  return {
+    text:
+      `${base} Para transformar isso em uma orientacao realmente util, preciso de mais um detalhe do que voce esta vendo agora: quando comecou, se esta piorando, e se ${pronoun} ainda esta comendo, bebendo agua e usando a caixinha normalmente.`,
+    replies: [
+      { label: 'Comecou hoje', text: 'Comecou hoje.' },
+      { label: 'Esta piorando', text: 'Esta piorando.' },
+      { label: 'Esta comendo', text: `${catName} ainda esta comendo.` },
+      { label: 'Nao quer comer', text: `${catName} nao quer comer.` },
+      { label: 'Vou explicar melhor', text: 'Vou explicar melhor com minhas palavras.' },
+    ],
+  };
+};
+
+const TRIAGE_OPTION_SETS = {
+  behavior: [
+    ['Comecou hoje', 'Esta acontecendo ha dias', 'Piorou de repente', 'Acontece em horarios especificos', 'Nao sei quando comecou'],
+    ['Agressividade', 'Miando muito', 'Tentando fugir', 'Marcando territorio', 'Urinando fora da caixa', 'Se escondendo'],
+    ['Nao castrado', 'Mudanca de rotina', 'Novo animal/pessoa', 'Caixa de areia mudou', 'Menos brincadeira', 'Pode ter dor'],
+  ],
+  skin: [
+    ['Cocando muito', 'Lambendo a area', 'Mordendo o local', 'Nao percebi coceira', 'Piora a noite'],
+    ['Ferida/crosta', 'Falha de pelo', 'Vermelhidao', 'Secrecao/pus', 'Descamacao', 'Caroço/inchaco'],
+    ['Mudou racao', 'Mudou areia', 'Pulgas/carrapatos', 'Produto novo', 'Outro animal com lesao', 'Nada mudou'],
+  ],
+  eyes: [
+    ['Olho aberto', 'Olho semicerrado', 'Olho fechado', 'Parece dor', 'Incomoda com luz'],
+    ['Sem secrecao', 'Secrecao transparente', 'Secrecao amarela/verde', 'Olho opaco', 'Vermelhidao/inchaco'],
+    ['Um olho', 'Dois olhos', 'Comecou hoje', 'Ja vem de dias', 'Teve trauma/briga'],
+  ],
+  urinary: [
+    ['Faz forca', 'Vai muitas vezes', 'Sai pouco xixi', 'Sangue no xixi', 'Nao consegue urinar'],
+    ['Fora da caixa', 'Caixa normal', 'Mudou areia', 'Mais sede', 'Dor/miado na caixa'],
+    ['Macho', 'Nao castrado', 'Estressado', 'Come normal', 'Nao quer comer', 'Apatia'],
+  ],
+  digestion: [
+    ['Vomitou uma vez', 'Vomitou varias vezes', 'Diarreia', 'Fezes com sangue', 'Nausea/baba'],
+    ['Come normal', 'Comeu menos', 'Nao quer comer', 'Bebe agua', 'Nao bebe agua'],
+    ['Mudou racao', 'Comeu algo diferente', 'Plantas/produtos', 'Vermifugo atrasado', 'Outro animal igual'],
+  ],
+  ears: [
+    ['Coca a orelha', 'Sacode a cabeca', 'Cabeca inclinada', 'Parece dor', 'Perde equilibrio'],
+    ['Cera escura', 'Cera amarela', 'Mau cheiro', 'Vermelhidao', 'Ferida/crosta'],
+    ['Um ouvido', 'Dois ouvidos', 'Outro gato com coceira', 'Comecou hoje', 'Ja vem de dias'],
+  ],
+  mobility: [
+    ['Mancando', 'Nao pula', 'Evita andar', 'Chora ao tocar', 'Fica escondido'],
+    ['Queda/trauma', 'Brigou', 'Pata inchada', 'Sem ferida visivel', 'Ferida aparente'],
+    ['Come normal', 'Nao quer comer', 'Usa caixa normal', 'Dificuldade na caixa', 'Apatia'],
+  ],
+  other: [
+    ['Comecou hoje', 'Piorou rapido', 'Vai e volta', 'Esta estavel', 'Nao sei dizer'],
+    ['Come normal', 'Comeu menos', 'Nao quer comer', 'Bebe agua', 'Mudou caixinha'],
+    ['Apatia', 'Dor aparente', 'Respiracao diferente', 'Febre suspeita', 'Vou explicar melhor'],
+  ],
+};
+
+const getThemeTriageOptions = (symptomId = 'other', question = '', index = 0) => {
+  const normalized = String(question).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const themeOptions = TRIAGE_OPTION_SETS[symptomId] || TRIAGE_OPTION_SETS.other;
+  if (symptomId === 'behavior') return themeOptions[Math.min(index, themeOptions.length - 1)];
+  if (/(come|comendo|apetite|agua|caixinha|urina|fezes)/.test(normalized)) {
+    return ['Come normal', 'Comeu menos', 'Nao quer comer', 'Bebe agua normal', 'Mudou xixi/fezes', 'Usa caixinha normal'];
+  }
+  return themeOptions[Math.min(index, themeOptions.length - 1)];
+};
+
+const buildThemeTriageQuestions = ({ symptomId = 'other', cat }) => {
+  const name = cat?.name || 'seu gato';
+  const prep = art(cat);
+  const sets = {
+    behavior: [
+      `${name} começou a mudar o comportamento quando? Foi algo súbito ou veio aumentando aos poucos?`,
+      `Qual comportamento está mais presente em ${name}: agressividade, miados, tentativa de fuga, marcação de território ou xixi fora da caixa?`,
+      `Teve alguma mudança no ambiente d${prep} ${name}, na rotina, caixa de areia, presença de pessoas/animais ou sinais de dor ao tocar?`,
+    ],
+    skin: [
+      `O que você vê na pele ou pelo d${prep} ${name}: coceira, lambedura, ferida, crosta, falha de pelo ou secreção?`,
+      `A alteração está em qual região e está aumentando, espalhando ou ficando mais dolorida?`,
+      `Mudou ração, areia, produto de limpeza, antipulgas ou apareceu pulga/outro animal com lesão?`,
+    ],
+    eyes: [
+      `O olho d${prep} ${name} está aberto, semicerrado ou fechado? Parece doer ou incomodar com luz?`,
+      `Tem secreção, vermelhidão, inchaço ou opacidade? É em um olho ou nos dois?`,
+      `Começou hoje, veio piorando há dias ou aconteceu depois de trauma, briga ou contato com produto?`,
+    ],
+    urinary: [
+      `${name} está fazendo força, indo muitas vezes à caixa, fazendo pouco xixi ou vocalizando ao urinar?`,
+      `Você viu sangue, urina fora da caixa ou mudança forte no cheiro/cor do xixi?`,
+      `${name} está comendo, bebendo água e ativo normalmente ou ficou apático/escondido?`,
+    ],
+    digestion: [
+      `${name} vomitou quantas vezes ou teve diarreia nas últimas 24 horas?`,
+      `${name} ainda está comendo e bebendo água ou recusou alimento?`,
+      `Teve troca de ração, petisco novo, planta/produto acessível ou vermífugo atrasado?`,
+    ],
+    ears: [
+      `${name} está coçando a orelha, sacudindo a cabeça ou mantendo a cabeça inclinada?`,
+      `Você percebe cera escura/amarela, mau cheiro, vermelhidão ou feridas na orelha?`,
+      `É em um ouvido ou nos dois? Outros gatos da casa também estão coçando?`,
+    ],
+    mobility: [
+      `${name} está mancando, evitando pular, escondido ou reclamando quando toca?`,
+      `Teve queda, briga, trauma, pata inchada ou ferida aparente?`,
+      `${name} consegue comer, beber água e usar a caixa normalmente?`,
+    ],
+  };
+  return sets[symptomId] || null;
+};
+
+const blobToDataUrl = (blob) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+
+const urlToDataUrl = async (url) => {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return blobToDataUrl(blob);
+};
+
 // ─── CSS INLINE ───────────────────────────────────────────────────────────────
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
@@ -100,7 +307,7 @@ const CSS = `
 
   /* Fundo degradê vivo da tela de seleção */
   .igent-hero-bg {
-    background: w-full linear-gradient(160deg, #6b2ece 0%, #8b4dff 40%, #a474ff 70%, #b392ff 100%);
+    background: linear-gradient(180deg, #8B4AFF 0%, #7E46E1 56%, #592BB6 100%) !important;
   }
     
   /* Card do gato no carrossel */
@@ -169,7 +376,7 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
   const selCat = filtered[activeIdx] || filtered[0];
 
   const go = (dir) => {
-    touch(); SFX.select();
+    touch('nav');
     setActiveIdx(i => (i + dir + filtered.length) % filtered.length);
   };
 
@@ -189,13 +396,13 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
         style={{ background: 'radial-gradient(circle, #DFFF40 0%, transparent 70%)' }} />
 
       {/* Header fixo no topo */}
-      <div className="flex items-center justify-between px-5 pt-12 pb-3 relative z-10 flex-shrink-0">
+      <div className="flex items-center justify-between px-5 pt-12 pb-3 relative z-10 flex-shrink-0 w-full max-w-[920px] mx-auto">
         <button onClick={onBack}
           className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center backdrop-blur-sm">
           <ChevronLeft size={22} className="text-white" />
         </button>
         <div className="flex flex-col items-center">
-          <img src="/logo-igentvet.png" alt="iGentVet" className="h-7 object-contain" />
+          <img src={brandAssets.igentvetWordmark} alt="iGentVet" className="h-7 object-contain" />
           <span className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-0.5">Agente Veterinário IA</span>
         </div>
         <button onClick={() => navigate('/igent-help')}
@@ -205,7 +412,7 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
       </div>
 
       {/* Título compacto */}
-      <div className="text-center px-6 pb-2 relative z-10 flex-shrink-0">
+      <div className="text-center px-6 pb-2 relative z-10 flex-shrink-0 w-full max-w-[920px] mx-auto">
         <h1 className="text-2xl font-black text-white leading-tight">
           Qual gatinho{' '}
           <span style={{ color: C.accent }}>vamos analisar</span>?
@@ -214,7 +421,7 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
 
       {/* Busca — só se > 3 gatos */}
       {cats.length > 3 && (
-        <div className="px-6 pb-3 relative z-10 flex-shrink-0">
+        <div className="px-6 pb-3 relative z-10 flex-shrink-0 w-full max-w-[920px] mx-auto">
           <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-2.5 border border-white/25">
             <Search size={15} className="text-white/60" />
             <input
@@ -229,7 +436,8 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
       )}
 
       {/* Carrossel — ocupa o espaço restante */}
-      <div className="relative flex-1 flex flex-col items-center justify-center z-10 overflow-hidden">
+      <div className="relative flex-1 flex flex-col items-center justify-center z-10 overflow-hidden w-full max-w-[920px] mx-auto"
+        style={{ transform: 'translateY(-18px)' }}>
         {filtered.length === 0 ? (
           <div className="text-white/60 text-center">
             <p className="text-4xl mb-2">🐱</p>
@@ -260,7 +468,7 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}>
                 <MainCatCard
                   cat={selCat}
-                  onConfirm={() => { SFX.confirm(); touch('success'); onConfirm(selCat); }}
+                  onConfirm={() => { touch('nav'); onConfirm(selCat); }}
                 />
               </motion.div>
 
@@ -296,7 +504,7 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
             {filtered.length > 1 && (
               <div className="flex gap-1.5 mt-3">
                 {filtered.map((_, i) => (
-                  <button key={i} onClick={() => { touch(); SFX.select(); setActiveIdx(i); }}
+                  <button key={i} onClick={() => { touch('nav'); setActiveIdx(i); }}
                     className="rounded-full transition-all"
                     style={{ width: i === activeIdx ? 20 : 6, height: 6,
                       background: i === activeIdx ? C.accent : 'rgba(255,255,255,0.35)' }} />
@@ -310,7 +518,7 @@ function StepSelect({ cats, activeIdx, setActiveIdx, onConfirm, onBack }) {
             </p>
 
             <button
-              onClick={() => { touch(); SFX.select(); navigate('/cats'); }}
+              onClick={() => { touch('nav'); navigate('/cats'); }}
               className="mt-3 px-4 py-2 rounded-full border border-white/20 bg-white/10 text-white text-xs font-black uppercase tracking-wider backdrop-blur-sm">
               Ver todos os gatos
             </button>
@@ -409,17 +617,19 @@ function StepSymptoms({ cat, onSelect, onBack }) {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
-      className="flex flex-col h-full bg-[#F4F3FF] max-w-[800px] w-full mx-auto"
+      className="flex flex-col h-full w-full mx-auto"
+      style={{ background: C.bg }}
     >
       {/* Header */}
       <div className="pt-10 pb-6 px-5 rounded-b-[36px] shadow-md relative"
-        style={{ background: `linear-gradient(160deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}>
+        style={{ background: 'linear-gradient(180deg, #8B4AFF 0%, #7E46E1 58%, #592BB6 100%)' }}>
+        <div className="w-full max-w-[920px] mx-auto">
         <div className="flex items-center justify-between mb-5">
           <button onClick={onBack}
             className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center">
             <ChevronLeft size={22} className="text-white" />
           </button>
-          <img src="/logo-igentvet.png" alt="iGentVet" className="h-6 object-contain" />
+          <img src={brandAssets.igentvetWordmark} alt="iGentVet" className="h-6 object-contain" />
           <div className="w-10" />
         </div>
 
@@ -443,18 +653,19 @@ function StepSymptoms({ cat, onSelect, onBack }) {
           <h2 className="text-white font-black text-lg">O que está acontecendo?</h2>
           <p className="text-white/50 text-xs mt-0.5">Selecione a área de maior preocupação</p>
         </div>
+        </div>
       </div>
 
       {/* Grid de sintomas */}
-      <div className="flex-1 overflow-y-auto px-4 py-5">
-        <div className="grid grid-cols-2 gap-3 pb-28">
+      <div className="flex-1 overflow-y-auto px-4 py-5" style={{ background: C.bg }}>
+        <div className="grid grid-cols-2 gap-3 pb-28 w-full max-w-[920px] mx-auto">
           {SYMPTOMS.map((s) => (
             <motion.button
               key={s.id}
               className="symptom-chip rounded-[22px] p-4 flex flex-col items-start gap-2 shadow-sm relative overflow-hidden"
               style={{ background: s.bg }}
               whileTap={{ scale: 0.94 }}
-              onClick={() => { touch('tap'); onSelect(s); }}
+              onClick={() => { touch('nav'); onSelect(s); }}
             >
               {/* Badge urgente */}
               {s.urgent && (
@@ -486,7 +697,7 @@ function StepSymptoms({ cat, onSelect, onBack }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // STEP 2 — Chat IA
 // ═══════════════════════════════════════════════════════════════════════════════
-function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
+function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory, skipAutoStart, initialInput }) {
   const touch = useSensory();
   const navigate = useNavigate();
   const scrollRef = useRef(null);
@@ -501,6 +712,7 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
   const [sessionClosed, setSessionClosed] = useState(false); // TRUE quando tutor disse "não tenho mais dúvidas"
   const [saving, setSaving]             = useState(false);
   const [saved, setSaved]               = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
   const [reportData, setReportData]     = useState(null);
   const [mediaFile, setMediaFile]       = useState(null);   // { type:'image'|'audio', url, file }
   const [recording, setRecording]       = useState(false);
@@ -510,6 +722,33 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory }) {
   const [notifGranted, setNotifGranted] = useState(
     typeof Notification !== 'undefined' && Notification?.permission === 'granted'
   );
+  const [credits, setCredits] = useState(null);
+  const [notifyingReset, setNotifyingReset] = useState(false);
+  const [resetNotified, setResetNotified] = useState(false);
+
+  // Saldo de perguntas do mês — buscado uma vez e atualizado a cada resposta da IA
+  useEffect(() => {
+    api.get('/igent/credits', { params: { petId: cat.id } })
+      .then(r => setCredits(r.data))
+      .catch(() => {});
+  }, [cat.id]);
+
+  const handleNotifyReset = async () => {
+    if (notifyingReset || resetNotified) return;
+    setNotifyingReset(true);
+    try {
+      await api.post('/igent/credits/notify-reset', { petId: cat.id });
+      setResetNotified(true);
+    } catch {
+      // silencioso — não é crítico
+    } finally {
+      setNotifyingReset(false);
+    }
+  };
+
+  const creditsResetLabel = credits?.resetsAt
+    ? new Date(credits.resetsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+    : null;
 
   // Auto-scroll
   useEffect(() => {
@@ -547,11 +786,17 @@ useEffect(() => {
 
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // Inicia análise ao montar — ref guard evita dupla chamada no StrictMode
+  // Inicia análise ao montar — ref guard evita dupla chamada no StrictMode.
+  // Vindo do Guia (skipAutoStart), pula a análise automática e só deixa a
+  // pergunta pronta no campo de texto pro tutor revisar e enviar.
   const analysisStarted = useRef(false);
   useEffect(() => {
     if (analysisStarted.current) return;
     analysisStarted.current = true;
+    if (skipAutoStart) {
+      if (initialInput) setInput(initialInput);
+      return;
+    }
     startAnalysis();
   }, []); // eslint-disable-line
 
@@ -569,18 +814,28 @@ useEffect(() => {
     try {
       // Busca histórico completo PRIMEIRO para enviar contexto rico à IA
       const localData = await fetchHistory(cat.id);
+      await syncIgentAlmanacFromApi(IGENT_ALMANAC_SCOPE);
 
       const aiRes = await api.post('/igent/analyze', {
         petId: cat.id,
         symptom: symptom.label,
         symptomId: symptom.id,
-        clinicalContext: localData.clinicalContext, // contexto clínico completo
+        clinicalContext: {
+          ...localData.clinicalContext,
+          adminAlmanacContext: buildIgentAlmanacContext({ symptom: symptom.label, breed: cat.breed, scope: IGENT_ALMANAC_SCOPE }),
+        }, // contexto clínico completo + almanaque admin
       });
 
       await wait(1800);
       setIsTyping(false);
 
       const ai = aiRes.data;
+
+      if (ai.blocked) {
+        setCredits(ai);
+        return;
+      }
+      if (ai.credits) setCredits(ai.credits);
 
       // Saudação personalizada com contexto clínico completo
       addMsg({
@@ -624,13 +879,15 @@ useEffect(() => {
       setIsTyping(false);
 
       // Perguntas de triagem personalizadas (da biblioteca de prompts)
-      const triageQs = ai.triageQuestions || [];
+      const triageQs = buildThemeTriageQuestions({ symptomId: symptom.id, cat }) || ai.triageQuestions || [];
       if (triageQs.length > 0) {
         addMsg({
           sender: 'bot', type: 'triage_questions',
           questions: triageQs,
           catName: cat.name,
           ownerName: localData.ownerName,
+          symptomId: symptom.id,
+          symptomLabel: symptom.label,
         });
       } else {
         // Fallback genérico se não vieram perguntas
@@ -676,23 +933,24 @@ useEffect(() => {
         breedNote: ai.breedNote,
       };
       setReportData(rd);
-      addMsg({ sender: 'bot', type: 'report', data: rd });
 
       await wait(900);
+      const contextualPrompt = buildTutorContextPrompt({
+        cat,
+        ownerName: localData.ownerName,
+        symptom,
+      });
       addMsg({
         sender: 'bot',
         type: 'guided_followup',
         catName: cat.name,
         ownerName: localData.ownerName,
-        text:
-          `${localData.ownerName ? `${localData.ownerName}, ` : ''}vejo que você cuida bem d${art(cat)} <b>${cat.name}</b>. ` +
-          `Antes de finalizarmos, me diga em uma frase o que mais te chama atenção agora: ` +
-          `<b>há quanto tempo isso começou</b>, <b>se está piorando</b> ou <b>se ${pron(cat)} ainda está comendo, bebendo água e usando a caixinha normalmente</b>?`
+        text: contextualPrompt.text,
+        replies: contextualPrompt.replies,
       });
 
       setConsultDone(true);
-      SFX.confirm();
-      touch('success');
+      touch('nav');
       // Input fica aberto — o "mais dúvidas?" aparece após a primeira resposta do usuário
 
     } catch (err) {
@@ -812,42 +1070,263 @@ useEffect(() => {
   };
 
   // ── "Mais dúvidas?" — injeta o card e ativa bloqueio ──────────────────────
+  const buildConsultationSummary = useCallback(() => {
+    const userText = messages
+      .filter(m => m.sender === 'user' && m.text)
+      .map(m => m.text)
+      .join(' ')
+      .toLowerCase();
+
+    const findings = [];
+    if (/secre[cç][aã]o transparente|secrecao transparente/.test(userText)) findings.push('secreção transparente relatada');
+    if (/sem dor|nao sente dor|n[aã]o sente dor|aberto/.test(userText)) findings.push('sem dor aparente segundo o tutor');
+    if (/semicerrado/.test(userText)) findings.push('olho semicerrado em algum momento');
+    if (/fechado/.test(userText)) findings.push('olho fechado ou quase fechado em algum momento');
+    if (/esbranqui|opac|azulad/.test(userText)) findings.push('opacidade/esbranquiçamento observado');
+    if (/herpes/.test(userText)) findings.push('histórico ou suspeita prévia de herpes ocular');
+    if (/vigamox|col[ií]rio|tratamento/.test(userText)) findings.push('tratamento ocular recente citado');
+    if (/agress|miando|fugir|territ|marc|urina fora|caixa/.test(userText)) findings.push('mudança comportamental relatada pelo tutor');
+    if (/co[cç]a|lamb|ferida|crosta|falha de pelo|pus|les[aã]o/.test(userText)) findings.push('alteração de pele/pelo descrita no atendimento');
+    if (/vomit|diarre|fezes|apetite|nao quer comer|n[aã]o quer comer/.test(userText)) findings.push('sinal digestivo ou alteração de apetite relatado');
+    if (/xixi|urina|sangue|faz for[cç]a|pouco xixi/.test(userText)) findings.push('sinal urinário ou alteração de caixa de areia relatado');
+
+    const breedNote = cat?.breed && cat.breed !== 'SRD'
+      ? `${cat.name} é ${cat.breed}; considerar predisposições da raça sem fechar diagnóstico por isso.`
+      : `${cat?.name} é SRD; priorizar sinais atuais e histórico individual.`;
+
+    const summaryByTheme = {
+      behavior: {
+        preDiagnosis: `Quadro compatível com alteração comportamental que precisa ser lida junto com rotina, ambiente, dor/desconforto físico, castração e gatilhos recentes. Não é diagnóstico fechado; é uma triagem para organizar os próximos passos.`,
+        vetFocus: [
+          'avaliar dor, desconforto físico e possíveis causas clínicas por trás do comportamento',
+          'revisar castração, rotina, enriquecimento ambiental e caixa de areia',
+          'mapear gatilhos: pessoas, animais, mudanças em casa, horários e território',
+          'definir se o caso é comportamental, clínico ou misto',
+        ],
+      },
+      skin: {
+        preDiagnosis: `Quadro compatível com alteração dermatológica em triagem. Coceira, lambedura, feridas, crostas, secreção, parasitas, alergias e irritações entram no radar, mas precisam de exame físico quando persistem ou pioram.`,
+        vetFocus: [
+          'examinar pele, pelo e região afetada presencialmente',
+          'avaliar parasitas, alergia, infecção, trauma ou lambedura por estresse/dor',
+          'considerar citologia, raspado ou cultura se houver secreção, crosta ou recorrência',
+          'revisar produtos, ração, areia, antipulgas e contato com outros animais',
+        ],
+      },
+      eyes: {
+        preDiagnosis: `Quadro compatível com alteração ocular que merece avaliação presencial, especialmente se houver dor, olho fechado, secreção intensa, opacidade ou piora. Diferenciais no radar incluem irritação/conjuntivite, lesão de córnea, ceratite e outras alterações oculares.`,
+        vetFocus: [
+          'examinar córnea e conjuntiva presencialmente',
+          'avaliar necessidade de fluoresceína e pressão ocular',
+          'revisar secreção, dor, opacidade, trauma e resposta a tratamentos anteriores',
+          'checar sinais respiratórios associados',
+        ],
+      },
+      urinary: {
+        preDiagnosis: `Quadro urinário precisa de atenção porque esforço para urinar, pouco xixi, sangue ou idas repetidas à caixa podem ser urgência, principalmente em machos. A triagem ajuda a separar marcação/ambiente de dor urinária.`,
+        vetFocus: [
+          'avaliar se há obstrução, dor, sangue ou esforço para urinar',
+          'revisar frequência de idas à caixa, volume de urina e ingestão de água',
+          'considerar exame de urina e avaliação presencial se sinais persistirem',
+          'checar estresse, caixa de areia, marcação territorial e rotina',
+        ],
+      },
+      digestion: {
+        preDiagnosis: `Quadro digestivo em triagem. Vômito, diarreia, alteração de apetite, hidratação e exposição a alimentos/produtos diferentes ajudam a definir se pode monitorar ou se precisa de atendimento rápido.`,
+        vetFocus: [
+          'avaliar hidratação, frequência de vômitos/diarreia e presença de sangue',
+          'revisar apetite, ingestão de água e energia',
+          'investigar mudança alimentar, plantas, produtos, vermífugo e contato com outros animais',
+          'definir necessidade de exame físico e suporte clínico',
+        ],
+      },
+      ears: {
+        preDiagnosis: `Quadro compatível com alteração auricular em triagem. Coceira, dor, mau cheiro, cera escura, feridas ou cabeça inclinada podem indicar inflamação, ácaros, infecção ou desconforto que precisa ser avaliado.`,
+        vetFocus: [
+          'examinar ouvido externo e canal auditivo',
+          'avaliar dor, secreção, odor, feridas e equilíbrio',
+          'considerar citologia auricular quando houver secreção ou recorrência',
+          'revisar contato com outros animais e histórico de coceira',
+        ],
+      },
+      mobility: {
+        preDiagnosis: `Quadro de mobilidade em triagem. Mancada, dor ao tocar, queda, dificuldade para pular ou apatia podem indicar trauma, dor articular, ferida ou outro desconforto que precisa de avaliação conforme intensidade.`,
+        vetFocus: [
+          'avaliar dor, apoio da pata, inchaço, ferida e amplitude de movimento',
+          'investigar queda, briga, trauma ou início súbito',
+          'checar apetite, caixa de areia e mobilidade dentro de casa',
+          'definir necessidade de imagem ou analgesia prescrita por veterinário',
+        ],
+      },
+      other: {
+        preDiagnosis: `Triagem inicial registrada. O quadro ainda precisa ser interpretado com sinais atuais, evolução, apetite, hidratação, caixa de areia e comportamento geral para orientar os próximos passos com mais segurança.`,
+        vetFocus: [
+          'revisar início, evolução e intensidade dos sinais',
+          'checar apetite, água, xixi, cocô, energia e dor aparente',
+          'avaliar red flags que indiquem atendimento presencial rápido',
+          'organizar histórico para o veterinário presencial',
+        ],
+      },
+    };
+    const themeSummary = summaryByTheme[symptom?.id] || summaryByTheme.other;
+
+    return {
+      title: `Pré-orientação para consulta presencial de ${cat?.name}`,
+      symptom: symptom?.label || 'dúvida clínica',
+      findings: findings.length ? findings : ['sinais relatados no chat ainda precisam ser detalhados na consulta'],
+      preDiagnosis: themeSummary.preDiagnosis,
+      vetFocus: themeSummary.vetFocus,
+      breedNote,
+    };
+  }, [cat, messages, symptom]);
+
   const askMoreQuestions = useCallback(() => {
+    const alreadyWaiting = messages.some(m => m.type === 'ask_more_questions' && !m.answered);
+    if (alreadyWaiting || sessionClosed || saved) return;
     const msgId = Date.now() + Math.random();
     setAwaitingMoreQ(true);
     SFX.receive();
-    setMessages(prev => [...prev, {
+    setMessages(prev => {
+      return [...prev, {
       id: msgId,
       sender: 'bot',
       type: 'ask_more_questions',
       catName: cat.name,
       answered: false,
       onYes: () => {
-        setAwaitingMoreQ(false);   // desbloqueia input
-        setMessages(prev => prev.map(m => m.id === msgId
-          ? { ...m, answered: true, answeredYes: true, onYes: null, onNo: null }
-          : m));
+        const continuation = buildTutorContextPrompt({
+          cat,
+          ownerName: messages.find(m => m.type === 'greeting')?.ownerName || '',
+          symptom,
+        });
+        setAwaitingMoreQ(false);
+        setMessages(prev => [
+          ...prev.map(m => m.id === msgId
+            ? { ...m, answered: true, answeredYes: true, onYes: null, onNo: null }
+            : m),
+          {
+            id: Date.now() + Math.random(),
+            sender: 'bot',
+            type: 'text',
+            text: `${cat.name} ainda merece esse cuidado com calma. Me escolha uma opção abaixo ou me conte com suas palavras o próximo detalhe que quer investigar.`,
+          },
+          {
+            id: Date.now() + Math.random(),
+            sender: 'bot',
+            type: 'quick_replies',
+            replies: continuation.replies,
+          },
+        ]);
         setTimeout(() => inputRef.current?.focus(), 200);
         SFX.select();
       },
       onNo: () => {
+        const summary = buildConsultationSummary();
         setAwaitingMoreQ(false);
         setSessionClosed(true);    // encerra — mostra botão salvar
-        setMessages(prev => prev.map(m => m.id === msgId
-          ? { ...m, answered: true, answeredYes: false, onYes: null, onNo: null }
-          : m));
+        setMessages(prev => [
+          ...prev.map(m => m.id === msgId
+            ? { ...m, answered: true, answeredYes: false, onYes: null, onNo: null }
+            : m),
+          ...(reportData ? [{ id: Date.now() + Math.random(), sender: 'bot', type: 'report', data: reportData }] : []),
+          { id: Date.now() + Math.random(), sender: 'bot', type: 'consultation_summary', ...summary },
+        ]);
         SFX.confirm();
       },
-    }]);
-  }, [cat.name]);
+    }];
+    });
+  }, [cat, messages, symptom, buildConsultationSummary, reportData, saved, sessionClosed]);
 
   // ── Enviar mensagem (texto + opcional mídia) ─────────────────────────────
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text && !mediaFile) return;
-    if (awaitingMoreQ || sessionClosed) return; // bloqueado
+  const buildTriageQuickReplies = (botText = '') => {
+    const lower = `${botText} ${symptom?.label || ''}`.toLowerCase();
+    if (!/[?]/.test(botText) && !/(secre|fechado|semicerrado|dor|opacidade|les[aã]o|ferida)/i.test(botText)) return [];
 
-    setInput('');
+    const answered = messages
+      .filter(m => m.sender === 'user' && m.text)
+      .map(m => m.text)
+      .join(' ')
+      .toLowerCase();
+    const hasAnswered = (pattern) => pattern.test(answered);
+
+    const replies = [];
+    const push = (label, text = label) => replies.push({ label, text });
+
+    const normalizedLower = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (/(comport|agress|miando|fugir|territ|demarc|marcacao|urina fora|caixa)/i.test(normalizedLower)) {
+      push('Agressividade', `${cat?.name || 'Meu gato'} esta mostrando agressividade.`);
+      push('Miando muito', `${cat?.name || 'Meu gato'} esta miando muito.`);
+      push('Tentando fugir', `${cat?.name || 'Meu gato'} esta tentando fugir.`);
+      push('Marcacao de territorio', `${cat?.name || 'Meu gato'} esta marcando territorio.`);
+      push('Urinando fora da caixa', `${cat?.name || 'Meu gato'} esta urinando fora da caixa.`);
+      push('Vou explicar melhor', 'Vou explicar melhor com minhas palavras.');
+      return replies.slice(0, 7);
+    }
+
+    if (/(olho|ocular|cornea|secre|opacidade|fechado|semicerrado)/i.test(normalizedLower)) {
+      const knowsPain = hasAnswered(/sem dor|nao sente dor|n[aã]o sente dor|semicerrado|fechado|olho esta aberto|olho est[aá] aberto/);
+      const knowsSecretion = hasAnswered(/secre[cç][aã]o|secrecao|sem secre|transparente|amarela|esverdeada/);
+      const knowsSide = hasAnswered(/um olho|olho direito|olho esquerdo|os dois olhos|ambos/);
+      const knowsFrequency = hasAnswered(/tempo todo|constante|vai e volta|momentos|intermitente/);
+
+      if (!knowsPain) {
+        push('Olho aberto, sem dor aparente', 'O olho esta aberto e ela aparentemente nao sente dor.');
+        push('Olho semicerrado', 'O olho esta semicerrado.');
+        push('Olho fechado', 'O olho esta quase totalmente fechado.');
+      }
+      if (!knowsSecretion) {
+        push('Sem secrecao', 'Nao percebi secrecao.');
+        push('Secrecao transparente', 'Tem uma secrecao transparente.');
+        push('Secrecao amarela/esverdeada', 'Tem secrecao amarela ou esverdeada.');
+      } else {
+        if (!knowsFrequency) {
+          push('Secrecao constante', 'A secrecao aparece praticamente o tempo todo.');
+          push('Vai e volta', 'A secrecao aparece em alguns momentos e depois reduz.');
+        }
+        push('Pouca quantidade', 'A secrecao e em pouca quantidade.');
+        push('Muita quantidade', 'A secrecao esta em quantidade moderada ou alta.');
+      }
+      if (!knowsSide) {
+        push('So um olho', 'A alteracao aparece em apenas um olho.');
+        push('Os dois olhos', 'A alteracao aparece nos dois olhos.');
+      }
+      if (!hasAnswered(/vermelh|inchad|piscando|luz/)) {
+        push('Tem vermelhidao', 'Tambem percebo vermelhidao ou inchaco.');
+        push('Incomoda com luz', 'Ela parece incomodada com luz ou pisca bastante.');
+      }
+      push('Vou descrever melhor', 'Vou descrever melhor com minhas palavras.');
+      return replies.slice(0, 7);
+    }
+
+    if (/(olho|ocular|c[oó]rnea|secre|opacidade|fechado|semicerrado)/i.test(lower)) {
+      push('Olho aberto, sem dor aparente', 'O olho esta aberto e ela aparentemente nao sente dor.');
+      push('Olho semicerrado', 'O olho esta semicerrado.');
+      push('Olho fechado', 'O olho esta quase totalmente fechado.');
+      push('Sem secrecao', 'Nao percebi secrecao.');
+      push('Secrecao transparente', 'Tem uma secrecao transparente.');
+      push('Secrecao amarela/esverdeada', 'Tem secrecao amarela ou esverdeada.');
+    } else if (/(pele|les[aã]o|ferida|co[cç]a|crost|sangr|pus)/i.test(lower)) {
+      push('Nao parece doer', 'A lesao nao parece dolorida ao toque leve.');
+      push('Parece dolorido', 'Parece dolorido quando encosta.');
+      push('Tem coceira', 'Ela esta cocando ou lambendo bastante.');
+      push('Tem secrecao/pus', 'Notei secrecao ou pus na lesao.');
+    } else if (/(vomit|diarre|fezes|apetite|comendo|bebendo)/i.test(lower)) {
+      push('Esta comendo', 'Ela ainda esta comendo.');
+      push('Nao quer comer', 'Ela nao quer comer.');
+      push('Vomitou uma vez', 'Vomitou uma vez nas ultimas 24 horas.');
+      push('Vomitou varias vezes', 'Vomitou varias vezes nas ultimas 24 horas.');
+    }
+
+    push('Vou descrever melhor', 'Vou descrever melhor com minhas palavras.');
+    return replies.slice(0, 7);
+  };
+
+  const handleSend = async (forcedText = null) => {
+    const text = (forcedText ?? input).trim();
+    if (!text && !mediaFile) return;
+    if (awaitingMoreQ || sessionClosed || credits?.blocked) return; // bloqueado
+
+    if (!forcedText) setInput('');
     SFX.send();
 
     // Monta mensagem do usuário
@@ -857,16 +1336,46 @@ useEffect(() => {
 
     setIsTyping(true);
     try {
+      const hasVisualMedia = userMsg.media?.type === 'image' && userMsg.media?.url;
+      await syncIgentAlmanacFromApi(IGENT_ALMANAC_SCOPE);
+      if (hasVisualMedia) await syncIgentAlmanacFromApi(IGENT_VISUAL_ATLAS_SCOPE);
+      const visualAtlasContext = hasVisualMedia
+        ? buildIgentAlmanacContext({
+            symptom: `${symptom.label} ${text}`,
+            breed: cat.breed,
+            visualFindings: text,
+            scope: IGENT_VISUAL_ATLAS_SCOPE,
+            limit: 6,
+          })
+        : [];
+      const visualReferenceImages = visualAtlasContext
+        .flatMap((section) => (section.referenceImages || []).map((image) => ({
+          ...image,
+          patternTitle: section.title,
+        })))
+        .filter((image) => image?.url)
+        .slice(0, 6);
       const payload = {
         petId: cat.id,
         message: text,
         symptom: symptom.label,
         symptomId: symptom.id,
-        clinicalContext: historyCtx,
+        clinicalContext: {
+          ...historyCtx,
+          adminAlmanacContext: buildIgentAlmanacContext({ symptom: symptom.label, breed: cat.breed, scope: IGENT_ALMANAC_SCOPE }),
+          adminVisualAtlasContext: visualAtlasContext,
+        },
+        conversationContext: messages
+          .filter(m => (m.sender === 'user' || m.sender === 'bot') && m.text)
+          .slice(-8)
+          .map(m => ({ sender: m.sender, type: m.type, text: m.text })),
       };
       // Se há imagem, envia como base64
-      if (userMsg.media?.type === 'image' && userMsg.media?.url) {
-        payload.imageBase64 = userMsg.media.url.split(',')[1];
+      if (hasVisualMedia) {
+        const match = userMsg.media.url.match(/^data:([^;]+);base64,(.+)$/);
+        payload.imageBase64 = match?.[2] || userMsg.media.url.split(',')[1];
+        payload.imageMimeType = match?.[1] || userMsg.media.mimeType || 'image/jpeg';
+        payload.referenceImages = visualReferenceImages;
         payload.imageContext = 'Imagem enviada pelo tutor para análise visual';
       }
       if (userMsg.media?.type === 'audio') {
@@ -875,32 +1384,77 @@ useEffect(() => {
       }
 
       const res = await api.post('/igent/chat', payload);
-setIsTyping(false);
+      setIsTyping(false);
 
-addMsg({ sender: 'bot', type: 'text', text: res.data.text });
+      if (res.data.blocked) {
+        setCredits(res.data);
+        return;
+      }
+      if (res.data.credits) setCredits(res.data.credits);
 
-      // Se consulta já terminou: pede confirmação se quer continuar
+      const botText = res.data.text;
+      addMsg({ sender: 'bot', type: 'text', text: botText });
+      const quickReplies = buildTriageQuickReplies(botText);
+      if (quickReplies.length) {
+        addMsg({ sender: 'bot', type: 'quick_replies', replies: quickReplies });
+      }
+
+      // Depois de cada resposta útil, oferece um fechamento humano:
+      // continuar investigando ou encerrar salvando o prontuário.
       if (consultDone) {
         await new Promise(r => setTimeout(r, 800));
         askMoreQuestions();
       }
-    } catch {
+    } catch (err) {
+      console.warn('[iGentVet] falha no chat:', err?.response?.status, err?.response?.data || err?.message);
       setIsTyping(false);
       SFX.error();
-      addMsg({ sender: 'bot', type: 'text', text: 'Desculpe, a conexão oscilou. Pode repetir?' });
+      addMsg({
+        sender: 'bot',
+        type: 'text',
+        text: userMsg.media?.type === 'image'
+          ? 'Nao consegui analisar a foto agora. Pode tentar reenviar a imagem ou me descrever o que voce percebeu nela?'
+          : 'Desculpe, a conexao oscilou. Pode repetir?',
+      });
     }
   };
 
   // ── Captura de foto/imagem ───────────────────────────────────────────────
-  const handleImageSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const prepareImageForVision = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = reject;
     reader.onload = (ev) => {
-      setMediaFile({ type: 'image', url: ev.target.result, file, name: file.name });
-      SFX.select();
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const maxSide = 1280;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve({
+          url: canvas.toDataURL('image/jpeg', 0.86),
+          mimeType: 'image/jpeg',
+        });
+      };
+      img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
+  });
+
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const prepared = await prepareImageForVision(file);
+      setMediaFile({ type: 'image', url: prepared.url, mimeType: prepared.mimeType, file, name: file.name });
+      SFX.select();
+    } catch (err) {
+      console.warn('[iGentVet] falha ao preparar imagem:', err);
+      SFX.error();
+    }
     e.target.value = '';
   };
 
@@ -977,13 +1531,99 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
 </body></html>`;
   };
 
-  const blobToDataUrl = (blob) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+  const buildReportPdfDataUrl = async (report) => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 44;
+    let y = 48;
+    const addPageIfNeeded = (height = 40) => {
+      if (y + height > 780) {
+        doc.addPage();
+        y = 48;
+      }
+    };
+    const line = (text, size = 10, color = '#374151', bold = false, maxWidth = pageWidth - margin * 2) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(size);
+      doc.setTextColor(color);
+      const parts = doc.splitTextToSize(String(text || '-').replace(/\s+/g, ' ').trim(), maxWidth);
+      parts.forEach((part) => {
+        addPageIfNeeded(size + 8);
+        doc.text(part, margin, y);
+        y += size + 6;
+      });
+    };
+    const section = (title) => {
+      y += 10;
+      doc.setFillColor(244, 243, 255);
+      doc.roundedRect(margin, y - 15, pageWidth - margin * 2, 28, 8, 8, 'F');
+      line(title, 10, '#8B4AFF', true);
+      y += 4;
+    };
+
+    const qrValue = report.shareUrl || `${window.location.origin}/cat/${cat?.id || ''}#documents`;
+    const [logoDataUrl, qrDataUrl] = await Promise.all([
+      urlToDataUrl(brandAssets.igentvetWordmark).catch(() => null),
+      urlToDataUrl(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrValue)}&bgcolor=ffffff&color=2D2657&margin=8&format=png&ecc=H`).catch(() => null),
+    ]);
+
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, 96, 'F');
+    doc.setDrawColor(229, 231, 235);
+    doc.line(margin, 96, pageWidth - margin, 96);
+    if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', margin, 26, 92, 32);
+    doc.setTextColor('#2D2657');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('Laudo clinico iGentVet', margin + 112, 42);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor('#6B7280');
+    doc.text('Pre-triagem educativa para consulta presencial', margin + 112, 60);
+    if (qrDataUrl) {
+      doc.addImage(qrDataUrl, 'PNG', pageWidth - margin - 56, 22, 56, 56);
+      doc.setFontSize(7);
+      doc.setTextColor('#8B4AFF');
+      doc.text('QR do prontuario', pageWidth - margin - 58, 86);
+    }
+    y = 124;
+
+    section('Paciente');
+    line(`${report.pet?.name} | ${report.pet?.breed || 'SRD'} | ${report.pet?.gender === 'FEMALE' ? 'Femea' : 'Macho'} | ${report.pet?.ageYears || '?'} anos${report.pet?.weight ? ` | ${report.pet.weight}kg` : ''}${report.pet?.neutered ? ' | Castrado(a)' : ''}`);
+
+    section('Consulta');
+    line(`Data: ${report.consultation.date} as ${report.consultation.time}`, 10);
+    line(`Sintoma: ${report.consultation.symptom}`, 10, '#111827', true);
+    line(`Status: ${report.consultation.isUrgent ? 'URGENTE' : 'Monitoramento orientativo'}`, 10, report.consultation.isUrgent ? '#B91C1C' : '#15803D', true);
+
+    section('Analise iGentVet');
+    line(report.consultation.analysisText, 10);
+
+    section('Respostas do tutor e triagem');
+    line(report.consultation.ownerResponse || 'Sem resposta adicional registrada.', 10);
+
+    section('Recomendacoes e pontos para o veterinario');
+    (report.consultation.care || []).forEach((item) => line(`- ${item}`, 10));
+
+    if (report.visualAttachments?.length) {
+      section('Imagem enviada pelo tutor');
+      report.visualAttachments.slice(0, 2).forEach((image, index) => {
+        addPageIfNeeded(190);
+        line(image.label || `Imagem ${index + 1}`, 9, '#6B7280', true);
+        try {
+          doc.addImage(image.url, 'JPEG', margin, y, 180, 135);
+          y += 148;
+        } catch {
+          line('Imagem anexada ao atendimento, mas nao foi possivel inserir a pre-visualizacao no PDF.', 9, '#9CA3AF');
+        }
+      });
+    }
+
+    line('Este documento nao substitui consulta veterinaria presencial, exame fisico ou exames complementares.', 9, '#9CA3AF');
+
+    return doc.output('datauristring');
+  };
 
   // Salva histórico no perfil do gato + grava IgentSession para IA preditiva
   const handleSaveHistory = async () => {
@@ -998,6 +1638,13 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
       const tutorResponses = messages
         .filter(m => m.sender === 'user' && m.type === 'text')
         .map(m => m.text);
+      const visualAttachments = messages
+        .filter(m => m.sender === 'user' && m.media?.type === 'image' && m.media?.url)
+        .map((m, index) => ({
+          url: m.media.url,
+          label: m.media.name || `Imagem enviada ${index + 1}`,
+          note: cleanPlainText(m.text),
+        }));
 
       // 1. Grava no health-records (prontuário padrão)
       await api.post('/health-records', {
@@ -1042,7 +1689,6 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
       }).catch(e => console.warn('[iGentVet] session nao salva (ignorado):', e?.response?.status));
 
       setSaved(true);
-      SFX.confirm();
       touch('success');
 
       // Busca dados do prontuário para disponibilizar download
@@ -1066,11 +1712,11 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             care: reportMsg?.data?.care || [],
             ownerResponse: tutorResponses.join(' | '),
           },
+          shareUrl: `${window.location.origin}/cat/${cat.id}#documents`,
+          visualAttachments,
         };
 
-        const html = buildReportHtml(previewReport);
-        const htmlBlob = new Blob([html], { type: 'text/html' });
-        const htmlBase64 = await blobToDataUrl(htmlBlob);
+        const pdfBase64 = await buildReportPdfDataUrl(previewReport);
 
         const reportRes = await api.post('/igent/report', {
           petId: cat.id,
@@ -1079,9 +1725,9 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
           care: reportMsg?.data?.care || [],
           isUrgent: reportMsg?.data?.isUrgent || false,
           ownerResponse: tutorResponses.join(' | '),
-          pdfBase64: htmlBase64,
-          pdfFilename: `laudo-ia-${cat?.name?.toLowerCase().replace(/\s+/g, '-') || 'gato'}-${new Date().toISOString().split('T')[0]}.html`,
-          pdfMimeType: 'text/html',
+          pdfBase64,
+          pdfFilename: `prontuario-igentvet-${cat?.name?.toLowerCase().replace(/\s+/g, '-') || 'gato'}-${new Date().toISOString().split('T')[0]}.pdf`,
+          pdfMimeType: 'application/pdf',
           saveToDocuments: true,
         });
         setReportData(prev => ({ ...prev, _report: reportRes.data }));
@@ -1096,6 +1742,12 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
         consultCount: (messages.find(m => m.type === 'greeting')?.recordCount || 0) + 1,
         gender: cat.gender,
       });
+      addMsg({
+        sender: 'bot',
+        type: 'feedback_rating',
+        catName: cat.name,
+        symptomLabel: symptom.label,
+      });
     } catch (e) {
       console.error(e);
       addMsg({ sender: 'bot', type: 'text', text: '⚠️ Não consegui salvar no histórico agora. Tente novamente.' });
@@ -1106,6 +1758,11 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
 
   // Download laudo da IA como HTML
   const downloadProntuario = (report) => {
+    if (report?.document?.fileUrl) {
+      window.open(report.document.fileUrl, '_blank', 'noopener,noreferrer');
+      touch('success');
+      return;
+    }
     const html = buildReportHtml(report);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -1115,6 +1772,35 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
     a.click();
     URL.revokeObjectURL(url);
     touch('success');
+  };
+
+  const handleFeedback = async (feedback) => {
+    if (feedbackSent) return;
+    const payload = {
+      petId: cat.id,
+      catName: cat.name,
+      symptomId: symptom.id,
+      symptomLabel: symptom.label,
+      rating: feedback.rating,
+      label: feedback.label,
+      comment: feedback.comment || '',
+      createdAt: new Date().toISOString(),
+    };
+    setFeedbackSent(true);
+    try {
+      await api.post('/igent/feedback', payload);
+    } catch {
+      try {
+        const key = 'gatedo_igent_feedback_queue_v1';
+        const current = JSON.parse(localStorage.getItem(key) || '[]');
+        localStorage.setItem(key, JSON.stringify([...current, payload].slice(-50)));
+      } catch {}
+    }
+    addMsg({
+      sender: 'bot',
+      type: 'text',
+      text: `Obrigado. Essa nota ajuda a melhorar o atendimento do iGentVet para ${cat.name}.`,
+    });
   };
 
   // Agenda notificação nativa do dispositivo para medicação
@@ -1131,7 +1817,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
         setTimeout(() => {
           new Notification(`💊 Medicação de ${catName}`, {
             body: `${ownerName ? ownerName + ', é' : 'É'} hora da dose de ${medName}!`,
-            icon: '/logo-igentvet.png',
+            icon: brandAssets.igentvetWordmark,
           });
         }, hours * 60 * 60 * 1000);
         touch('success');
@@ -1150,19 +1836,23 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col bg-[#F4F3FF] max-w-[800px] w-full mx-auto"
+      className="flex flex-col bg-[#F4F3FF] max-w-[920px] w-full mx-auto"
       style={{ height: '100svh' }}
     >
       {/* Header */}
       <div className="pt-10 pb-3 px-4 rounded-b-[32px] shadow-md z-30 shrink-0 relative"
-        style={{ background: `linear-gradient(160deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}>
+        style={{ background: 'linear-gradient(180deg, #9F63FF 0%, #7E46E1 58%, #592BB6 100%)' }}>
         <div className="flex items-center justify-between mb-3">
           <button onClick={onBack}
             className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center">
             <ChevronLeft size={22} className="text-white" />
           </button>
-          <img src="/logo-igentvet.png" alt="iGentVet" className="h-6 object-contain" />
-          <button className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center">
+          <img src={brandAssets.igentvetWordmark} alt="iGentVet" className="h-6 object-contain" />
+          <button
+            onClick={() => navigate('/igent-vet/sobre')}
+            className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
+            aria-label="Sobre o iGentVet"
+          >
             <HelpCircle size={20} className="text-white" />
           </button>
         </div>
@@ -1199,6 +1889,16 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             </AnimatePresence>
           </div>
         </div>
+
+        {/* Saldo de perguntas do mês */}
+        {credits && credits.limit !== null && (
+          <p className="text-center text-[9px] font-black uppercase tracking-[1.5px] mt-2"
+            style={{ color: credits.blocked ? '#FFB4B4' : 'rgba(255,255,255,0.55)' }}>
+            {credits.blocked
+              ? 'Suas perguntas deste mês acabaram'
+              : `Restam ${credits.remaining} de ${credits.limit} perguntas este mês`}
+          </p>
+        )}
       </div>
 
       {/* Messages */}
@@ -1211,7 +1911,14 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
             >
-              <MsgBubble msg={msg} cat={cat} onShare={shareWhatsApp} onSetMedAlert={(data) => setMedAlertModal({ ...data, hours: 8 })} />
+              <MsgBubble
+                msg={msg}
+                cat={cat}
+                onShare={shareWhatsApp}
+                onSetMedAlert={(data) => setMedAlertModal({ ...data, hours: 8 })}
+                onQuickReply={handleSend}
+                onFeedback={handleFeedback}
+              />
             </motion.div>
           ))}
         </AnimatePresence>
@@ -1222,7 +1929,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             className="flex items-end gap-2">
             <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 border border-white shadow-sm"
               style={{ background: C.purple }}>
-              <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
+              <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
             </div>
             <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm border border-gray-100">
               <div className="flex gap-1">
@@ -1310,10 +2017,45 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
         </AnimatePresence>
       </div>
 
-      {/* ── Input — hidden quando sessão encerrada ── */}
-      {!sessionClosed && (
+      {/* ── Tela de saldo zerado — substitui o input, sem parecer erro ── */}
+      {credits?.blocked && (
+        <div className="fixed left-0 right-0 px-4 z-40"
+          style={{ maxWidth: 'min(920px, 100vw)', margin: '0 auto', bottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' }}>
+          <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+            className="bg-white rounded-[26px] p-5 shadow-2xl border border-gray-100">
+            <p className="text-center text-2xl mb-1">🐾</p>
+            <p className="text-center font-black text-gray-800 text-sm mb-1.5">
+              Suas perguntas ao iGentVet deste mês acabaram
+            </p>
+            <p className="text-center text-[12px] font-medium text-gray-500 leading-relaxed mb-4">
+              Cada resposta do iGentVet usa uma consulta de IA de verdade, com custo real — por isso existe um teto mensal.
+              {creditsResetLabel && <> Ele renova em <b>{creditsResetLabel}</b>.</>}
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { touch(); navigate('/clube'); }}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-[18px] font-black text-sm text-white"
+                style={{ background: `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}>
+                <Sparkles size={16} /> Ver como ganhar mais GPTS
+              </button>
+              <button
+                onClick={handleNotifyReset}
+                disabled={notifyingReset || resetNotified}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-[18px] font-black text-sm"
+                style={{ background: '#F4F3FF', color: C.purple }}>
+                <Clock size={16} />
+                {resetNotified ? 'Vamos te avisar!' : notifyingReset ? 'Só um momento...' : 'Avisar quando renovar'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── Input — hidden quando sessão encerrada ou sem saldo ── */}
+      {!sessionClosed && !credits?.blocked && (
         <div className="fixed left-0 right-0 px-3 z-40"
-          style={{ maxWidth: 'min(800px, 100vw)', margin: '0 auto', bottom: 'calc(132px + env(safe-area-inset-bottom, 0px))' }}>
+          style={{ maxWidth: 'min(920px, 100vw)', margin: '0 auto', bottom: 'calc(132px + env(safe-area-inset-bottom, 0px))' }}>
 
           {/* Preview de mídia anexada */}
           <AnimatePresence>
@@ -1388,7 +2130,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
       {/* Botão salvar — só após tutor dizer "não tenho mais dúvidas" */}
       {sessionClosed && !saved && (
         <div className="fixed left-0 right-0 px-4 z-40"
-          style={{ maxWidth: 'min(800px, 100vw)', margin: '0 auto', bottom: 'calc(168px + env(safe-area-inset-bottom, 0px))' }}>
+          style={{ maxWidth: 'min(920px, 100vw)', margin: '0 auto', bottom: 'calc(168px + env(safe-area-inset-bottom, 0px))' }}>
           <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: 'spring', stiffness: 300, damping: 22 }}>
             <p className="text-center text-[11px] font-bold text-gray-400 mb-2">
@@ -1400,7 +2142,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
                 boxShadow: `0 8px 32px ${C.purple}55` }}>
               {saving
                 ? <span className="animate-pulse">Salvando...</span>
-                : <><FileText size={18} /> Salvar na Ficha Médica</>
+                : <><FileText size={18} /> Encerrar e salvar laudo</>
               }
             </button>
           </motion.div>
@@ -1411,7 +2153,46 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
 }
 
 // ─── BOLHA DE MENSAGEM ────────────────────────────────────────────────────────
-function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
+function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback }) {
+  const [triageAnswers, setTriageAnswers] = useState({});
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackChoice, setFeedbackChoice] = useState(null);
+
+  const triageOptionsFor = (question = '', index = 0) => {
+    if (msg?.symptomId) return getThemeTriageOptions(msg.symptomId, question, index);
+    const normalized = String(question).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (/(parte do corpo|onde|local|lesao|lesoes|afetado|localizacao)/.test(normalized)) {
+      return ['Rosto/olhos', 'Orelhas', 'Barriga', 'Costas', 'Patas', 'Pescoco'];
+    }
+    if (/(cocando|lambendo|mordendo|coceira|prurido)/.test(normalized)) {
+      return ['Nao percebi coceira', 'Coceira leve', 'Lambe bastante', 'Morde o local', 'Piora a noite'];
+    }
+    if (/(mudanca|racao|areia|produto|ambiente|novo animal|ultimos 30 dias)/.test(normalized)) {
+      return ['Nada mudou', 'Troquei a racao', 'Troquei a areia', 'Produto novo em casa', 'Novo animal/pessoa', 'Mudanca de rotina'];
+    }
+    if (/(olho|secrecao|secre|cor|fechado|semicerrado)/.test(normalized)) {
+      return ['Olho aberto', 'Olho semicerrado', 'Sem secrecao', 'Secrecao transparente', 'Secrecao amarela/esverdeada'];
+    }
+    if (/(come|comendo|apetite|agua|caixinha|urina|fezes)/.test(normalized)) {
+      return ['Come normal', 'Comeu menos', 'Nao quer comer', 'Bebe agua normal', 'Usa caixinha normal', 'Mudou xixi/fezes'];
+    }
+    return ['Nao sei dizer', 'Sim', 'Nao', 'Vou descrever melhor'];
+  };
+
+  const selectTriageChoice = (question, option, index) => {
+    setTriageAnswers(prev => ({
+      ...prev,
+      [index]: { question, option },
+    }));
+  };
+
+  const sendTriageChoices = () => {
+    const ordered = Object.entries(triageAnswers)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([index, item]) => `Pergunta ${Number(index) + 1}: ${item.question} Resposta: ${item.option}.`);
+    if (ordered.length) onQuickReply?.(ordered.join(' '));
+  };
+
   // Mensagem de texto do usuário — pode ter mídia anexa
   if (msg.sender === 'user' && msg.type === 'text') return (
     <div className="flex flex-col items-end gap-1 max-w-[85%]">
@@ -1446,7 +2227,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
     <div className="w-full bg-white rounded-[20px] p-4 shadow-sm border border-indigo-50">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-8 h-8 rounded-full overflow-hidden" style={{ background: C.purple }}>
-          <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
+          <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
         </div>
         <div>
           <p className="font-black text-gray-800 text-sm leading-none">iGentVet</p>
@@ -1499,6 +2280,24 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
       </div>
       <p className="text-gray-700 text-sm leading-relaxed"
         dangerouslySetInnerHTML={{ __html: msg.text?.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') }} />
+      {msg.replies?.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {msg.replies.map((reply, i) => (
+            <button
+              key={`${reply.label}-${i}`}
+              onClick={() => onQuickReply?.(reply.text || reply.label)}
+              className="px-3 py-2 rounded-2xl text-xs font-black transition-all active:scale-95 border"
+              style={{
+                background: i % 3 === 0 ? '#FFF7ED' : i % 3 === 1 ? '#FDF2F8' : '#F4F3FF',
+                color: i % 3 === 0 ? '#F97316' : i % 3 === 1 ? '#DB2777' : C.purple,
+                borderColor: i % 3 === 0 ? '#FDBA74' : i % 3 === 1 ? '#F9A8D4' : `${C.purple}35`,
+              }}
+            >
+              {reply.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -1507,7 +2306,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
     <div className="w-full bg-white rounded-[20px] p-4 shadow-sm border border-[#8B4AFF20]">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0" style={{ background: C.purple }}>
-          <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
+          <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
         </div>
         <div>
           <p className="font-black text-gray-800 text-sm leading-none">iGentVet</p>
@@ -1523,13 +2322,38 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
           <div key={i} className="flex items-start gap-2.5 bg-[#F4F3FF] rounded-xl px-3 py-2.5">
             <span className="text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
               style={{ background: C.purple, color: 'white' }}>{i + 1}</span>
-            <p className="text-sm text-gray-700 font-medium leading-snug">{q}</p>
+            <div className="flex-1">
+              <p className="text-sm text-gray-700 font-medium leading-snug">{q}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {triageOptionsFor(q, i).map((option, j) => (
+                  <button
+                    key={`${i}-${option}`}
+                    onClick={() => selectTriageChoice(q, option, i)}
+                    className="px-2.5 py-1.5 rounded-xl text-[10px] font-black active:scale-95 transition-all"
+                    style={{
+                      background: triageAnswers[i]?.option === option ? C.purple : j % 3 === 0 ? '#FFF7ED' : j % 3 === 1 ? '#FDF2F8' : '#FFFFFF',
+                      color: triageAnswers[i]?.option === option ? '#FFFFFF' : j % 3 === 0 ? '#F97316' : j % 3 === 1 ? '#DB2777' : C.purple,
+                      border: `1px solid ${j % 3 === 0 ? '#FDBA74' : j % 3 === 1 ? '#F9A8D4' : `${C.purple}35`}`,
+                    }}>
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ))}
       </div>
       <p className="text-[10px] text-gray-400 font-bold mt-3">
-        Responda no campo abaixo — use a ordem que preferir.
+        Escolha as opções que mais parecem com o que está acontecendo ou descreva no campo abaixo.
       </p>
+      {Object.keys(triageAnswers).length > 0 && (
+        <button
+          onClick={sendTriageChoices}
+          className="w-full mt-3 py-3 rounded-2xl text-sm font-black text-white shadow-sm active:scale-[0.98] transition-all"
+          style={{ background: C.purple }}>
+          Enviar respostas da triagem
+        </button>
+      )}
     </div>
   );
 
@@ -1582,7 +2406,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
       <div className="flex items-end gap-2 max-w-[90%]">
         <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 border border-white shadow-sm"
           style={{ background: C.purple }}>
-          <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
+          <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
         </div>
         <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm border border-gray-100 text-sm text-gray-700"
           dangerouslySetInnerHTML={{ __html: msg.text?.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') }} />
@@ -1741,7 +2565,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
       style={{ borderColor: `${C.purple}18`, background: '#FCFBFF' }}>
       <div className="flex items-center gap-2 mb-3">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{ background: C.purple }}>
-          <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
+          <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
         </div>
         <div>
           <p className="font-black text-gray-800 text-sm leading-none">iGentVet</p>
@@ -1750,6 +2574,63 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
       </div>
       <p className="text-gray-700 text-sm leading-relaxed"
         dangerouslySetInnerHTML={{ __html: msg.text?.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') }} />
+      {msg.replies?.length > 0 && (
+        <>
+          <p className="text-[10px] font-black uppercase tracking-wider mt-3 mb-2" style={{ color: C.purple }}>
+            Toque em uma opção para continuar
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {msg.replies.map((reply, i) => (
+              <button
+                key={`${reply.label}-${i}`}
+                onClick={() => onQuickReply?.(reply.text || reply.label)}
+                className="px-3 py-2 rounded-2xl text-xs font-black transition-all active:scale-95 border"
+                style={{
+                  background: i % 3 === 0 ? '#FFF7ED' : i % 3 === 1 ? '#FDF2F8' : '#F4F3FF',
+                  color: i % 3 === 0 ? '#F97316' : i % 3 === 1 ? '#DB2777' : C.purple,
+                  borderColor: i % 3 === 0 ? '#FDBA74' : i % 3 === 1 ? '#F9A8D4' : `${C.purple}35`,
+                }}
+              >
+                {reply.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  if (msg.type === 'consultation_summary') return (
+    <div className="w-full bg-white rounded-[22px] p-4 shadow-sm border"
+      style={{ borderColor: `${C.purple}24`, background: '#FCFBFF' }}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{ background: C.purple }}>
+          <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
+        </div>
+        <div>
+          <p className="font-black text-gray-800 text-sm leading-none">Resumo para o veterinario</p>
+          <p className="text-[9px] text-gray-400 font-bold">Pre-orientacao iGentVet</p>
+        </div>
+      </div>
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">{msg.symptom}</p>
+      <h4 className="font-black text-gray-800 text-sm mb-2">{msg.title}</h4>
+      <div className="space-y-2">
+        <div className="rounded-2xl p-3" style={{ background: '#F4F3FF' }}>
+          <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: C.purple }}>Pontos observados</p>
+          <ul className="space-y-1">
+            {(msg.findings || []).map((item, i) => <li key={i} className="text-xs text-gray-700 font-bold">- {item}</li>)}
+          </ul>
+        </div>
+        <div className="rounded-2xl p-3 bg-amber-50 border border-amber-100">
+          <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 mb-1">Pre-diagnostico orientativo</p>
+          <p className="text-xs text-gray-700 leading-relaxed">{msg.preDiagnosis}</p>
+        </div>
+        <div className="rounded-2xl p-3 bg-white border border-gray-100">
+          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1">Levar para a consulta</p>
+          {(msg.vetFocus || []).map((item, i) => <p key={i} className="text-xs text-gray-700 font-bold leading-relaxed">- {item}</p>)}
+          <p className="text-[10px] text-gray-400 mt-2">{msg.breedNote}</p>
+        </div>
+      </div>
     </div>
   );
 
@@ -1783,17 +2664,43 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
     );
   }
 
+  if (msg.type === 'quick_replies') {
+    return (
+      <div className="w-full bg-white rounded-[22px] p-3.5 shadow-sm border"
+        style={{ borderColor: `${C.purple}18`, background: '#FCFBFF' }}>
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-2">
+          Respostas rapidas para continuar
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {(msg.replies || []).map((reply, i) => (
+            <button
+              key={`${reply.label}-${i}`}
+              onClick={() => onQuickReply?.(reply.text || reply.label)}
+              className="px-3 py-2 rounded-2xl text-xs font-black transition-all active:scale-95"
+              style={{
+                background: i % 3 === 0 ? '#FFF7ED' : i % 3 === 1 ? '#FDF2F8' : '#F4F3FF',
+                color: i % 3 === 0 ? '#F97316' : i % 3 === 1 ? '#DB2777' : C.purple,
+                border: `1.5px solid ${i % 3 === 0 ? '#FDBA74' : i % 3 === 1 ? '#F9A8D4' : `${C.purple}35`}`,
+              }}>
+              {reply.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (msg.type === 'ask_more_questions') return (
     <div className="w-full bg-white rounded-[22px] p-4 shadow-sm border"
       style={{ borderColor: `${C.purple}20` }}>
       <div className="flex items-center gap-2 mb-3">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{ background: C.purple }}>
-          <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
+          <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
         </div>
         <p className="font-black text-gray-800 text-sm leading-none">iGentVet</p>
       </div>
       <p className="text-gray-700 text-sm leading-relaxed mb-4">
-        Quer que eu refine mais a orientação sobre <b>{msg.catName}</b> ou já posso fechar e salvar o laudo da IA na área de documentos e na ficha médica.
+        Você tem mais alguma dúvida sobre <b>{msg.catName}</b>? Se quiser, seguimos investigando com calma. Se não, eu preparo o prontuário deste atendimento para salvar nos documentos d{art(cat)} <b>{msg.catName}</b>.
       </p>
       {!msg.answered && (
         <div className="flex gap-2">
@@ -1801,19 +2708,19 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
             onClick={() => msg.onYes?.()}
             className="flex-1 py-3 rounded-[16px] font-black text-sm border-2 transition-all active:scale-95"
             style={{ borderColor: C.purple, color: C.purple, background: `${C.purple}08` }}>
-            💬 Sim, tenho dúvidas
+            Sim, tenho dúvida
           </button>
           <button
             onClick={() => msg.onNo?.()}
             className="flex-1 py-3 rounded-[16px] font-black text-sm text-white transition-all active:scale-95"
             style={{ background: C.purple }}>
-            ✓ Fechar e salvar
+            Não, salvar laudo
           </button>
         </div>
       )}
       {msg.answered && (
         <p className="text-[11px] font-bold text-gray-400 text-center">
-          {msg.answeredYes ? '💬 Perfeito — me diga mais um detalhe importante.' : '✓ Preparando o laudo da IA para salvar...'}
+          {msg.answeredYes ? 'Perfeito, escolha uma opção ou me conte com suas palavras.' : 'Prontuário preparado. Confirme abaixo para salvar nos documentos.'}
         </p>
       )}
     </div>
@@ -1877,7 +2784,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
           <div className="flex items-start gap-3 mb-3">
             <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0"
               style={{ background: C.purple }}>
-              <img src="/logo-igentvet.png" className="w-full h-full object-contain p-0.5" />
+              <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
             </div>
             <div className="flex-1">
               <p className="font-black text-gray-800 text-sm leading-snug mb-0.5">{closing.title}</p>
@@ -1893,6 +2800,61 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert }) {
             </span>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (msg.type === 'feedback_rating') {
+    const options = [
+      { rating: 5, label: 'Muito útil' },
+      { rating: 4, label: 'Ajudou' },
+      { rating: 3, label: 'Faltou detalhe' },
+      { rating: 2, label: 'Confuso' },
+    ];
+    const submit = (option) => {
+      setFeedbackChoice(option);
+      onFeedback?.({ ...option, comment: feedbackComment });
+    };
+    return (
+      <div className="w-full bg-white rounded-[22px] p-4 shadow-sm border border-[#8B4AFF20]">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{ background: C.purple }}>
+            <img src={brandAssets.igentvetWordmark} className="w-full h-full object-contain p-0.5" />
+          </div>
+          <div>
+            <p className="font-black text-gray-800 text-sm leading-none">Como foi este atendimento?</p>
+            <p className="text-[9px] text-gray-400 font-bold">Sua nota melhora o iGentVet</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {options.map((option) => (
+            <button
+              key={option.rating}
+              onClick={() => submit(option)}
+              disabled={Boolean(feedbackChoice)}
+              className="px-3 py-2 rounded-2xl text-xs font-black border active:scale-95 transition-all disabled:opacity-70"
+              style={{
+                background: feedbackChoice?.rating === option.rating ? C.purple : '#F4F3FF',
+                color: feedbackChoice?.rating === option.rating ? '#FFFFFF' : C.purple,
+                borderColor: `${C.purple}35`,
+              }}
+            >
+              {option.rating}/5 · {option.label}
+            </button>
+          ))}
+        </div>
+        {!feedbackChoice ? (
+          <input
+            value={feedbackComment}
+            onChange={(e) => setFeedbackComment(e.target.value)}
+            placeholder="Opcional: o que poderia melhorar?"
+            className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-700 outline-none focus:border-[#8B4AFF]"
+          />
+        ) : (
+          <p className="text-xs font-bold text-green-600 bg-green-50 border border-green-100 rounded-2xl px-3 py-2">
+            Nota registrada. Obrigado por ajudar a deixar o atendimento mais humano.
+          </p>
+        )}
       </div>
     );
   }
@@ -1946,7 +2908,7 @@ function StepMemorial({ cat, onBack }) {
         ))}
       </div>
 
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-8 py-12 max-w-[800px] mx-auto w-full">
+      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-8 py-12 max-w-[920px] mx-auto w-full">
         {/* Botao voltar */}
         <button onClick={onBack}
           className="self-start mb-8 flex items-center gap-2 text-white/50 font-bold text-sm hover:text-white/80 transition-colors">
@@ -2037,6 +2999,12 @@ function StepMemorial({ cat, onBack }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function IGentVet() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const preselectCatId = location.state?.catId || null;
+  // Vem do Guia (botão "Perguntar ao iGentVet sobre isso"): pula a seleção de
+  // sintoma e a análise automática, abre direto no chat com a pergunta pronta
+  // (já com os placeholders trocados) no campo de texto, editável.
+  const prefillMessage = location.state?.prefillMessage || null;
   const [cats, setCats]           = useState([]);
   const [loading, setLoading]     = useState(true);
   const [step, setStep]           = useState(0);
@@ -2044,16 +3012,37 @@ export default function IGentVet() {
   const [selCat, setSelCat]       = useState(null);
   const [selSymptom, setSelSymptom] = useState(null);
 
+  const enterChatFromGuia = (cat) => {
+    setSelCat(cat);
+    setSelSymptom({ id: 'guia', label: 'Dúvida do Guia', emoji: '📖' });
+    setStep(2);
+  };
+
   useEffect(() => {
     api.get('/pets')
-      .then(r => setCats(Array.isArray(r.data) ? r.data : []))
+      .then(r => {
+        const list = Array.isArray(r.data) ? r.data : [];
+        setCats(list);
+
+        if (preselectCatId) {
+          const match = list.find(c => c.id === preselectCatId);
+          if (match && !match.isMemorial && !match.isArchived) {
+            if (prefillMessage) {
+              enterChatFromGuia(match);
+            } else {
+              setSelCat(match);
+              setStep(1);
+            }
+          }
+        }
+      })
       .catch(() => setCats([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, []); // eslint-disable-line
 
   if (loading) return (
     <div className="h-screen igent-hero-bg flex flex-col items-center justify-center igent-root">
-      <img src="/logo-igentvet.png" className="h-12 mb-4 animate-pulse" />
+      <img src={brandAssets.igentvetWordmark} className="h-12 mb-4 animate-pulse" />
       <p className="text-white/60 font-bold text-sm">Carregando prontuários...</p>
     </div>
   );
@@ -2063,7 +3052,7 @@ export default function IGentVet() {
       <style>{CSS}</style>
       {/* Fundo roxo estendido — cobre tudo inclusive atrás da BottomNav */}
       <div className="fixed inset-0 pointer-events-none"
-        style={{ background: 'linear-gradient(160deg,#5B4FD6 0%,#7B6EF5 40%,#9D8FFF 70%,#C5BCFF 100%)', zIndex: -1 }} />
+        style={{ background: 'linear-gradient(180deg,#9F63FF 0%,#7E46E1 58%,#592BB6 100%)', zIndex: -1 }} />
       <div className="flex flex-col igent-root"
         style={{ height: '100svh', overflow: 'hidden', position: 'relative' }}>
         <AnimatePresence mode="wait">
@@ -2076,9 +3065,10 @@ export default function IGentVet() {
               activeIdx={activeIdx}
               setActiveIdx={setActiveIdx}
               onConfirm={(cat) => {
+                if (cat.isMemorial || cat.isArchived) { setSelCat(cat); setStep('memorial'); return; }
+                if (prefillMessage) { enterChatFromGuia(cat); return; }
                 setSelCat(cat);
-                if (cat.isMemorial || cat.isArchived) { setStep('memorial'); }
-                else { setStep(1); }
+                setStep(1);
               }}
               onBack={() => navigate(-1)}
             />
@@ -2107,6 +3097,8 @@ export default function IGentVet() {
               symptom={selSymptom}
               onBack={() => setStep(1)}
               onSaveHistory={() => {}}
+              skipAutoStart={Boolean(prefillMessage)}
+              initialInput={prefillMessage || ''}
             />
           )}
 
@@ -2115,3 +3107,4 @@ export default function IGentVet() {
     </>
   );
 }
+

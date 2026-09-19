@@ -17,6 +17,7 @@ import {
 import { normalizeHealthHistory } from '../../utils/healthHistoryAdapter';
 import { calculateHealthScore } from '../../utils/healthScore';
 import { formatCatAge, getCatLifeStage, LIFE_STAGE_META } from '../../utils/catAge';
+import { getCatLevelMeta } from '../../utils/adminPanelMeta';
 
 /* ══════════════════════════════════════════════════
    PALETA — 4 estados de saúde mapeados pelo score
@@ -27,10 +28,10 @@ import { formatCatAge, getCatLifeStage, LIFE_STAGE_META } from '../../utils/catA
 ══════════════════════════════════════════════════ */
 const TONES = {
   green: {
-    headerBg:     '#1f8a4c',
-    ecgBg:        '#1d9651',
-    darkBase:     '#0d4a27',
-    glow:         'rgba(22,163,74,0.18)',
+    headerBg:     'linear-gradient(135deg, #35bd7a 0%, #22a965 58%, #158a50 100%)',
+    ecgBg:        '#2fbd78',
+    darkBase:     'rgba(11,95,57,0.22)',
+    glow:         'rgba(52,211,153,0.18)',
     ring:         '#86EFAC',
     ringBorder:   'rgba(134,239,172,0.85)',
     soft:         'rgba(134,239,172,0.20)',
@@ -40,15 +41,15 @@ const TONES = {
     pillBg:       'rgba(0,0,0,0.22)',
     tintBg:       '#f0fdf4',
     tintBorder:   '#bbf7d0',
-    accentText:   '#15803d',
-    accentSolid:  '#22c55e',
+    accentText:   '#12804f',
+    accentSolid:  '#34d399',
     chartA:       '#86EFAC',
     chartB:       '#4ADE80',
   },
-   blue: {
-    headerBg:     '#5b85ff',
-    ecgBg:       '#5b85ff',
-    glow:        'rgba(97, 139, 255, 0.18)',
+  blue: {
+    headerBg:     'linear-gradient(135deg, #7fa2ff 0%, #6f91f1 56%, #5d7edc 100%)',
+    ecgBg:       '#6f91f1',
+    glow:        'rgba(96, 139, 240, 0.16)',
     ring:        '#93C5FD',
     ringBorder:  'rgba(147,197,253,0.85)',
     soft:        'rgba(147,197,253,0.20)',
@@ -59,14 +60,14 @@ const TONES = {
     orb2:        'rgba(29,78,216,0.09)',
     tintBg:      '#eff6ff',
     tintBorder:  '#bfdbfe',
-    accentText:  '#1d4ed8',
-    accentSolid: '#3b82f6',
+    accentText:  '#315fcf',
+    accentSolid: '#6f91f1',
     chartA:      '#93C5FD',
     chartB:      '#60A5FA',
   },
   amber: {
-    headerBg:     '#c7771a',
-    ecgBg:        '#B45309',
+    headerBg:     'linear-gradient(135deg, #d38b2d 0%, #bf741c 58%, #a85d0f 100%)',
+    ecgBg:        '#b96d16',
     darkBase:     '#8a3e06',
     glow:         'rgba(180,83,9,0.18)',
     ring:         '#FCD34D',
@@ -84,8 +85,8 @@ const TONES = {
     chartB:       '#FBBF24',
   },
   red: {
-    headerBg:     '#d64b4b',
-    ecgBg:        '#bc0000',
+    headerBg:     'linear-gradient(135deg, #dc6969 0%, #cf4d4d 58%, #b93434 100%)',
+    ecgBg:        '#c44747',
     darkBase:     '#8c0000',
     glow:         'rgba(185,28,28,0.18)',
     ring:         '#FCA5A5',
@@ -157,8 +158,8 @@ function calcCareScore(history, cat) {
   return clamp(s);
 }
 
-const resolveCatXpg   = (c) => Number(c?.xpg   ?? c?.petXp ?? c?.xp    ?? 0);
-const resolveCatLevel = (c) => Number(c?.petLevel ?? c?.level ?? 1);
+const resolveCatXpg   = (c) => Number(c?.xpg ?? c?.stats?.xpg ?? c?.petXp ?? c?.xp ?? 0);
+const resolveCatLevel = (c) => getCatLevelMeta(resolveCatXpg(c)).rank;
 const resolveCatPhoto = (c) =>
   c?.photoURL ?? c?.photo ?? c?.avatar ?? c?.image ?? c?.profilePhoto ?? null;
 
@@ -178,26 +179,29 @@ function getDisplayBreed(cat) {
 
 /* ══════════════════════════════════════════════════
    AVATAR — obrigatório, com fallback Cat icon
-   Tamanho fixo 76 px, sangra -12 px pela esquerda.
+   Tamanho compacto, usado como marca d'água ativa atrás do texto.
    3 anéis de pulse CSS ao redor do círculo.
 ══════════════════════════════════════════════════ */
 function CatAvatar({ cat, tone }) {
   const [failed, setFailed] = useState(false);
   const photo = resolveCatPhoto(cat);
   const showPhoto = photo && !failed;
-  const SIZE = 76;
+  const SIZE = 58;
 
   return (
     <div style={{
-      position: 'relative', flexShrink: 0,
+      position: 'absolute', flexShrink: 0,
       width: SIZE, height: SIZE,
-      marginLeft: -12,
+      left: -20,
+      top: 14,
+      opacity: 0.72,
+      pointerEvents: 'none',
     }}>
       {[{ cls:'phb-r1', ins:-5 }, { cls:'phb-r2', ins:-11 }, { cls:'phb-r3', ins:-17 }].map(({ cls, ins }) => (
         <div key={cls} className={cls} style={{
           position: 'absolute', inset: ins,
-          border: `1.5px solid ${tone.ring}`,
-          borderRadius: '50%', opacity: 0.45, pointerEvents: 'none',
+          border: `1.2px solid ${tone.ring}`,
+          borderRadius: '50%', opacity: 0.34, pointerEvents: 'none',
         }} />
       ))}
 
@@ -205,7 +209,7 @@ function CatAvatar({ cat, tone }) {
         position: 'absolute', inset: 0, zIndex: 2,
         borderRadius: '50%', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: `3px solid ${tone.ringBorder}`,
+        border: `2px solid ${tone.ringBorder}`,
         background: showPhoto ? '#000' : 'rgba(255,255,255,0.14)',
         boxShadow: `0 0 0 2px rgba(0,0,0,0.14), 0 8px 18px rgba(0,0,0,0.10)`,
       }}>
@@ -222,7 +226,7 @@ function CatAvatar({ cat, tone }) {
           />
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Cat size={26} color="rgba(255,255,255,0.84)" />
+            <Cat size={21} color="rgba(255,255,255,0.82)" />
           </div>
         )}
       </div>
@@ -240,6 +244,16 @@ function ScoreRing({ score, ring, soft }) {
   const offset = c * (1 - clamp(score) / 100);
   return (
     <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, width:sz, height:sz }}>
+      {[{ cls:'phb-r1', ins:-4 }, { cls:'phb-r2', ins:-9 }, { cls:'phb-r3', ins:-14 }].map(({ cls, ins }) => (
+        <div key={cls} className={cls} style={{
+          position:'absolute',
+          inset:ins,
+          border:`1.25px solid ${ring}`,
+          borderRadius:'50%',
+          opacity:0.34,
+          pointerEvents:'none',
+        }} />
+      ))}
       <svg width={sz} height={sz} style={{ position:'absolute', inset:0, transform:'rotate(-90deg)' }}>
         <circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth={sw} />
         <motion.circle
@@ -389,7 +403,7 @@ export default function ProfileHealthBar({ cat }) {
     <div
       id="health-predictive"
       className="gatedo-scroll-target"
-      style={{ ...NUN, width:'100%', maxWidth:560, margin:'0 auto 24px', position:'relative' }}
+      style={{ ...NUN, width:'100%', maxWidth:560, margin:'0 auto 24px', paddingTop:14, position:'relative', boxSizing:'border-box' }}
     >
       <style>{GLOBAL_CSS}</style>
 
@@ -399,9 +413,35 @@ export default function ProfileHealthBar({ cat }) {
           (≤ 160 px via tamanhos calibrados abaixo).
          ════════════════════════════════════════════ */}
       <div style={{
-        borderRadius:28, overflow:'hidden', position:'relative',
+        borderRadius:28, overflow:'visible', position:'relative',
         boxShadow:`0 10px 24px ${tone.glow}, 0 3px 10px rgba(0,0,0,0.12)`,
       }}>
+        <div style={{
+          position:'absolute', zIndex:8,
+          left:'50%', top:-13, transform:'translateX(-50%)',
+          display:'flex', justifyContent:'center',
+          pointerEvents:'none',
+        }}>
+          <div style={{
+            display:'inline-flex', alignItems:'center', gap:6,
+            background:`linear-gradient(135deg, ${tone.accentSolid}f0, ${tone.accentSolid}c8)`,
+            border:'1px solid rgba(255,255,255,0.28)',
+            borderRadius:99, padding:'5px 15px',
+            boxShadow:'0 8px 18px rgba(0,0,0,0.14)',
+            backdropFilter:'blur(8px)',
+            WebkitBackdropFilter:'blur(8px)',
+          }}>
+            <Cat size={10} color={tone.ring} strokeWidth={2.4} />
+            <span style={{
+              ...NUN, fontSize:7.5, fontWeight:800,
+              letterSpacing:'0.22em', textTransform:'uppercase',
+              color:'rgba(255,255,255,0.90)',
+              whiteSpace:'nowrap',
+            }}>
+              Painel Preditivo
+            </span>
+          </div>
+        </div>
 
         {/* ── HEADER BUTTON ─────────────────────── */}
         <button
@@ -410,6 +450,8 @@ export default function ProfileHealthBar({ cat }) {
             display:'block', width:'100%', textAlign:'left',
             background:tone.headerBg, border:'none', cursor:'pointer', padding:0,
             position:'relative',
+            borderRadius: expanded ? '28px 28px 0 0' : 28,
+            overflow:'hidden',
           }}
         >
           {/* dots texture */}
@@ -420,48 +462,26 @@ export default function ProfileHealthBar({ cat }) {
           }} />
 
           {/* ── Pill "PAINEL PREDITIVO" — centralizado no topo ── */}
-          <div style={{
-            position:'relative', zIndex:2,
-            display:'flex', justifyContent:'center',
-            paddingTop:10, paddingBottom:6,
-          }}>
-            <div style={{
-              display:'inline-flex', alignItems:'center', gap:6,
-              background:'rgba(0,0,0,0.28)',
-              border:'1px solid rgba(255,255,255,0.14)',
-              borderRadius:99, padding:'4px 14px',
-            }}>
-              {/* small dot accent */}
-              <div style={{ width:5, height:5, borderRadius:'50%', background:tone.ring, flexShrink:0 }} />
-              <span style={{
-                ...NUN, fontSize:7.5, fontWeight:800,
-                letterSpacing:'0.24em', textTransform:'uppercase',
-                color:'rgba(255,255,255,0.80)',
-              }}>
-                Painel Preditivo
-              </span>
-            </div>
-          </div>
+          <div style={{ display:'none' }} />
 
           {/* ── Main row: avatar | info | status | score ── */}
           <div style={{
             position:'relative', zIndex:2,
-            display:'flex', alignItems:'center', gap:10,
-            padding:'0 14px 0 0',
+            display:'flex', alignItems:'center', gap:8,
+            padding:'24px 14px 0 0',
+            minHeight:108,
           }}>
-            {/* Avatar — 76 px, sangra -12 px esquerda */}
-            <CatAvatar cat={cat} tone={tone} />
-
             {/* Info block */}
-            <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ flex:1, minWidth:0, paddingLeft:26 }}>
               <div style={{ display:'flex', gap:5, flexWrap:'wrap', alignItems:'center', marginBottom:5 }}>
                 {[formatGender(cat?.gender), getDisplayBreed(cat), ageLabel].map(lbl => (
                   <span key={lbl} style={{
                     ...NUN, padding:'2px 8px', borderRadius:99,
                     fontSize:6.5, fontWeight:900, letterSpacing:'0.10em',
                     textTransform:'uppercase',
-                    background:'rgba(255,255,255,0.22)', color:'#fff',
-                    border:'1px solid rgba(255,255,255,0.18)',
+                    background:'linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.13))',
+                    color:'#fff',
+                    border:'1px solid rgba(255,255,255,0.16)',
                   }}>{lbl}</span>
                 ))}
                 {lifeStageLabel ? (
@@ -484,8 +504,8 @@ export default function ProfileHealthBar({ cat }) {
               </p>
               {/* Nome grande */}
               <p style={{
-                ...NUN, fontSize:22, fontWeight:900, letterSpacing:'-0.01em',
-                color:'#fff', lineHeight:1, marginBottom:6,
+                ...NUN, fontSize:20, fontWeight:900, letterSpacing:'-0.01em',
+                color:'#fff', lineHeight:1, marginBottom:5,
               }}>
                 {cat?.name}
               </p>
@@ -505,40 +525,47 @@ export default function ProfileHealthBar({ cat }) {
                     ...NUN, padding:'2px 9px', borderRadius:99,
                     fontSize:6.5, fontWeight:800, letterSpacing:'0.10em',
                     textTransform:'uppercase',
-                    background:tone.badgeBg, color:tone.badgeColor,
+                    background:'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.10))',
+                    color:tone.badgeColor,
                     border:'1px solid rgba(255,255,255,0.12)',
                   }}>{lbl}</span>
                 ))}
               </div>
             </div>
 
-            {/* Status */}
-            <p style={{
-              ...NUN, flexShrink:0, fontSize:14, fontWeight:900,
-              letterSpacing:'0.03em', color:'rgba(255,255,255,0.90)',
-              textShadow:`0 0 14px ${tone.pulse}`, paddingRight:6,
+            <div style={{
+              flexShrink:0,
+              display:'flex',
+              flexDirection:'column',
+              alignItems:'center',
+              gap:7,
+              transform:'translateY(-6px)',
             }}>
-              {scoreData.status}
-            </p>
-
-            {/* Score ring */}
-            <ScoreRing score={healthScore} ring={tone.ring} soft={tone.soft} />
+              <ScoreRing score={healthScore} ring={tone.ring} soft={tone.soft} />
+              <p style={{
+                ...NUN, maxWidth:54, fontSize:8, fontWeight:900,
+                letterSpacing:'0.08em', color:'rgba(255,255,255,0.78)',
+                textTransform:'uppercase', textAlign:'center', lineHeight:1,
+              }}>
+                {scoreData.status}
+              </p>
+            </div>
           </div>
 
           {/* ── ECG strip — fundo sólido (ecgBg) sem vazamento ── */}
-          <div style={{ position:'relative', zIndex:2, padding:'8px 0 0' }}>
+          <div style={{ position:'relative', zIndex:2, padding:'4px 0 0' }}>
             <EcgWave color={tone.ring} ecgBg={tone.ecgBg} />
           </div>
 
           {/* ── Darker bottom band (detalhe de fundo mais escuro) ── */}
           <div style={{
-            position:'absolute', bottom:0, left:0, right:0, height:18, zIndex:1,
-            background:`linear-gradient(to bottom, transparent, ${tone.darkBase})`,
+            position:'absolute', bottom:0, left:0, right:0, height:12, zIndex:1,
+            background:`linear-gradient(to bottom, transparent, ${tone.darkBase || 'rgba(0,0,0,0.12)'})`,
             pointerEvents:'none',
           }} />
 
           {/* Spacer so bottom band shows */}
-          <div style={{ height:10 }} />
+          <div style={{ height:6 }} />
         </button>
 
         {/* ════════════════════════════════════════════
@@ -551,11 +578,12 @@ export default function ProfileHealthBar({ cat }) {
               animate={{ height:'auto', opacity:1 }}
               exit={{ height:0, opacity:0 }}
               transition={{ duration:0.30, ease:'easeOut' }}
-              style={{ overflow:'hidden' }}
+              style={{ overflow:'hidden', borderRadius:'0 0 28px 28px' }}
             >
               <div style={{
                 ...NUN, background:'#ffffff',
                 borderTop:`3px solid ${tone.accentSolid}`,
+                borderRadius:'0 0 28px 28px',
                 padding:'16px 16px 20px',
                 display:'flex', flexDirection:'column', gap:12,
               }}>
@@ -572,19 +600,7 @@ export default function ProfileHealthBar({ cat }) {
                   </p>
                 </div>
 
-                {/* Cards 2×2 */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                  <DetailCard icon={Scale} label="Peso" accent={tone.accentSolid}
-                    value={latestWeight ? `${latestWeight.value} ${latestWeight.unit}` : cat?.weight ? `${cat.weight} kg` : 'Pendente'} />
-                  <DetailCard icon={CalendarClock} label="Última consulta" accent={tone.accentSolid}
-                    value={latestConsultation ? fmtDate(latestConsultation.date) : 'Sem registro'} />
-                  <DetailCard icon={Syringe} label="Vacina" accent={tone.accentSolid}
-                    value={latestVaccine ? fmtDate(latestVaccine.date) : 'Sem registro'} />
-                  <DetailCard icon={Trophy} label="XPG do gato" accent={tone.accentSolid}
-                    value={`Lv ${petLevel} · ${xpg} XPG`} />
-                </div>
-
-                {/* Leitura Preditiva */}
+                {/* Leitura Preditiva — scores clínicos vêm antes de nível/XP */}
                 <div style={{
                   borderRadius:16, padding:'12px 14px',
                   background:'#fafafa', border:'1px solid #EBEBEB',
@@ -607,6 +623,18 @@ export default function ProfileHealthBar({ cat }) {
                     value={clamp(100 - (scoreData.summary?.pendingAlertsCount || 0) * 15)}
                     colorA="#C4B5FD" colorB="#818CF8"
                     icon={Sparkles} accent={tone.accentSolid} />
+                </div>
+
+                {/* Cards 2×2 — nível/XP do gato vem depois dos scores */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                  <DetailCard icon={Scale} label="Peso" accent={tone.accentSolid}
+                    value={latestWeight ? `${latestWeight.value} ${latestWeight.unit}` : cat?.weight ? `${cat.weight} kg` : 'Pendente'} />
+                  <DetailCard icon={CalendarClock} label="Última consulta" accent={tone.accentSolid}
+                    value={latestConsultation ? fmtDate(latestConsultation.date) : 'Sem registro'} />
+                  <DetailCard icon={Syringe} label="Vacina" accent={tone.accentSolid}
+                    value={latestVaccine ? fmtDate(latestVaccine.date) : 'Sem registro'} />
+                  <DetailCard icon={Trophy} label="XPG do gato" accent={tone.accentSolid}
+                    value={`Lv ${petLevel} · ${xpg} XPG`} />
                 </div>
 
                 {/* Alertas */}

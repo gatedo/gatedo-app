@@ -114,8 +114,10 @@ const HABITS = [
   { id: 'Observado', label: 'Observação', emoji: '👀', icon: ShieldCheck, sub: 'rotina monitorada' },
 ];
 
-const TUTOR_XPT = 5;
-const CAT_XPG = 5;
+// XP baixo — mantém o mesmo valor de backend/src/gamification/xp.config.ts (XP_TIERS.BAIXO).
+// O backend credita automaticamente ao salvar (POST /diary-entries); estes números são só de exibição.
+const TUTOR_XPT = 3;
+const CAT_XPG = 3;
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function fmtDate(d) {
@@ -714,35 +716,13 @@ export default function CatDiary() {
 
     await api.post('/diary-entries', draft);
 
-    const userId = getCurrentUserId();
-
-    if (userId && id) {
-      try {
-        await api.post('/gamification/award-care', {
-          userId,
-          petId: id,
-          tutorXp: TUTOR_XPT,
-          petXp: CAT_XPG,
-          reason: 'DIARY_ENTRY',
-          meta: {
-            sharedChecklist: Boolean(draft?.meta?.sharedChecklist),
-            habits: draft?.meta?.habits || [],
-            diaryType: draft?.type || null,
-          },
-        });
-      } catch (xpErr) {
-        console.warn('Diário salvo, mas premiação não aplicada:', xpErr);
-        try {
-          earnXP?.(TUTOR_XPT, 'Diário do tutor registrado');
-          incrementStat?.('diaryCount');
-        } catch {}
-      }
-    } else {
-      try {
-        earnXP?.(TUTOR_XPT, 'Diário do tutor registrado');
-        incrementStat?.('diaryCount');
-      } catch {}
-    }
+    // XP é creditado automaticamente pelo backend ao salvar o registro
+    // (gamif.onDiaryEntry, ver backend/src/controllers/diary.controller.ts).
+    // Aqui só atualizamos os contadores locais/toasts otimistas da UI.
+    try {
+      earnXP?.(TUTOR_XPT, 'Diário do tutor registrado');
+      incrementStat?.('diaryCount');
+    } catch {}
 
     draftRef.current = null;
     setSaved(true);

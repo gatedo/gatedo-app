@@ -1,15 +1,18 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
+import { buildFelineClinicalAlmanacPrompt } from './feline-clinical-almanac';
 
 // Retorno normalizado de qualquer provider
 interface AITextResult {
   text: string;
   provider: 'openai' | 'gemini';
+  tokensUsed?: number;
 }
 interface AIJsonResult {
   json: any;
   provider: 'openai' | 'gemini';
+  tokensUsed?: number;
 }
 
 @Injectable()
@@ -45,7 +48,7 @@ export class IgentService {
 
       const text = res.choices[0]?.message?.content || '';
       this.logger.debug('iGentVet → OpenAI OK');
-      return { text, provider: 'openai' };
+      return { text, provider: 'openai', tokensUsed: res.usage?.total_tokens };
     } catch (openaiErr: any) {
       this.logger.warn(
         `iGentVet → OpenAI falhou (${openaiErr?.status ?? openaiErr?.message}). Tentando Gemini…`,
@@ -87,7 +90,7 @@ export class IgentService {
       const geminiData = (await geminiRes.json()) as any;
       const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       this.logger.debug('iGentVet → Gemini REST OK (fallback)');
-      return { text, provider: 'gemini' };
+      return { text, provider: 'gemini', tokensUsed: geminiData?.usageMetadata?.totalTokenCount };
     } catch (geminiErr: any) {
       this.logger.error('iGentVet → Gemini também falhou:', geminiErr?.message);
       throw new Error('Ambos os provedores de IA falharam.');
@@ -95,12 +98,151 @@ export class IgentService {
   }
 
   // ─── WRAPPER JSON ───────────────────────────────────────────────────────────
+  private async callAIVision(
+    prompt: string,
+    imageBase64: string,
+    imageMimeType = 'image/jpeg',
+    temperature = 0.35,
+    referenceImages: Array<{ url?: string; label?: string; notes?: string; patternTitle?: string; mimeType?: string }> = [],
+  ): Promise<AITextResult> {
+    const cleanBase64 = (imageBase64 || '').includes(',')
+      ? imageBase64.split(',').pop() || ''
+      : imageBase64 || '';
+
+    if (!cleanBase64) {
+      return this.callAI(prompt, { mode: 'text', temperature });
+    }
+
+    try {
+      const visualReferences = referenceImages
+        .filter((image) => image?.url)
+        .slice(0, 4);
+      const content: any[] = [{ type: 'text', text: prompt }];
+      visualReferences.forEach((image, index) => {
+        content.push({
+          type: 'text',
+          text: `Imagem de referencia ${index + 1}: ${image.patternTitle || image.label || 'padrao visual'}${image.notes ? ` | notas: ${image.notes}` : ''}`,
+        });
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: image.url,
+            detail: 'low',
+          },
+        });
+      });
+      content.push({
+        type: 'text',
+        text: 'Imagem do tutor para comparar com os padroes acima:',
+      });
+      content.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:${imageMimeType};base64,${cleanBase64}`,
+          detail: 'high',
+        },
+      });
+
+      const res = await this.openai.chat.completions.create({
+        model: process.env.IGENT_VISION_MODEL || 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content,
+          },
+        ],
+        temperature,
+        max_tokens: 1200,
+      } as any);
+
+      const text = res.choices[0]?.message?.content || '';
+      this.logger.debug('iGentVet Vision -> OpenAI OK');
+      return { text, provider: 'openai', tokensUsed: res.usage?.total_tokens };
+    } catch (openaiErr: any) {
+      this.logger.warn(
+        `iGentVet Vision -> OpenAI falhou (${openaiErr?.status ?? openaiErr?.message}). Tentando Gemini...`,
+      );
+    }
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error('GEMINI_API_KEY nao configurada');
+
+      const geminiVisionModel = process.env.GEMINI_VISION_MODEL || 'gemini-2.5-flash';
+      const referenceParts = referenceImages
+        .filter((image) => image?.url && String(image.url).startsWith('data:'))
+        .slice(0, 3)
+        .flatMap((image, index) => {
+          const match = String(image.url).match(/^data:([^;]+);base64,(.+)$/);
+          if (!match) return [];
+          return [
+            {
+              text: `Imagem de referencia ${index + 1}: ${image.patternTitle || image.label || 'padrao visual'}${image.notes ? ` | notas: ${image.notes}` : ''}`,
+            },
+            {
+              inlineData: {
+                mimeType: match[1] || 'image/jpeg',
+                data: match[2],
+              },
+            },
+          ];
+        });
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiVisionModel}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: prompt },
+                  ...referenceParts,
+                  { text: 'Imagem do tutor para comparar com os padroes acima:' },
+                  {
+                    inlineData: {
+                      mimeType: imageMimeType,
+                      data: cleanBase64,
+                    },
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature,
+              maxOutputTokens: 1200,
+            },
+          }),
+        },
+      );
+
+      if (!geminiRes.ok) {
+        const errBody = await geminiRes.text();
+        this.logger.error(`Gemini Vision REST ${geminiRes.status}: ${errBody}`);
+        throw new Error(`Gemini Vision falhou: ${geminiRes.status}`);
+      }
+
+      const geminiData = (await geminiRes.json()) as any;
+      const text =
+        geminiData?.candidates?.[0]?.content?.parts
+          ?.map((p) => p.text || '')
+          .join('\n')
+          .trim() || '';
+      this.logger.debug('iGentVet Vision -> Gemini OK');
+      return { text, provider: 'gemini', tokensUsed: geminiData?.usageMetadata?.totalTokenCount };
+    } catch (geminiErr: any) {
+      this.logger.error('iGentVet Vision -> Gemini tambem falhou:', geminiErr?.message);
+      throw new Error('Analise visual indisponivel no momento.');
+    }
+  }
+
   private async callAIJson(prompt: string, temperature = 0.3): Promise<AIJsonResult> {
-    const { text, provider } = await this.callAI(prompt, { mode: 'json', temperature });
+    const { text, provider, tokensUsed } = await this.callAI(prompt, { mode: 'json', temperature });
 
     try {
       const clean = text.replace(/^```(?:json)?\n?/i, '').replace(/```$/, '').trim();
-      return { json: JSON.parse(clean), provider };
+      return { json: JSON.parse(clean), provider, tokensUsed };
     } catch {
       this.logger.error('Falha no parse JSON da resposta IA:', text.slice(0, 200));
       throw new Error('Resposta da IA não é JSON válido.');
@@ -521,6 +663,28 @@ ${sp.triageQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
     const breedRisk = clinicalContext?.breedRiskData
       ? `[RISCO DE RACA - ${pet.breed}] Padrao detectado: ${clinicalContext.breedRiskData}`
       : null;
+    const adminAlmanac =
+      Array.isArray(clinicalContext?.adminAlmanacContext) && clinicalContext.adminAlmanacContext.length
+        ? clinicalContext.adminAlmanacContext
+            .slice(0, 5)
+            .map((item) => `  - ${item.title}: ${String(item.excerpt || '').slice(0, 900)}`)
+            .join('\n')
+        : null;
+    const adminVisualAtlas =
+      Array.isArray(clinicalContext?.adminVisualAtlasContext) && clinicalContext.adminVisualAtlasContext.length
+        ? clinicalContext.adminVisualAtlasContext
+            .slice(0, 6)
+            .map((item) => {
+              const refs = Array.isArray(item.referenceImages) && item.referenceImages.length
+                ? ` | referencias visuais: ${item.referenceImages
+                    .slice(0, 4)
+                    .map((img) => img.label || img.patternTitle || img.notes || 'imagem do atlas')
+                    .join('; ')}`
+                : '';
+              return `  - ${item.title}: ${String(item.excerpt || '').slice(0, 900)}${refs}`;
+            })
+            .join('\n')
+        : null;
 
     return [
       `=== PACIENTE ===`,
@@ -539,6 +703,9 @@ ${sp.triageQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
       `\n=== HISTORICO CLINICO RELACIONADO A "${symptomLabel}" ===`,
       clinicalHistory,
+
+      adminAlmanac ? `\n=== ALMANAQUE FELINO ADMIN - TRECHOS RELEVANTES ===\n${adminAlmanac}` : null,
+      adminVisualAtlas ? `\n=== ATLAS VISUAL FELINO ADMIN - PADROES PARA IMAGEM ===\n${adminVisualAtlas}` : null,
 
       memorialNote ? `\n${memorialNote}` : null,
       breedRisk ? `\n${breedRisk}` : null,
@@ -667,6 +834,12 @@ O que você observou depois disso em ${petName}?`;
     const sid = symptomId || 'other';
     const focusedCtx = this.buildFocusedContext(pet, clinicalContext, sid, symptom);
     const symptomInstruction = this.buildSymptomPrompt(sid, pet, symptom);
+    const felineAlmanac = buildFelineClinicalAlmanacPrompt({
+      symptomId: sid,
+      symptomLabel: symptom,
+      pet,
+      clinicalContext,
+    });
 
     const prompt = `
 Voce e o iGentVet, agente veterinario especializado em felinos da Gatedo.
@@ -674,16 +847,23 @@ Tom: empatico, direto, clinicamente preciso. Trate pelo nome: ${pet.name}.
 
 ${focusedCtx}
 
+${felineAlmanac}
+
 ${symptomInstruction}
 
 SINTOMA RELATADO: "${symptom}"
 
 INSTRUCOES CRITICAS:
 - Use o contexto clinico completo (imunizacao, medicacoes, dieta, ambiente, raca)
+- Use o ALMANAQUE FELINO para cruzar red flags universais, fase de vida, raca, comportamento, doencas sistemicas e contexto preditivo
+- A resposta deve soar humana: reconheca o tutor pelo nome quando houver, cite ${pet.name}, explique uma possibilidade concreta e peca contexto sem parecer formulario.
+- Em comportamento, considere idade, castracao, sexo, territorio, rotina, estresse e dor antes de concluir. Se macho nao castrado, marcacao territorial/fuga/agressividade entram no radar, mas sempre pergunte o que esta acontecendo.
 - Vacinas vencidas ou ausentes podem ser causas do problema — cite se relevante
 - Medicacoes ativas podem mascarar ou causar sintomas — analise cruzando
 - isUrgent = true SOMENTE se houver RED FLAG real — nao exagere
-- analysisText: seja especifico ao paciente. Cite raca, medicacoes, vacinas quando relevante.
+- analysisText: seja especifico, empatico e contextual ao paciente. Cite raca, idade, castracao, medicacoes, vacinas ou ambiente quando relevante.
+- Nao prescreva dose, medicamento, antibiotico, analgesico, corticoide ou receita. Oriente avaliacao presencial quando precisar de conduta medica.
+- Separe hipoteses possiveis de diagnostico confirmado. Seja claro que a leitura e pre-orientativa.
 - triageQuestions: adapte as perguntas ao paciente especifico (nome, raca, historico)
 - care: orientacoes PERSONALIZADAS (mencione o nome do gato, considere o historico)
 - whenToVet: copy exato do ORIENTACAO PRESENCIAL acima, adapte se necessario
@@ -692,7 +872,7 @@ Responda APENAS com este JSON valido:
 {
   "isUrgent": false,
   "urgentReason": null,
-  "analysisText": "Analise personalizada para ${pet.name}. Maxímo 45 palavras. Cita raca/meds/vacinas se relevante.",
+  "analysisText": "Analise personalizada, empatica e contextual para ${pet.name}. Maximo 80 palavras. Cite raca/idade/castracao/meds/vacinas se relevante.",
   "probabilities": [
     {"name": "Causa especifica mais provavel (nao generica)", "percent": 60},
     {"name": "Segunda causa diferencial", "percent": 30},
@@ -715,9 +895,9 @@ Responda APENAS com este JSON valido:
 }`.trim();
 
     try {
-      const { json, provider } = await this.callAIJson(prompt, 0.3);
+      const { json, provider, tokensUsed } = await this.callAIJson(prompt, 0.3);
       this.logger.log(`analyzeSymptom OK via ${provider}`);
-      return json;
+      return { ...json, aiUsage: { provider, tokensUsed } };
     } catch (err) {
       this.logger.error('Erro analyzeSymptom:', err);
       return {
@@ -725,6 +905,7 @@ Responda APENAS com este JSON valido:
         analysisText: 'Erro na análise. Tente novamente.',
         probabilities: [],
         care: [],
+        aiUsage: null,
       };
     }
   }
@@ -736,6 +917,13 @@ Responda APENAS com este JSON valido:
     symptom?: string,
     symptomId?: string,
     clinicalContext?: any,
+    visualInput?: {
+      imageBase64?: string;
+      imageMimeType?: string;
+      imageContext?: string;
+      referenceImages?: Array<{ url?: string; label?: string; notes?: string; patternTitle?: string; mimeType?: string }>;
+    },
+    conversationContext: Array<{ sender?: string; text?: string; type?: string }> = [],
   ) {
    const pet = await this.prisma.pet.findUnique({
   where: { id: petId },
@@ -754,6 +942,20 @@ Responda APENAS com este JSON valido:
     const symptomLabel = symptom || 'dúvida geral';
     const focusedCtx = this.buildFocusedContext(pet, clinicalContext, sid, symptomLabel);
     const symptomInstruction = this.buildSymptomPrompt(sid, pet, symptomLabel);
+    const felineAlmanac = buildFelineClinicalAlmanacPrompt({
+      symptomId: sid,
+      symptomLabel,
+      pet,
+      clinicalContext,
+    });
+    const recentConversation = (conversationContext || [])
+      .slice(-8)
+      .filter((item) => item?.text)
+      .map((item) => `${item.sender === 'user' ? 'Tutor' : 'iGentVet'}: ${String(item.text).replace(/\s+/g, ' ').trim()}`)
+      .join('\n');
+    const hasPriorBotReply = (conversationContext || []).some(
+      (item) => item?.sender === 'bot' || item?.sender === 'assistant',
+    );
 
     const systemPrompt = `
 Voce e o iGentVet, agente veterinario especializado em felinos da Gatedo.
@@ -762,9 +964,13 @@ NUNCA prescreva doses especificas ou receitas — oriente a buscar consulta pres
 
 ${focusedCtx}
 
+${felineAlmanac}
+
 ${symptomInstruction}
 
 CONSULTA EM ANDAMENTO — SINTOMA: "${symptomLabel}"
+
+${recentConversation ? `HISTORICO RECENTE DA CONVERSA:\n${recentConversation}\n` : ''}
 
 REGRAS DE OURO:
 1. Trate o gato pelo nome: ${pet.name}. Personalize SEMPRE.
@@ -772,23 +978,62 @@ REGRAS DE OURO:
 3. Vacinas: consulte IMUNIZACAO — cite status real e alerte se [VENCIDA]
 4. Medicacoes: consulte MEDICACOES ATIVAS — analise interacao com o sintoma atual
 5. Se o tutor descrever um RED FLAG desta consulta, eleve urgencia e oriente ir ao vet
-6. Maximo 3 paragrafos curtos — seja direto e util
-7. Se pergunta fora do escopo: responda 1 frase e oferea nova consulta
-8. Ao final de respostas complexas, faca 1 pergunta de acompanhamento clinico relevante`.trim();
+6. Use o ALMANAQUE FELINO como checklist: fase de vida, raca/genetica, doencas sistemicas, comportamento, nutricao, ambiente e prevencao
+7. Nunca diga que tem certeza diagnostica. Use "pode ser", "entra no radar", "precisa ser avaliado" conforme a gravidade
+8. Maximo 3 paragrafos curtos — seja direto e util
+9. Se pergunta fora do escopo: responda 1 frase e oferea nova consulta
+10. Ao final de respostas complexas, faca 1 pergunta de acompanhamento clinico relevante
+11. Nao repita saudacoes, "sua duvida e importante", "ola" ou apresentacao se isso ja apareceu no historico recente.
+12. Continue exatamente do que o tutor acabou de responder; reconheca a informacao nova em uma frase curta antes de orientar.
+13. Evite resposta seca. Use uma frase de acolhimento concreta, uma explicacao clinica em linguagem simples e uma pergunta de contexto.
+14. Se o tema for comportamento, ofereca caminhos como agressividade, miado excessivo, tentativa de fuga, marcacao territorial e urina fora da caixa; relacione com idade, castracao, ambiente e possivel dor sem fechar diagnostico.`.trim();
 
-    const fullPrompt = `${systemPrompt}\n\n---\nTUTOR: ${message}`;
+    const hasImage = Boolean(visualInput?.imageBase64);
+    const fullPrompt = `${systemPrompt}
+
+${hasImage ? `
+ANALISE VISUAL SOLICITADA:
+- O tutor anexou uma foto para avaliacao visual: ${visualInput?.imageContext || 'imagem clinica do gato'}.
+- Use o ATLAS VISUAL FELINO ADMIN como checklist de regioes, achados, diferenciais, red flags e perguntas de afunilamento.
+- Se houver imagens de referencia do atlas, compare padroes visuais de forma cuidadosa: cite semelhancas e diferencas observaveis, sem transformar isso em diagnostico definitivo.
+- Descreva apenas achados visiveis na imagem, sem afirmar diagnostico definitivo.
+- Se for olho, pele, boca, ferida, secrecao ou lesao: avalie cor, brilho/opacidade, secrecao, edema, sangramento, crostas, assimetria e sinais de dor.
+- Se notar olho fechado/dor, opacidade de cornea, secrecao intensa, ferida profunda, necrose, pus, sangramento, trauma ou tecido muito inflamado, oriente atendimento presencial rapido/urgente.
+- Explique o limite: foto ajuda triagem, mas nao substitui exame fisico, fluoresceina, pressao ocular, citologia, cultura, raspado ou outros testes quando indicados.
+- Depois de orientar, faca uma unica pergunta objetiva para afunilar o achado visual; nao repita perguntas ja respondidas no historico recente.
+` : ''}
+---
+TUTOR: ${message || 'Avalie a imagem enviada pelo tutor.'}`;
 
     try {
-      const { text, provider } = await this.callAI(fullPrompt, {
-        mode: 'text',
-        temperature: 0.4,
-      });
+      const { text, provider, tokensUsed } = hasImage
+        ? await this.callAIVision(
+            fullPrompt,
+            visualInput?.imageBase64 || '',
+            visualInput?.imageMimeType || 'image/jpeg',
+            0.35,
+            visualInput?.referenceImages || [],
+          )
+        : await this.callAI(fullPrompt, {
+            mode: 'text',
+            temperature: 0.4,
+          });
       this.logger.log(`chatWithVet OK via ${provider}`);
-      const opening = this.buildContextualOpening(pet, pet?.owner?.name, symptomLabel, message);
-      return { text: this.ensureQuestionEnding(`${opening} ${text}`.trim(), pet.name), sender: 'bot' };
+      const opening = hasPriorBotReply
+        ? ''
+        : this.buildContextualOpening(pet, pet?.owner?.name, symptomLabel, message);
+      return {
+        text: this.ensureQuestionEnding(`${opening} ${text}`.trim(), pet.name),
+        sender: 'bot',
+        aiUsage: { provider, tokensUsed },
+      };
     } catch (err) {
       this.logger.error('Erro chatWithVet:', err);
-      return { text: `Conexão instável com a IA. Pode repetir o que você observou em ${pet.name} para eu seguir te orientando melhor?`, sender: 'bot' };
+      return {
+        text: `Conexão instável com a IA. Pode repetir o que você observou em ${pet.name} para eu seguir te orientando melhor?`,
+        sender: 'bot',
+        aiUsage: null,
+      };
     }
   }
 
@@ -1011,5 +1256,33 @@ REGRAS DE OURO:
       ongoing: data.ongoing || false,
       isControlled: data.isControlled || false,
     };
+  }
+
+  async recordFeedback(data: {
+    petId?: string;
+    catName?: string;
+    symptomId?: string;
+    symptomLabel?: string;
+    rating?: number;
+    label?: string;
+    comment?: string;
+    createdAt?: string;
+  }) {
+    const { mkdir, appendFile } = await import('fs/promises');
+    const { join } = await import('path');
+    const targetDir = join(process.cwd(), 'uploads', 'igent-feedback');
+    await mkdir(targetDir, { recursive: true });
+    const payload = {
+      petId: data.petId || null,
+      catName: data.catName || null,
+      symptomId: data.symptomId || null,
+      symptomLabel: data.symptomLabel || null,
+      rating: Number(data.rating || 0),
+      label: data.label || null,
+      comment: String(data.comment || '').slice(0, 800),
+      createdAt: data.createdAt || new Date().toISOString(),
+    };
+    await appendFile(join(targetDir, 'feedback.jsonl'), `${JSON.stringify(payload)}\n`, 'utf8');
+    return { received: true };
   }
 }

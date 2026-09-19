@@ -6,10 +6,11 @@ import EvoNutrition from './ProfileSections/EvoNutrition';
 import BehaviorModule from './ProfileSections/BehaviorModule';
 import HealthModule from './ProfileSections/HealthModule';
 import ImmunizationModule from './ProfileSections/ImmunizationModule';
+import TimelineModule from './ProfileSections/TimelineModule';
 import DocumentModule from './ProfileSections/DocumentModule';
 import api from "../../services/api";
 
-function ProfileContent({ activeTab, cat, touch, refreshCat, navigate }) {
+function ProfileContent({ activeTab, setActiveTab, cat, touch, refreshCat, navigate }) {
   const pedigreeFrontInputRef = useRef(null);
   const pedigreeBackInputRef = useRef(null);
   const [mountedTabs, setMountedTabs] = useState(() => ({ [activeTab]: true }));
@@ -61,7 +62,7 @@ function ProfileContent({ activeTab, cat, touch, refreshCat, navigate }) {
   };
 
   return (
-    <div className="w-full max-w-lg mx-auto px-4 pb-24">
+    <div className="w-full max-w-[720px] mx-auto px-4 pb-24">
       <input
         type="file"
         ref={pedigreeFrontInputRef}
@@ -82,9 +83,9 @@ function ProfileContent({ activeTab, cat, touch, refreshCat, navigate }) {
         {mountedTabs.BIO && (
           <motion.div
             initial={false}
-            animate={{ opacity: activeTab === 'BIO' ? 1 : 0, y: activeTab === 'BIO' ? 0 : 6 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            style={{ display: activeTab === 'BIO' ? 'block' : 'none', willChange: 'transform, opacity' }}
+            animate={{ opacity: activeTab === 'BIO' ? 1 : 0 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
+            style={{ display: activeTab === 'BIO' ? 'block' : 'none', willChange: 'opacity' }}
           >
             <BioModule
               cat={cat}
@@ -97,9 +98,9 @@ function ProfileContent({ activeTab, cat, touch, refreshCat, navigate }) {
         {mountedTabs.EVOLUCAO && (
           <motion.div
             initial={false}
-            animate={{ opacity: activeTab === 'EVOLUCAO' ? 1 : 0, y: activeTab === 'EVOLUCAO' ? 0 : 6 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            style={{ display: activeTab === 'EVOLUCAO' ? 'block' : 'none', willChange: 'transform, opacity' }}
+            animate={{ opacity: activeTab === 'EVOLUCAO' ? 1 : 0 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
+            style={{ display: activeTab === 'EVOLUCAO' ? 'block' : 'none', willChange: 'opacity' }}
           >
             <EvoNutrition
               cat={cat}
@@ -111,31 +112,47 @@ function ProfileContent({ activeTab, cat, touch, refreshCat, navigate }) {
         {mountedTabs.COMPORTAMENTO && (
           <motion.div
             initial={false}
-            animate={{ opacity: activeTab === 'COMPORTAMENTO' ? 1 : 0, y: activeTab === 'COMPORTAMENTO' ? 0 : 6 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            style={{ display: activeTab === 'COMPORTAMENTO' ? 'block' : 'none', willChange: 'transform, opacity' }}
+            animate={{ opacity: activeTab === 'COMPORTAMENTO' ? 1 : 0 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
+            style={{ display: activeTab === 'COMPORTAMENTO' ? 'block' : 'none', willChange: 'opacity' }}
           >
-            <BehaviorModule cat={cat} />
+            <BehaviorModule cat={cat} refreshCat={refreshCat} />
           </motion.div>
         )}
 
         {mountedTabs.SAUDE && (
           <motion.div
             initial={false}
-            animate={{ opacity: activeTab === 'SAUDE' ? 1 : 0, y: activeTab === 'SAUDE' ? 0 : 6 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            style={{ display: activeTab === 'SAUDE' ? 'block' : 'none', willChange: 'transform, opacity' }}
+            animate={{ opacity: activeTab === 'SAUDE' ? 1 : 0 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
+            style={{ display: activeTab === 'SAUDE' ? 'block' : 'none', willChange: 'opacity' }}
           >
             <HealthModule cat={cat} />
+          </motion.div>
+        )}
+
+        {mountedTabs.LINHATEMPO && (
+          <motion.div
+            initial={false}
+            animate={{ opacity: activeTab === 'LINHATEMPO' ? 1 : 0 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
+            style={{ display: activeTab === 'LINHATEMPO' ? 'block' : 'none', willChange: 'opacity' }}
+          >
+            <TimelineModule
+              cat={cat}
+              touch={touch}
+              refreshCat={refreshCat}
+              onOpenTab={setActiveTab}
+            />
           </motion.div>
         )}
 
         {mountedTabs.IMUNIZANTES && (
           <motion.div
             initial={false}
-            animate={{ opacity: activeTab === 'IMUNIZANTES' ? 1 : 0, y: activeTab === 'IMUNIZANTES' ? 0 : 6 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            style={{ display: activeTab === 'IMUNIZANTES' ? 'block' : 'none', willChange: 'transform, opacity' }}
+            animate={{ opacity: activeTab === 'IMUNIZANTES' ? 1 : 0 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
+            style={{ display: activeTab === 'IMUNIZANTES' ? 'block' : 'none', willChange: 'opacity' }}
           >
             <ImmunizationModule cat={cat} />
           </motion.div>
@@ -144,9 +161,9 @@ function ProfileContent({ activeTab, cat, touch, refreshCat, navigate }) {
         {mountedTabs.DOCUMENTOS && (
           <motion.div
             initial={false}
-            animate={{ opacity: activeTab === 'DOCUMENTOS' ? 1 : 0, y: activeTab === 'DOCUMENTOS' ? 0 : 6 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            style={{ display: activeTab === 'DOCUMENTOS' ? 'block' : 'none', willChange: 'transform, opacity' }}
+            animate={{ opacity: activeTab === 'DOCUMENTOS' ? 1 : 0 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
+            style={{ display: activeTab === 'DOCUMENTOS' ? 'block' : 'none', willChange: 'opacity' }}
           >
             <DocumentModule
               cat={cat}

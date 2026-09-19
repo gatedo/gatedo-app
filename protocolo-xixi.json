@@ -1,0 +1,258 @@
+{
+  "id": "xixi-fora-da-caixa",
+  "tipo": "protocolo",
+  "versao": "1.0",
+  "atualizado_em": "2026-09-19",
+  "titulo": "Protocolo Xixi Fora da Caixa",
+  "subtitulo": "Sete dias para descobrir por que e o que fazer em cada um deles",
+  "promessa": "Um passo por dia, dentro do app, para entender por que seu gato parou de usar a caixa — e o que muda isso.",
+  "duracao_dias": 7,
+  "escopo": "por_conta",
+  "escopo_nota": "Quem comprou pode rodar o protocolo para qualquer um dos seus gatos, quantas vezes precisar. O progresso é por par (usuário + gato).",
+  "preco_centavos": 2700,
+  "produto_externo_id": "DEFINIR_ID_KIWIFY",
+  "aviso_global": "Este é um protocolo de manejo ambiental e comportamental. Ele não trata, não diagnostica e não substitui consulta veterinária. Diante de qualquer sinal de urgência, procure um veterinário imediatamente.",
+  "abertura": "Gato que faz xixi fora da caixa pode estar doente. Antes de mudar qualquer coisa no ambiente, a gente precisa ter certeza de que o corpo dele está bem — e os dois primeiros passos aqui são exatamente sobre isso.",
+
+  "triagem": {
+    "titulo": "Antes de começar",
+    "obrigatoria": true,
+    "pontua_xp": false,
+    "blocos": [
+      {
+        "id": "emergencia",
+        "ordem": 1,
+        "pergunta": "Algum destes está acontecendo agora?",
+        "instrucao": "Marque tudo o que se aplica. Se nenhum se aplica, siga em frente.",
+        "itens": [
+          { "id": "sem_urina", "rotulo": "Tenta urinar e não sai nada", "detalhe": "Vai à caixa várias vezes, faz força e não sai nada — ou saem só gotas." },
+          { "id": "dor_urinar", "rotulo": "Mia ou se contorce ao urinar", "detalhe": "Vocaliza, se encolhe ou parece com dor no momento de urinar." },
+          { "id": "sangue", "rotulo": "Sangue na urina", "detalhe": "Urina rosada, avermelhada ou amarronzada." },
+          { "id": "prostrado", "rotulo": "Prostrado ou sem comer", "detalhe": "Escondido, sem reagir, mais de 24h sem comer, ou vomitando junto." },
+          { "id": "lambendo", "rotulo": "Lambendo a região genital sem parar", "detalhe": "Lambe de forma insistente e repetida." }
+        ],
+        "acao_se_algum_marcado": "interromper",
+        "tela_urgencia": {
+          "titulo": "Procure um veterinário agora",
+          "corpo": "O que você marcou pode ser uma emergência urinária. Em gato macho, obstrução da uretra pode ser fatal em poucas horas.\n\nNão espere melhorar e não tente medicar em casa. Procure um pronto-socorro veterinário imediatamente.\n\nO protocolo fica guardado aqui e você retoma quando o seu gato estiver avaliado.",
+          "acoes": [
+            { "id": "registrar_consulta", "rotulo": "Registrar consulta", "destino": "registro_rapido_consulta" },
+            { "id": "voltar", "rotulo": "Voltar", "destino": "inicio_protocolo" }
+          ],
+          "sem_ia": true
+        }
+      },
+      {
+        "id": "veterinario",
+        "ordem": 2,
+        "pergunta": "Seu gato já passou por veterinário por causa disso?",
+        "opcoes": [
+          {
+            "id": "sim_descartado",
+            "rotulo": "Sim, e não encontraram causa médica",
+            "consequencia": "seguir",
+            "mensagem": "Então o protocolo é exatamente o que você precisa. Vamos arrumar caixa, areia, limpeza e território, nessa ordem."
+          },
+          {
+            "id": "sim_tratando",
+            "rotulo": "Sim, e está em tratamento",
+            "consequencia": "seguir",
+            "mensagem": "Ótimo. O protocolo funciona junto com o tratamento — o manejo do ambiente ajuda a recuperação e evita que o hábito se fixe."
+          },
+          {
+            "id": "nao",
+            "rotulo": "Ainda não",
+            "consequencia": "seguir_com_tarefa_fixa",
+            "mensagem": "Tudo bem, dá para começar. Mas cistite, infecção, cálculo, problema renal e diabetes aparecem exatamente assim — e nenhum deles se resolve trocando a areia. Agendar a consulta virou a sua primeira tarefa.",
+            "tarefa_fixa": {
+              "id": "agendar_consulta",
+              "titulo": "Agendar consulta veterinária",
+              "descricao": "Marque a consulta e registre a data aqui. No dia 7 o app gera o PDF da semana para você levar.",
+              "fixa_ate_concluir": true
+            }
+          }
+        ]
+      }
+    ],
+    "marco_timeline": { "tipo": "protocolo", "rotulo": "Início do Protocolo Xixi Fora da Caixa" }
+  },
+
+  "dias": [
+    {
+      "numero": 1,
+      "titulo": "Xixi ou marcação? Não é a mesma coisa",
+      "tarefa": "Hoje você só observa: a posição do seu gato e a superfície onde aconteceu.",
+      "corpo": "A maioria dos tutores trata tudo como \"xixi fora da caixa\" e tenta a mesma solução para dois problemas diferentes. Os sinais separam bem.\n\n**Eliminação inadequada**\n- Agachado, como faria dentro da caixa\n- Superfície horizontal: tapete, cama, sofá, roupa no chão\n- Volume normal de urina\n- Costuma repetir nos mesmos lugares\n\n**Marcação territorial**\n- Em pé, rabo erguido e tremendo\n- Superfície vertical: parede, porta, móvel, mochila\n- Pouco volume, cheiro mais forte\n- Costuma aparecer perto de janelas, portas e coisas novas",
+      "porque": "Eliminação inadequada quase sempre é caixa, areia ou limpeza — o que a gente arruma nos dias 2 a 5. Marcação quase sempre é território ou estresse — o que a gente arruma no dia 6. Tratar um com a receita do outro é o motivo de tanta gente achar que não tem solução.",
+      "registro": {
+        "instrucao": "Registre cada ocorrência que acontecer hoje.",
+        "repetivel": true,
+        "campos": [
+          { "id": "local", "tipo": "texto", "rotulo": "Onde aconteceu", "placeholder": "sofá da sala, tapete do quarto..." },
+          { "id": "superficie", "tipo": "enum", "rotulo": "Superfície", "opcoes": ["Horizontal", "Vertical"] },
+          { "id": "posicao", "tipo": "enum", "rotulo": "Posição do gato", "opcoes": ["Agachado", "Em pé com o rabo erguido", "Não vi"] },
+          { "id": "volume", "tipo": "enum", "rotulo": "Volume", "opcoes": ["Parecia normal", "Pouco", "Não sei"] },
+          { "id": "hora", "tipo": "hora", "rotulo": "Mais ou menos que horas" }
+        ],
+        "marco_timeline": { "tipo": "protocolo", "rotulo": "Dia 1 do protocolo — observação" }
+      }
+    },
+    {
+      "numero": 2,
+      "titulo": "A caixa: quantas, de que tamanho e onde",
+      "tarefa": "Conferir os três números da caixa e corrigir o que estiver errado.",
+      "corpo": "**N+1.** Uma caixa por gato, mais uma. Dois gatos, três caixas — e em cômodos ou andares diferentes, não enfileiradas no mesmo canto, senão contam como uma só.\n\n**1,5 vezes.** O comprimento da caixa deve ser pelo menos uma vez e meia o comprimento do seu gato, do focinho à base do rabo. A maioria das caixas vendidas prontas é pequena demais para gato adulto.\n\n**Saída fácil.** Local tranquilo, sem barulho súbito, longe da comida e da água, e com mais de uma rota de fuga. Gato não gosta de ficar encurralado enquanto está vulnerável.\n\nSe a caixa for coberta, tire a tampa por esta semana. É o teste mais barato que existe.",
+      "porque": "Caixa pequena, coberta ou em lugar ruim é a causa mais comum e a mais fácil de corrigir. Se o seu gato é idoso, olhe também a altura da borda: artrose faz ele evitar a caixa sem que ninguém perceba.",
+      "checklist": [
+        { "id": "quantidade", "rotulo": "Tenho pelo menos uma caixa por gato, mais uma" },
+        { "id": "espalhadas", "rotulo": "Elas estão em lugares diferentes da casa" },
+        { "id": "tamanho", "rotulo": "Cada caixa tem pelo menos 1,5x o comprimento do meu gato" },
+        { "id": "longe_comida", "rotulo": "Nenhuma está perto do comedouro ou bebedouro" },
+        { "id": "destampada", "rotulo": "Tirei a tampa (ou já era destampada)" }
+      ],
+      "registro": {
+        "instrucao": "Anote como ficou a configuração depois dos ajustes.",
+        "repetivel": false,
+        "campos": [
+          { "id": "n_caixas", "tipo": "numero", "rotulo": "Quantas caixas ficaram" },
+          { "id": "onde", "tipo": "texto", "rotulo": "Em que cômodos" },
+          { "id": "mudou", "tipo": "texto", "rotulo": "O que você mudou hoje" }
+        ],
+        "marco_timeline": { "tipo": "protocolo", "rotulo": "Dia 2 do protocolo — ajuste das caixas" }
+      }
+    },
+    {
+      "numero": 3,
+      "titulo": "A areia: deixar o gato escolher",
+      "tarefa": "Montar o teste de preferência. Duas caixas lado a lado, areias diferentes, e ele decide.",
+      "corpo": "Coloque a areia que você usa hoje em uma caixa e, na outra, uma areia **aglomerante de grão fino e sem perfume**. Camada de uns quatro dedos nas duas. Deixe lado a lado e observe nos próximos três dias qual ele usa mais.\n\nSe precisar trocar de areia depois, faça gradual: misture a nova com a antiga em proporções crescentes ao longo de uma semana. Troca brusca é causa frequente de recusa.",
+      "porque": "A preferência da maioria dos gatos é bem documentada: grão fino, sem cheiro, camada funda o bastante para cavar e cobrir. Perfume foi feito para o seu nariz — e é justamente ele que faz muito gato recusar a caixa.",
+      "registro": {
+        "instrucao": "Anote qual areia você colocou de teste. No dia 7 a gente confere o resultado.",
+        "repetivel": false,
+        "campos": [
+          { "id": "areia_atual", "tipo": "texto", "rotulo": "Areia que você já usava" },
+          { "id": "areia_teste", "tipo": "texto", "rotulo": "Areia que entrou no teste" },
+          { "id": "camada_ok", "tipo": "booleano", "rotulo": "Camada de pelo menos quatro dedos nas duas" }
+        ],
+        "marco_timeline": { "tipo": "protocolo", "rotulo": "Dia 3 do protocolo — teste de areia" }
+      }
+    },
+    {
+      "numero": 4,
+      "titulo": "A limpeza: frequência e produto",
+      "tarefa": "Estabelecer a rotina de limpeza e trocar o produto se for o caso.",
+      "corpo": "**Retirar os dejetos uma a duas vezes por dia, todo dia.** É o item que mais muda comportamento e o que mais gente deixa passar.\n\n**Lavagem completa da caixa a cada uma ou duas semanas**, com água e sabão neutro.\n\n**Nada de desinfetante com cheiro forte**, e principalmente nada com amônia — o cheiro lembra urina e convida a marcar ali.",
+      "porque": "O olfato dele é muito mais sensível que o seu. Uma caixa que não está \"tão suja assim\" para você pode estar inaceitável para ele há dias.",
+      "checklist": [
+        { "id": "limpeza_hoje", "rotulo": "Retirei os dejetos hoje" },
+        { "id": "produto_ok", "rotulo": "Conferi que meu produto de limpeza não tem amônia nem perfume forte" }
+      ],
+      "registro": {
+        "instrucao": "Marque a limpeza de hoje. A partir de agora ela aparece todo dia até o fim do protocolo.",
+        "repetivel": true,
+        "vira_habito_diario": true,
+        "campos": [
+          { "id": "limpou", "tipo": "booleano", "rotulo": "Limpei a caixa hoje" }
+        ],
+        "marco_timeline": { "tipo": "protocolo", "rotulo": "Dia 4 do protocolo — rotina de limpeza" }
+      }
+    },
+    {
+      "numero": 5,
+      "titulo": "Apagar o convite: neutralizar os lugares",
+      "tarefa": "Limpar os pontos marcados com produto enzimático e mudar a função do lugar.",
+      "corpo": "Limpeza comum tira o cheiro para você e deixa para ele. **Produto enzimático** quebra o composto da urina de verdade — procure por \"eliminador de odores enzimático\" em pet shop.\n\nDepois de limpo, mude o que aquele canto significa: coloque ali o comedouro, um brinquedo ou uma caminha. Gato não costuma sujar onde come e dorme.",
+      "porque": "Enquanto o cheiro estiver lá, o lugar continua sendo \"banheiro\" na cabeça dele — por melhor que a caixa esteja.",
+      "registro": {
+        "instrucao": "Liste os pontos que você neutralizou e o que passou a ocupar cada um.",
+        "repetivel": true,
+        "campos": [
+          { "id": "ponto", "tipo": "texto", "rotulo": "Ponto neutralizado" },
+          { "id": "nova_funcao", "tipo": "texto", "rotulo": "O que colocou no lugar" }
+        ],
+        "marco_timeline": { "tipo": "protocolo", "rotulo": "Dia 5 do protocolo — neutralização dos pontos" }
+      }
+    },
+    {
+      "numero": 6,
+      "titulo": "O que mudou na casa",
+      "tarefa": "Listar o que mudou nos últimos dois meses e redistribuir os recursos.",
+      "corpo": "Mudança de casa, móvel novo, visita, obra, gato novo, gato de rua aparecendo na janela, mudança no seu horário, alguém que saiu ou chegou. Qualquer uma dessas explica marcação começando do nada.\n\n**Espalhe os recursos.** Comida, água, caixas, arranhadores e lugares de dormir em pontos diferentes da casa. Recurso concentrado vira disputa, mesmo entre gatos que se dão bem.\n\n**Ofereça altura.** Prateleira, topo de armário, nicho. Território vertical reduz conflito em casa com mais de um gato.\n\n**Quinze minutos de varinha por dia**, de preferência antes da refeição. Caçar, pegar, comer, dormir — é a sequência que acalma o gato de verdade.\n\n**Se tem gato de fora aparecendo**, bloqueie a visão daquela janela por uns dias.",
+      "porque": "Marcação não é birra nem vingança — é comunicação de um gato que está se sentindo inseguro no próprio território. Punir piora, porque aumenta exatamente o que causou.",
+      "checklist": [
+        { "id": "recursos", "rotulo": "Espalhei os recursos pela casa" },
+        { "id": "altura", "rotulo": "Criei pelo menos um ponto alto novo" },
+        { "id": "brincadeira", "rotulo": "Brinquei 15 minutos com varinha" },
+        { "id": "janela", "rotulo": "Bloqueei a visão da janela (se havia gato de fora)" }
+      ],
+      "registro": {
+        "instrucao": "Anote o que mudou na casa nos últimos dois meses.",
+        "repetivel": false,
+        "campos": [
+          { "id": "mudancas", "tipo": "texto_longo", "rotulo": "O que mudou por aqui" },
+          { "id": "ajustes", "tipo": "texto_longo", "rotulo": "O que você ajustou hoje" }
+        ],
+        "marco_timeline": { "tipo": "protocolo", "rotulo": "Dia 6 do protocolo — território e rotina" }
+      }
+    },
+    {
+      "numero": 7,
+      "titulo": "O que ficou de pé",
+      "tarefa": "Comparar a semana e decidir o que vira rotina permanente.",
+      "corpo": "O app mostra o mapa dos sete dias: quantas ocorrências no dia 1, quantas hoje, e em que lugares elas aconteceram.\n\nConfira também o resultado do teste de areia do dia 3 — a areia que ele mais usou é a que vale manter para sempre.",
+      "porque": "Sem comparar o começo com o fim, não dá para saber o que funcionou. E é justamente o que funcionou que precisa virar rotina fixa, senão a recaída vem em algumas semanas.",
+      "registro": {
+        "instrucao": "Responda o fechamento.",
+        "repetivel": false,
+        "campos": [
+          { "id": "resultado", "tipo": "enum", "rotulo": "Como está hoje", "opcoes": ["Parou completamente", "Diminuiu", "Continua igual"] },
+          { "id": "areia_vencedora", "tipo": "texto", "rotulo": "Qual areia ele preferiu" },
+          { "id": "manter", "tipo": "texto_longo", "rotulo": "O que você vai manter como rotina" }
+        ],
+        "marco_timeline": { "tipo": "protocolo", "rotulo": "Dia 7 do protocolo — fechamento" }
+      }
+    }
+  ],
+
+  "fechamento": {
+    "titulo": "O que a sua semana mostrou",
+    "mostra_comparativo": true,
+    "cenarios": [
+      {
+        "id": "parou",
+        "quando": "resultado == 'Parou completamente'",
+        "titulo": "Parou",
+        "corpo": "O que resolveu vira rotina fixa a partir de agora: o número de caixas, a areia que ele escolheu e a limpeza diária.\n\nRecaída quase sempre é uma dessas três afrouxando. Se acontecer de novo, volte a este protocolo — ele fica disponível para você sempre."
+      },
+      {
+        "id": "diminuiu",
+        "quando": "resultado == 'Diminuiu'",
+        "titulo": "Está no caminho",
+        "corpo": "Mantenha exatamente o que está fazendo por mais duas semanas antes de mudar qualquer outra coisa. Mudança demais ao mesmo tempo impede saber o que funcionou.\n\nSe depois de duas semanas ainda houver ocorrências, leve o PDF desta semana ao veterinário."
+      },
+      {
+        "id": "igual",
+        "quando": "resultado == 'Continua igual'",
+        "titulo": "Agora é veterinário — e isso não é fracasso",
+        "corpo": "É a informação mais valiosa da semana. Você descartou manejo de forma organizada, e agora chega na consulta com sete dias de registro documentado — o que quase nenhum tutor consegue levar.\n\nO PDF está pronto: mapa das ocorrências, mudanças feitas e a curva de peso do período."
+      }
+    ],
+    "gera_pdf": {
+      "ativo": true,
+      "titulo": "Relatório de 7 dias — {nome_do_gato}",
+      "conteudo": ["respostas_triagem", "mapa_ocorrencias", "mudancas_por_dia", "curva_peso_periodo", "aviso_global"]
+    },
+    "upsell": {
+      "produto": "kit-primeiro-gato",
+      "quando": "gato.idade_meses <= 12 OR gato.cadastrado_ha_dias <= 60",
+      "texto": "Seu gato ainda está nos primeiros meses com você. O Kit Primeiro Gato cobre os 30 dias que definem o resto da convivência."
+    }
+  },
+
+  "lembrete_permanente": {
+    "exibir_em": "todos_os_dias",
+    "texto": "Se a qualquer momento aparecer esforço para urinar sem sair nada, sangue, dor ou prostração, pare o protocolo e procure um veterinário imediatamente.",
+    "acao": { "rotulo": "Ver sinais de emergência", "destino": "triagem_emergencia" }
+  }
+}

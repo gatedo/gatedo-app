@@ -6,8 +6,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Caminho baseado no seu print
 import { calcTutorLevelMeta } from '../gamification/gamification.constants';
+import { XP_TIERS } from '../gamification/xp.config';
 
-const STORE_SHARE_XPT_REWARD = 2;
+// Compartilhar produto é uso do app, não dado clínico — XP zero.
+// Ver backend/src/gamification/xp.config.ts.
+const STORE_SHARE_XPT_REWARD = XP_TIERS.ZERO.tutorXp;
  
 @Controller('products')
 export class ProductsController {

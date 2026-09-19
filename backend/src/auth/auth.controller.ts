@@ -1,22 +1,30 @@
-import { Controller, Post, Get, Body, Query, Param, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   @Post('register')
   async register(@Body() body: any) {
-    if (!body.token) {
-      throw new ForbiddenException('Cadastro permitido apenas via convite.');
+    const result = await this.authService.register(body);
+    if (result?.user?.id && result?.user?.email) {
+      this.entitlements.promotePending(result.user.id, result.user.email).catch(() => {});
     }
-
-    return this.authService.register(body);
+    return result;
   }
 
   @Post('login')
   async login(@Body() body: any) {
-    return this.authService.login(body);
+    const result = await this.authService.login(body);
+    if (result?.user?.id && result?.user?.email) {
+      this.entitlements.promotePending(result.user.id, result.user.email).catch(() => {});
+    }
+    return result;
   }
 
   @Get('resolve-invite')
