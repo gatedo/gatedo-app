@@ -13,8 +13,12 @@ import {
   AlertTriangle,
   X,
   PawPrint,
+  Utensils,
+  Check,
 } from 'lucide-react';
 import api from '../../../services/api';
+import { extractWeightSeries, computeWeightAlerts } from '../../../utils/weightAlerts';
+import OfferCard from '../../offers/OfferCard';
 
 const C = {
   purple: '#8B4AFF',
@@ -25,7 +29,7 @@ const C = {
 };
 
 // ─── Metadados por tipo de marco ───────────────────────────────────────────
-const MARCO_TYPES = {
+export const MARCO_TYPES = {
   CONSULTATION: { label: 'Consulta', icon: Stethoscope, color: '#6366F1', openTab: 'SAUDE' },
   IACONSULT: { label: 'Consulta (IA)', icon: Stethoscope, color: '#8B4AFF', openTab: 'SAUDE' },
   MEDICATION: { label: 'Medicação', icon: Pill, color: '#F59E0B', openTab: 'SAUDE' },
@@ -35,34 +39,19 @@ const MARCO_TYPES = {
   PARASITE: { label: 'Antipulgas', icon: Bug, color: '#8B4AFF', openTab: 'IMUNIZANTES' },
   SURGERY: { label: 'Cirurgia', icon: ShieldPlus, color: '#EF4444', openTab: 'SAUDE' },
   EXAM: { label: 'Exame', icon: ClipboardList, color: '#14B8A6', openTab: 'SAUDE' },
-  WEIGHT: { label: 'Peso', icon: Scale, color: '#10B981', openTab: 'EVOLUCAO' },
+  WEIGHT: { label: 'Peso', icon: Scale, color: '#10B981', openTab: null },
   PROTOCOL: { label: 'Protocolo', icon: ClipboardList, color: '#8B4AFF', openTab: null },
 };
 
-const PERIODS = [
+export const PERIODS = [
   { id: 3, label: '3 meses' },
   { id: 6, label: '6 meses' },
   { id: 12, label: '12 meses' },
   { id: 'all', label: 'Tudo' },
 ];
 
-const WEIGHT_TITLE_RE = /check-in de peso[:\s]*([\d.,]+)\s*kg/i;
-
-// ─── Extrai série de peso a partir dos check-ins já registrados ────────────
-function extractWeightSeries(healthRecords = []) {
-  return healthRecords
-    .filter((r) => r?.type === 'EXAM' && WEIGHT_TITLE_RE.test(r.title || ''))
-    .map((r) => {
-      const match = r.title.match(WEIGHT_TITLE_RE);
-      const weight = parseFloat(String(match?.[1] || '').replace(',', '.'));
-      return { id: r.id, date: new Date(r.date), weight };
-    })
-    .filter((p) => Number.isFinite(p.weight) && p.weight > 0)
-    .sort((a, b) => a.date - b.date);
-}
-
 // ─── Monta a lista unificada de marcos ──────────────────────────────────────
-function buildMarcos(healthRecords = [], weightSeries = [], protocolEnrollments = []) {
+export function buildMarcos(healthRecords = [], weightSeries = [], protocolEnrollments = []) {
   const weightIds = new Set(weightSeries.map((w) => w.id));
 
   const healthMarcos = (healthRecords || [])
@@ -113,12 +102,8 @@ function buildMarcos(healthRecords = [], weightSeries = [], protocolEnrollments 
   return [...healthMarcos, ...weightMarcos, ...protocolMarcos].sort((a, b) => b.date - a.date);
 }
 
-function formatDate(d) {
+export function formatDate(d) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function formatMonthLabel(d) {
-  return d.toLocaleDateString('pt-BR', { month: 'long' });
 }
 
 function formatDuration(days) {
@@ -131,7 +116,7 @@ function formatDuration(days) {
   return `${years} ano${years === 1 ? '' : 's'}`;
 }
 
-function formatWeightDelta(series) {
+export function formatWeightDelta(series) {
   const first = series[0];
   const last = series[series.length - 1];
   const deltaKg = last.weight - first.weight;
@@ -150,128 +135,116 @@ function formatWeightDelta(series) {
   return { deltaLabel, periodLabel, isDrop: deltaKg < -0.01, isRise: deltaKg > 0.01 };
 }
 
-// ─── Regras fixas de leitura de padrão (sem IA) ─────────────────────────────
-function computeWeightAlerts(series) {
-  if (series.length < 2) return [];
-
-  const latest = series[series.length - 1];
-  const alerts = [];
-
-  const baselineWithin = (days) => {
-    const cutoff = new Date(latest.date.getTime() - days * 86400000);
-    const candidates = series.filter((p) => p.date >= cutoff && p.date < latest.date);
-    return candidates[0] || null;
-  };
-
-  const pctChange = (base) => ((latest.weight - base.weight) / base.weight) * 100;
-
-  const b90 = baselineWithin(90);
-  const b180 = baselineWithin(180);
-
-  let droppped = false;
-  if (b90) {
-    const pct = pctChange(b90);
-    if (pct <= -5) {
-      alerts.push({
-        type: 'drop',
-        rule: 'Queda de 5% ou mais em 90 dias',
-        message: `O peso caiu ${Math.abs(pct).toFixed(0)}% desde ${formatMonthLabel(b90.date)}.`,
-      });
-      droppped = true;
-    }
-  }
-  if (!droppped && b180) {
-    const pct = pctChange(b180);
-    if (pct <= -8) {
-      alerts.push({
-        type: 'drop',
-        rule: 'Queda de 8% ou mais em 180 dias',
-        message: `O peso caiu ${Math.abs(pct).toFixed(0)}% desde ${formatMonthLabel(b180.date)}.`,
-      });
-    }
-  }
-  if (b180) {
-    const pct = pctChange(b180);
-    if (pct >= 15) {
-      alerts.push({
-        type: 'rise',
-        rule: 'Alta de 15% ou mais em 180 dias',
-        message: `O peso subiu ${pct.toFixed(0)}% desde ${formatMonthLabel(b180.date)}.`,
-      });
-    }
-  }
-
-  return alerts;
-}
-
-// ─── Gráfico SVG de peso, sem biblioteca ────────────────────────────────────
-function WeightChart({ series }) {
+// ─── Gráfico SVG de peso, sem biblioteca — cartão escuro com eixos ──────────
+export function WeightChart({ series }) {
   const W = 320;
-  const H = 140;
-  const PAD_X = 20;
-  const PAD_Y = 22;
+  const H = 190;
+  const PAD_L = 32;
+  const PAD_R = 12;
+  const PAD_T = 14;
+  const PAD_B = 22;
 
   const weights = series.map((p) => p.weight);
-  const minW = Math.min(...weights);
-  const maxW = Math.max(...weights);
+  const rawMin = Math.min(...weights);
+  const rawMax = Math.max(...weights);
+  const pad = Math.max((rawMax - rawMin) * 0.15, 0.1);
+  const minW = rawMin - pad;
+  const maxW = rawMax + pad;
   const range = maxW - minW || 1;
 
   const minDate = series[0].date.getTime();
   const maxDate = series[series.length - 1].date.getTime();
   const dateRange = maxDate - minDate || 1;
 
-  const xFor = (d) => PAD_X + ((d.getTime() - minDate) / dateRange) * (W - PAD_X * 2);
-  const yFor = (w) => H - PAD_Y - ((w - minW) / range) * (H - PAD_Y * 2);
+  const xFor = (d) => PAD_L + ((d.getTime() - minDate) / dateRange) * (W - PAD_L - PAD_R);
+  const yFor = (w) => PAD_T + (1 - (w - minW) / range) * (H - PAD_T - PAD_B);
 
   const points = series.map((p) => `${xFor(p.date)},${yFor(p.weight)}`).join(' ');
   const last = series[series.length - 1];
-  const lastX = xFor(last.date);
-  const lastY = yFor(last.weight);
+
+  const gridValues = [rawMax, (rawMin + rawMax) / 2, rawMin];
+
+  const maxLabels = 6;
+  const xLabelStep = Math.max(1, Math.ceil(series.length / maxLabels));
+  const xLabels = series
+    .map((p, i) => ({ x: xFor(p.date), label: p.date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''), i }))
+    .filter(({ i }) => i === 0 || i === series.length - 1 || i % xLabelStep === 0);
+
+  const { deltaLabel, isDrop, isRise } = formatWeightDelta(series);
+  const alerts = computeWeightAlerts(series);
+  const deltaColor = isDrop || isRise ? '#FB923C' : '#DFFF40';
+  const lineColor = '#DFFF40';
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 150 }} preserveAspectRatio="xMidYMid meet">
-      <line x1={PAD_X} y1={H - PAD_Y} x2={W - PAD_X} y2={H - PAD_Y} stroke="#EDEBFB" strokeWidth="1" />
-      <polyline
-        points={points}
-        fill="none"
-        stroke={C.purple}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {series.map((p, i) => {
-        const isLast = i === series.length - 1;
-        return (
-          <circle
-            key={p.id || i}
-            cx={xFor(p.date)}
-            cy={yFor(p.weight)}
-            r={isLast ? 5 : 3}
-            fill={isLast ? C.purple : '#fff'}
-            stroke={C.purple}
-            strokeWidth={isLast ? 0 : 2}
-          />
-        );
-      })}
-      <text
-        x={Math.min(Math.max(lastX, 24), W - 24)}
-        y={Math.max(lastY - 12, 12)}
-        textAnchor="middle"
-        fontSize="12"
-        fontWeight="900"
-        fill={C.purpleDark}
-      >
-        {last.weight}kg
-      </text>
-    </svg>
+    <div className="rounded-[24px] p-4" style={{ background: 'linear-gradient(160deg, #1a1030 0%, #2D2657 100%)' }}>
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-[8px] font-black uppercase tracking-[2px]" style={{ color: 'rgba(255,255,255,0.42)' }}>
+          Peso
+        </span>
+        <div className="flex items-center gap-2">
+          {alerts.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide"
+              style={{ background: 'rgba(251,146,60,0.16)', color: '#FB923C' }}>
+              Padrão mudou
+            </span>
+          )}
+          <span className="text-[12px] font-black" style={{ color: deltaColor }}>{deltaLabel}</span>
+        </div>
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 170 }} preserveAspectRatio="xMidYMid meet">
+        {gridValues.map((v, i) => (
+          <g key={i}>
+            <line x1={PAD_L} x2={W - PAD_R} y1={yFor(v)} y2={yFor(v)} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+            <text x={PAD_L - 6} y={yFor(v) + 3} textAnchor="end" fontSize="8" fill="rgba(255,255,255,0.38)">
+              {v.toFixed(1).replace('.', ',')}
+            </text>
+          </g>
+        ))}
+
+        <polyline
+          points={points}
+          fill="none"
+          stroke={lineColor}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {series.map((p, i) => {
+          const isLast = i === series.length - 1;
+          return (
+            <circle
+              key={p.id || i}
+              cx={xFor(p.date)}
+              cy={yFor(p.weight)}
+              r={isLast ? 6 : 3}
+              fill={isLast ? '#FB923C' : '#1a1030'}
+              stroke={isLast ? 'rgba(255,255,255,0.6)' : lineColor}
+              strokeWidth={2}
+            />
+          );
+        })}
+
+        {xLabels.map(({ x, label, i }) => (
+          <text key={i} x={x} y={H - 4} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.38)">
+            {label}
+          </text>
+        ))}
+      </svg>
+    </div>
   );
 }
 
 // ─── Modal rápido de registro de peso (mesmo fluxo do FAB) ──────────────────
-function QuickWeightModal({ cat, onClose, onSaved }) {
+// Pós-sucesso: em vez de fechar na hora, pergunta ao módulo único de decisão
+// (surface=POST_SUCCESS) se cabe um card leve — some com um toque, nunca modal.
+export function QuickWeightModal({ cat, onClose, onSaved }) {
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [justSaved, setJustSaved] = useState(false);
+  const [postOffer, setPostOffer] = useState(null);
 
   const save = async () => {
     const weightNum = parseFloat(String(value).replace(',', '.'));
@@ -292,7 +265,14 @@ function QuickWeightModal({ cat, onClose, onSaved }) {
         notes: 'Peso registrado via Linha do tempo.',
       });
       await onSaved?.();
-      onClose();
+      setJustSaved(true);
+
+      api.get('/offers/decide', { params: { surface: 'POST_SUCCESS', petId: cat.id, trigger: 'weight' } })
+        .then((r) => {
+          if (r.data?.offer) setPostOffer(r.data.offer);
+          else onClose();
+        })
+        .catch(() => onClose());
     } catch {
       setError('Não foi possível registrar agora. Tente de novo.');
     } finally {
@@ -316,32 +296,48 @@ function QuickWeightModal({ cat, onClose, onSaved }) {
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-[26px] p-6 w-full max-w-sm shadow-2xl"
       >
-        <div className="flex items-center justify-between mb-4">
-          <p className="font-black text-gray-800 text-sm">Registrar peso de {cat?.name}</p>
-          <button onClick={onClose}><X size={18} className="text-gray-400" /></button>
-        </div>
-        <div className="flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-3 mb-2">
-          <input
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            autoFocus
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="0.0"
-            className="flex-1 bg-transparent text-2xl font-black text-gray-800 outline-none"
-          />
-          <span className="font-black text-gray-400 text-sm">kg</span>
-        </div>
-        {error && <p className="text-[11px] font-bold text-red-500 mb-2">{error}</p>}
-        <button
-          onClick={save}
-          disabled={saving}
-          className="w-full py-3.5 rounded-2xl font-black text-white text-sm mt-2"
-          style={{ background: saving ? '#9ca3af' : `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}
-        >
-          {saving ? 'Salvando...' : 'Salvar pesagem'}
-        </button>
+        {justSaved ? (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-black text-gray-800 text-sm flex items-center gap-2">
+                <Check size={16} className="text-green-500" /> Peso registrado!
+              </p>
+              <button onClick={onClose}><X size={18} className="text-gray-400" /></button>
+            </div>
+            {postOffer && (
+              <OfferCard offer={postOffer} surface="POST_SUCCESS" petId={cat.id} dismissible={false} />
+            )}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-black text-gray-800 text-sm">Registrar peso de {cat?.name}</p>
+              <button onClick={onClose}><X size={18} className="text-gray-400" /></button>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-3 mb-2">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                autoFocus
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="0.0"
+                className="flex-1 bg-transparent text-2xl font-black text-gray-800 outline-none"
+              />
+              <span className="font-black text-gray-400 text-sm">kg</span>
+            </div>
+            {error && <p className="text-[11px] font-bold text-red-500 mb-2">{error}</p>}
+            <button
+              onClick={save}
+              disabled={saving}
+              className="w-full py-3.5 rounded-2xl font-black text-white text-sm mt-2"
+              style={{ background: saving ? '#9ca3af' : `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}
+            >
+              {saving ? 'Salvando...' : 'Salvar pesagem'}
+            </button>
+          </>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -373,30 +369,21 @@ function WeightBlock({ cat, weightSeries, onOpenQuickWeight }) {
     );
   }
 
-  const { deltaLabel, periodLabel, isDrop, isRise } = formatWeightDelta(weightSeries);
-
   return (
-    <div className="bg-white rounded-[28px] p-5 border border-gray-100 shadow-sm">
-      <div className="flex items-center justify-between mb-1">
+    <div>
+      <div className="flex items-center justify-between mb-2 px-1">
         <p className="text-[10px] font-black uppercase tracking-[3px] text-[#8B4AFF]">Curva de peso</p>
         <button onClick={onOpenQuickWeight} className="text-[11px] font-black" style={{ color: C.purple }}>
           + Pesar
         </button>
       </div>
-      <p
-        className="text-3xl font-black tracking-tight mb-3"
-        style={{ color: isDrop ? C.red : isRise ? C.amber : C.green }}
-      >
-        {deltaLabel}
-        <span className="text-sm font-bold text-gray-400 ml-1.5">em {periodLabel}</span>
-      </p>
       <WeightChart series={weightSeries} />
     </div>
   );
 }
 
 // ─── Bloco 2 — Marcos ────────────────────────────────────────────────────────
-function MarcosBlock({ marcos, onOpenTab }) {
+export function MarcosBlock({ marcos, onOpenTab }) {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [period, setPeriod] = useState('all');
 
@@ -505,7 +492,7 @@ function MarcosBlock({ marcos, onOpenTab }) {
 }
 
 // ─── Bloco 3 — Leitura de padrão ─────────────────────────────────────────────
-function PatternBlock({ alerts }) {
+export function PatternBlock({ alerts }) {
   if (alerts.length === 0) {
     return (
       <div className="bg-white rounded-[28px] p-5 border border-gray-100 shadow-sm">
@@ -550,6 +537,104 @@ function PatternBlock({ alerts }) {
   );
 }
 
+// ─── Nutrição — dados reais do perfil (portado da antiga aba "Evolução") ────
+// foodType é multi-select (EditProfileModal): array de rótulos já em
+// português (Seca/Úmida/Natural/Mista/Outra) — só juntar, não remapear.
+function normalizeFoodType(value) {
+  if (!Array.isArray(value) || value.length === 0) return 'Não informado';
+  return value.join(', ');
+}
+
+// feedFrequencyMode também já é salvo como rótulo em português
+// (Livre, 2x ao dia, 3x ao dia, 4x ao dia, Outra) — exibir direto.
+function normalizeFeedFrequency(value) {
+  return value ? String(value) : 'Não informado';
+}
+
+function normalizeGender(value) {
+  if (!value) return 'Gato';
+  const v = String(value).toLowerCase();
+  if (['male', 'macho', 'masculino'].includes(v)) return 'Macho';
+  if (['female', 'fêmea', 'femea', 'feminino'].includes(v)) return 'Fêmea';
+  return value;
+}
+
+function getWeightReference(cat) {
+  const breed = String(cat?.breed || 'SRD').toUpperCase();
+  let min = 3.2;
+  let max = 5.5;
+  if (breed.includes('MAINE')) { min = 6; max = 11; }
+  else if (breed.includes('PERSA')) { min = 3; max = 5.5; }
+  else if (breed.includes('BENGAL')) { min = 3.5; max = 6.5; }
+  return { min, max };
+}
+
+function getNutritionStatus(cat) {
+  const w = Number(cat?.weight || 0);
+  const { min, max } = getWeightReference(cat);
+
+  if (!w) {
+    return { label: 'Pendente', msg: 'Registre o peso para ativar a leitura nutricional.', color: '#9CA3AF' };
+  }
+  if (w < min) {
+    return { label: 'Subpeso', msg: `${cat?.name || 'O gato'} está abaixo da faixa estimada para o perfil atual.`, color: C.amber };
+  }
+  if (w > max) {
+    return { label: 'Sobrepeso', msg: `${cat?.name || 'O gato'} está acima da faixa estimada para o perfil atual.`, color: '#EC4899' };
+  }
+  return { label: 'Peso ideal', msg: `${cat?.name || 'O gato'} está dentro da faixa esperada para o perfil atual.`, color: C.green };
+}
+
+function NutritionFieldCard({ label, value }) {
+  return (
+    <div className="rounded-[18px] border border-gray-100 bg-gray-50 px-3.5 py-3">
+      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-400 mb-1">{label}</p>
+      <p className="text-[12px] font-black text-gray-700 leading-snug">{value || 'Não informado'}</p>
+    </div>
+  );
+}
+
+function NutritionBlock({ cat }) {
+  const status = getNutritionStatus(cat);
+  const genderLabel = normalizeGender(cat?.gender);
+
+  return (
+    <div className="bg-white rounded-[28px] p-5 border border-gray-100 shadow-sm">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-black uppercase tracking-[3px] text-[#8B4AFF]">Nutrição</p>
+        <span
+          className="px-3 py-1 rounded-full text-[10px] font-black"
+          style={{ background: `${status.color}18`, color: status.color }}
+        >
+          {status.label}
+        </span>
+      </div>
+      <p className="text-[12px] font-medium text-gray-500 leading-relaxed mb-4">{status.msg}</p>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <NutritionFieldCard label="Marca principal" value={cat?.foodBrand} />
+        <NutritionFieldCard label="Tipo de alimentação" value={normalizeFoodType(cat?.foodType)} />
+        <NutritionFieldCard label="Frequência" value={normalizeFeedFrequency(cat?.feedFrequencyMode)} />
+        <NutritionFieldCard label="Perfil biológico" value={`${genderLabel} · ${cat?.breed || 'SRD'}`} />
+      </div>
+
+      {cat?.feedFrequencyNotes ? (
+        <div className="mt-3 rounded-[18px] bg-[#F4F3FF] border border-[#8B4AFF18] px-4 py-3">
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-400 mb-1">Observações da rotina alimentar</p>
+          <p className="text-[12px] font-medium text-gray-600 leading-relaxed">{cat.feedFrequencyNotes}</p>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-[18px] bg-amber-50 border border-amber-100 px-4 py-3 flex items-start gap-2">
+          <Utensils size={13} className="text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
+            Ainda não há observações nutricionais detalhadas registradas.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Componente principal ────────────────────────────────────────────────────
 export default function TimelineModule({ cat, touch, refreshCat, onOpenTab }) {
   const [quickWeightOpen, setQuickWeightOpen] = useState(false);
@@ -569,6 +654,7 @@ export default function TimelineModule({ cat, touch, refreshCat, onOpenTab }) {
   return (
     <div className="space-y-4 pt-2">
       <WeightBlock cat={cat} weightSeries={weightSeries} onOpenQuickWeight={openQuickWeight} />
+      <NutritionBlock cat={cat} />
       <MarcosBlock marcos={marcos} onOpenTab={onOpenTab} />
       <PatternBlock alerts={alerts} />
 

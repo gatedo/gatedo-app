@@ -255,7 +255,12 @@ export class ContentService {
   async listMyEnrollments(userId: string, petId?: string) {
     return this.prisma.protocolEnrollment.findMany({
       where: { userId, ...(petId ? { petId } : {}) },
-      include: { protocol: { select: { title: true, slug: true, totalDays: true } } },
+      include: {
+        protocol: { select: { title: true, slug: true, totalDays: true } },
+        // Seleção enxuta — só o suficiente pra saber se o dia atual já abriu
+        // (usado pelo "O que precisa de você hoje" da Home).
+        logs: { select: { dayNumber: true, unlockedAt: true, completedAt: true } },
+      },
       orderBy: { startedAt: 'desc' },
     });
   }

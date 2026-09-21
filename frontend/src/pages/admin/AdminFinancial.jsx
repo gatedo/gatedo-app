@@ -11,13 +11,14 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
+import {
+  FOUNDER_LAUNCH_PHASES,
+  FOUNDER_REVENUE_MAX,
+  TOTAL_FOUNDER_SLOTS,
+} from '../../utils/founderLaunchConfig';
 
 // ─── Config das fases (espelho do backend) ────────────────────────────────────
-const FASES = [
-  { n: 1, label: 'Early Bird',   price: 47,  totalVagas: 50  },
-  { n: 2, label: 'Fundador',     price: 67,  totalVagas: 100 },
-  { n: 3, label: 'Acesso Final', price: 97,  totalVagas: 200 },
-];
+const FASES = FOUNDER_LAUNCH_PHASES;
 
 // Calcula receita total com base nas vendas por fase
 function calcReceita(vendas = {}) {
@@ -25,7 +26,7 @@ function calcReceita(vendas = {}) {
 }
 
 // Receita potencial se todas as vagas de todas as fases fossem vendidas
-const RECEITA_MAXIMA = FASES.reduce((acc, f) => acc + f.totalVagas * f.price, 0);
+const RECEITA_MAXIMA = FOUNDER_REVENUE_MAX;
 
 export default function AdminFinancial() {
   const [loading,   setLoading]   = useState(true);
@@ -54,7 +55,7 @@ export default function AdminFinancial() {
   const totalVendidas = FASES.reduce((acc, f) => acc + (fasesData.vendas[f.n] ?? 0), 0);
   const receita       = calcReceita(fasesData.vendas);
   const receitaMedia  = totalVendidas > 0 ? receita / totalVendidas : 0;
-  const progressoMeta = Math.min((totalVendidas / 400) * 100, 100); // meta total: 400 fundadores (100+100+200)
+  const progressoMeta = Math.min((totalVendidas / TOTAL_FOUNDER_SLOTS) * 100, 100);
 
   return (
     <div className="space-y-6">
@@ -120,7 +121,7 @@ export default function AdminFinancial() {
             <div>
               <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Meta Fundadores</p>
               <h3 className="text-3xl font-black text-gray-800">
-                {totalVendidas} <span className="text-sm text-gray-400">/ 350</span>
+                {totalVendidas} <span className="text-sm text-gray-400">/ {TOTAL_FOUNDER_SLOTS}</span>
               </h3>
             </div>
             <div className="bg-amber-50 p-3 rounded-2xl">

@@ -27,6 +27,7 @@ import {
   getPetAgeInMonths,
   getPetAgeLabel,
 } from '../../utils/adminPanelMeta';
+import { getPrimaryTutorBadge } from '../../utils/membershipMeta';
 
 function Avatar({ name, photoUrl, size = 'md' }) {
   const sizeClass = size === 'lg' ? 'w-14 h-14 text-base' : 'w-11 h-11 text-sm';
@@ -63,6 +64,25 @@ function BadgePill({ label, className, icon }) {
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black border ${className}`}>
       <IconComponent size={9} />
       {label}
+    </span>
+  );
+}
+
+function TutorHierarchyPill({ badge, petMode = false }) {
+  if (!badge) return null;
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black border shadow-sm"
+      style={{
+        background: badge.pillBg || badge.color || '#8B4AFF',
+        color: badge.pillText || '#ebfc66',
+        borderColor: badge.pillBg || badge.color || '#8B4AFF',
+      }}
+      title={badge.title || badge.label}
+    >
+      <Crown size={9} />
+      {petMode ? badge.petLabel || badge.label : badge.label}
     </span>
   );
 }
@@ -337,6 +357,8 @@ export default function AdminCats() {
         pet?.id,
         pet?.owner?.name,
         pet?.owner?.email,
+        pet?.owner?.plan,
+        ...(Array.isArray(pet?.owner?.badges) ? pet.owner.badges : []),
         getCatLifeStage(pet).label,
       ]
         .filter(Boolean)
@@ -457,6 +479,7 @@ export default function AdminCats() {
                 const customBadges = Array.isArray(pet.badges)
                   ? pet.badges.filter((badge) => badge && badge !== lifeStage.label)
                   : [];
+                const tutorBadge = getPrimaryTutorBadge(pet.owner || {});
 
                 return (
                   <tr key={pet.id} className="hover:bg-gray-50/60 transition-colors">
@@ -484,6 +507,9 @@ export default function AdminCats() {
                           <p className="text-[11px] text-gray-400 flex items-center gap-1 truncate">
                             <Mail size={9} /> {pet.owner?.email || 'Sem e-mail'}
                           </p>
+                          <div className="mt-1">
+                            <TutorHierarchyPill badge={tutorBadge} />
+                          </div>
                           {pet.owner?.id && (
                             <button
                               onClick={() => navigator.clipboard.writeText(pet.owner.id)}
@@ -506,7 +532,7 @@ export default function AdminCats() {
                           Idade: {getPetAgeLabel(pet)}
                         </p>
                         <p className="text-[11px] text-gray-400">
-                          Plano tutor: {pet.owner?.plan || 'FREE'}
+                          Plano tutor: {tutorBadge?.label || pet.owner?.plan || 'FREE'}
                         </p>
                       </div>
                     </td>
@@ -530,6 +556,7 @@ export default function AdminCats() {
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-1 max-w-[220px]">
                         <BadgePill label={lifeStage.label} className={lifeStage.className} icon={Cat} />
+                        <TutorHierarchyPill badge={tutorBadge} petMode />
                         {customBadges.length > 0
                           ? customBadges.map((badge) => (
                               <BadgePill

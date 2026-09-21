@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useContext } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import {
   ArrowLeft, Share2, QrCode, UserPlus, Check, Camera, Grid,
@@ -15,6 +15,8 @@ import { buildSocialHealthSummary } from '../utils/socialHealthAdapter';
 import SocialPostComposerModal from '../components/social/SocialPostComposerModal';
 import { pruneSocialGallerySelection } from '../utils/socialGallerySelection';
 import { formatCatAge, getCatLifeStage, LIFE_STAGE_META } from '../utils/catAge';
+import { getPrimaryTutorBadge } from '../utils/membershipMeta';
+import { getCatLevelMeta, getCatLevelProgress } from '../utils/adminPanelMeta';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatCatRg(cat) {
@@ -33,20 +35,24 @@ function getTutorAvatar(cat, authUser) {
   return t?.avatarUrl || t?.photoUrl || t?.image || '/assets/App_gatedo_logo.svg';
 }
 function deriveBehavior(cat) {
-  const p = cat?.personality || {};
   const s = cat?.stats || {};
   return {
-    sociability:  Number(p.sociability  ?? s.sociability  ?? 78),
-    curiosity:    Number(p.curiosity    ?? s.curiosity    ?? 84),
-    energy:       Number(p.energy       ?? s.energy       ?? 71),
-    independence: Number(p.independence ?? s.independence ?? 63),
+    sociability:  Number(cat?.skillSocial    ?? s.sociability  ?? 78),
+    curiosity:    Number(cat?.skillCuriosity ?? s.curiosity    ?? 84),
+    energy:       Number(cat?.skillEnergy    ?? s.energy       ?? 71),
+    independence: Number(cat?.skillIndep     ?? s.independence ?? 63),
   };
 }
 function scoreTone(score) {
-  if (score >= 90) return { label: 'Excelente', color: '#22c55e' };
-  if (score >= 75) return { label: 'Saudável',  color: '#16a34a' };
-  if (score >= 55) return { label: 'Atenção',   color: '#f59e0b' };
-  return               { label: 'Sensível',  color: '#ef4444' };
+  if (score >= 75) return { label: 'Em dia', color: '#22c55e' };
+  if (score >= 55) return { label: 'Atenção', color: '#5d7edc' };
+  if (score >= 35) return { label: 'Revisar', color: '#f59e0b' };
+  return { label: 'Pendente', color: '#ef4444' };
+}
+
+function resolveCatXpg(cat) {
+  const value = Number(cat?.xpg ?? cat?.stats?.xpg ?? cat?.petXp ?? cat?.xp ?? 0);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 function getLifeStageStyle(stage, themeHex) {
@@ -161,7 +167,7 @@ function getSocialHealthCollections(cat, healthData) {
 
 const spring = { type: 'spring', stiffness: 340, damping: 30 };
 const fadeSlide = (delay = 0) => ({
-  initial:    { opacity: 0, y: 18 },
+  initial:    { opacity: 0, y: 0 },
   animate:    { opacity: 1, y: 0 },
   transition: { type: 'spring', stiffness: 280, damping: 26, delay },
 });
@@ -270,7 +276,7 @@ function resolveLastHealthUpdate(summary, cat) {
 // score + status + foto + última atualização, sem trazer o painel inteiro.
 // ─────────────────────────────────────────────────────────────────────────────
 function SocialHealthBanner({ cat, summary, themeHex }) {
-  const score = Number(summary?.score || summary?.overallScore || cat?.healthScore || 88);
+  const score = Number(summary?.score ?? summary?.overallScore ?? cat?.healthScore ?? 0);
   const tone = scoreTone(score);
   const updated = resolveLastHealthUpdate(summary, cat);
   const headline = summary?.headline || summary?.statusText || 'Leitura preventiva baseada nos registros do perfil.';
@@ -382,7 +388,7 @@ function BioProfileInsights({ cat, themeHex }) {
       </div>
 
       {cat?.bio ? (
-        <p className="text-[12px] text-gray-500 font-medium leading-relaxed mb-3 line-clamp-3">“{cat.bio}”</p>
+        <p className="text-[12px] text-gray-500 font-medium leading-relaxed mb-3 line-clamp-3">"{cat.bio}"</p>
       ) : (
         <p className="text-[12px] text-gray-400 font-medium leading-relaxed mb-3">
           Complete a bio para deixar o perfil social mais vivo e ajudar outros tutores a conhecerem melhor o comportamento do gato.
@@ -676,9 +682,10 @@ function TimelineList({ timeline }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function AchievementsPanel({ cat, themeHex }) {
   const achievements = cat?.achievements || [];
-  const xpg   = Number(cat?.stats?.xpg || 0);
-  const level = Math.max(1, Math.ceil(xpg / 120));
-  const xpPct = Math.min(((xpg % 120) / 120) * 100, 100);
+  const xpg = resolveCatXpg(cat);
+  const levelMeta = getCatLevelMeta(xpg);
+  const level = levelMeta.rank;
+  const xpPct = getCatLevelProgress(xpg);
   const stage = getCatLifeStage(cat);
   const stageInfo = stage ? LIFE_STAGE_META[stage] : null;
   const displayAchievements = stageInfo
@@ -843,6 +850,7 @@ function QRModal({ open, onClose, cat }) {
 export default function CatSocialProfile() {
   const { catId }  = useParams();
   const navigate   = useNavigate();
+  const location   = useLocation();
   const touch      = useSensory();
   const { user: authUser } = useContext(AuthContext);
 
@@ -859,12 +867,6 @@ export default function CatSocialProfile() {
   const [healthData, setHealthData] = useState(null);
   const [healthSummary, setHealthSummary] = useState(null);
   const [socialGallerySelection, setSocialGallerySelection] = useState([]);
-
-  // Parallax scroll for hero
-  const { scrollY } = useScroll();
-  const heroY       = useTransform(scrollY, [0, 220], [0, -36]);
-  const heroOpacity = useTransform(scrollY, [0, 180], [1, 0.35]);
-  const cardY       = useTransform(scrollY, [0, 100], [0, 4]);
 
   const loadCat = React.useCallback(async () => {
     if (!catId) return;
@@ -895,11 +897,22 @@ export default function CatSocialProfile() {
   useEffect(() => { loadCat(); }, [loadCat]);
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }); }, [catId]);
 
+  useEffect(() => {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
+
   const themeHex = resolveThemeHex(cat?.themeColor) || '#8b4aff';
   const catRg    = formatCatRg(cat);
   const tutor    = getTutor(cat, authUser);
   const tutorName   = tutor?.name || 'Tutor';
   const tutorAvatar = getTutorAvatar(cat, authUser);
+  const tutorBadge = getPrimaryTutorBadge(tutor);
   const behavior = deriveBehavior(cat);
   const galleryUrls = useMemo(
     () => normalizeGalleryUrls(cat?.gallery || cat?.galleryPhotos || cat?.photos || []),
@@ -938,10 +951,12 @@ export default function CatSocialProfile() {
   const viewerIsOwner = useMemo(() =>
     authUser?.id ? ownerIds.includes(String(authUser.id)) : false, [authUser?.id, ownerIds]);
 
-  const score    = Number(healthSummary?.score || healthSummary?.overallScore || 88);
-  const xpg      = Number(cat?.stats?.xpg || 0);
-  const level    = Math.max(1, Math.ceil(xpg / 120));
+  const score    = Number(healthSummary?.score ?? healthSummary?.overallScore ?? 0);
+  const xpg      = resolveCatXpg(cat);
+  const level    = getCatLevelMeta(xpg).rank;
   const ageLabel = formatCatAge(cat, { fallback: 'N/I' });
+  const lifeStage = getCatLifeStage(cat);
+  const lifeStageMeta = lifeStage ? LIFE_STAGE_META[lifeStage] : null;
 
   const handleFollow = async () => {
     if (viewerIsOwner) return;
@@ -950,10 +965,23 @@ export default function CatSocialProfile() {
     setFollowCount(p => p + (following ? -1 : 1));
   };
 
+  const handleBack = () => {
+    const from = location.state?.from;
+    if (from) {
+      navigate(from, { replace: true, state: { restoreTab: location.state?.restoreTab || 'BIO' } });
+      return;
+    }
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(cat?.id ? `/cat/${cat.id}` : '/comunigato', { replace: true });
+  };
+
   // ── Loading ──
   if (loading) return (
-    <div className="min-h-screen bg-[var(--gatedo-light-bg)] flex flex-col">
-      <div className="h-[340px] bg-gray-200 animate-pulse" />
+    <div className="h-dvh bg-[var(--gatedo-light-bg)] flex flex-col overflow-y-auto overflow-x-hidden">
+      <div className="h-[236px] bg-gray-200 animate-pulse" />
       <div className="flex-1 px-4 pt-5 space-y-4">
         <div className="h-28 rounded-[24px] bg-white animate-pulse" />
         <div className="h-48 rounded-[24px] bg-white animate-pulse" />
@@ -962,7 +990,7 @@ export default function CatSocialProfile() {
   );
 
   if (!cat) return (
-    <div className="min-h-screen bg-[var(--gatedo-light-bg)] flex flex-col items-center justify-center gap-4">
+    <div className="h-dvh bg-[var(--gatedo-light-bg)] flex flex-col items-center justify-center gap-4 overflow-y-auto overflow-x-hidden">
       <PawPrint size={40} className="text-gray-300" />
       <p className="text-[14px] font-bold text-gray-400">Perfil não encontrado</p>
       <button onClick={() => navigate(-1)} className="text-[13px] font-black text-gray-600 px-5 py-2.5 bg-white rounded-full shadow-sm">
@@ -978,16 +1006,16 @@ export default function CatSocialProfile() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--gatedo-light-bg)]"
-      style={{ fontFamily: "'Nunito', sans-serif" }}>
+    <div className="h-dvh overflow-y-auto overflow-x-hidden bg-[var(--gatedo-light-bg)]"
+      style={{ fontFamily: "'Nunito', sans-serif", WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'auto' }}>
 
-      {/* ── HERO PHOTO — full bleed, parallax ── */}
+      {/* ── HERO PHOTO — full bleed ── */}
       <div className="relative overflow-hidden" style={{ height: 236 }}>
-        <motion.img
+        <img
           src={getPhoto(cat)}
           alt={cat?.name}
           className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ y: heroY, opacity: heroOpacity, objectPosition: 'center 38%' }}
+          style={{ objectPosition: 'center 38%' }}
           draggable="false"
           loading="eager"
         />
@@ -1005,15 +1033,14 @@ export default function CatSocialProfile() {
           className="absolute top-0 left-0 right-0 px-4 flex items-center justify-between z-10"
           style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)' }}
         >
-          <motion.button initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
-            onClick={() => navigate(-1)}
+          <button
+            onClick={handleBack}
             className="w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md"
             style={{ background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(255,255,255,0.2)' }}>
             <ArrowLeft size={18} className="text-white" />
-          </motion.button>
+          </button>
 
-          <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
-            className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {[
               { icon: Share2, action: () => setShowShare(true) },
               { icon: QrCode, action: () => setShowQR(true)    },
@@ -1024,19 +1051,18 @@ export default function CatSocialProfile() {
                 <Icon size={17} className="text-white" />
               </button>
             ))}
-          </motion.div>
+          </div>
         </div>
 
         {/* Cat name overlay on photo — bottom left */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="absolute bottom-12 left-5 right-5">
+        <div className="absolute bottom-12 left-5 right-5">
           <p className="text-[10px] font-black text-white/70 uppercase tracking-[0.22em] mb-1">Perfil Social</p>
           <h1 className="text-[38px] font-black text-white leading-none drop-shadow-sm">{cat.name}</h1>
-        </motion.div>
+        </div>
       </div>
 
       {/* ── IDENTITY CARD — floats over hero ── */}
-      <motion.div style={{ y: cardY }} className="relative -mt-5 px-4 z-10">
+      <div className="relative -mt-5 px-4 z-10">
         <motion.div {...fadeSlide(0.1)}
           className="bg-white rounded-[28px] shadow-[0_4px_32px_rgba(0,0,0,0.1)] overflow-hidden border-[2px]"
           style={{ borderColor: `${themeHex}22` }}>
@@ -1051,6 +1077,21 @@ export default function CatSocialProfile() {
                   <span className="text-[10px] font-black px-2.5 py-1 rounded-full text-white"
                     style={{ background: themeHex }}>{catRg}</span>
                   <span className="text-[10px] font-bold text-gray-500">{cat.breed || 'SRD'}</span>
+                  {lifeStageMeta && (
+                    <span className="text-[10px] font-black px-2 py-1 rounded-full border uppercase"
+                      style={{ background: `${themeHex}12`, color: themeHex, borderColor: `${themeHex}24` }}>
+                      {lifeStageMeta.label}
+                    </span>
+                  )}
+                  {tutorBadge && (
+                    <span className="relative ml-3 inline-flex items-center overflow-visible text-[9px] font-black px-2 py-1 pl-7 rounded-full uppercase"
+                      style={{ background: tutorBadge.gradient || tutorBadge.pillBg || tutorBadge.color || themeHex, color: tutorBadge.pillText || '#ebfc66' }}>
+                      {tutorBadge.launchBadge ? (
+                        <img src={tutorBadge.asset || `/assets/badges/${tutorBadge.key}.png`} alt="" className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 object-contain" />
+                      ) : null}
+                      <span className="relative z-10">{tutorBadge.petLabel || tutorBadge.label}</span>
+                    </span>
+                  )}
                   {cat.neutered && <span className="text-[10px] font-bold text-gray-400">· Castrado</span>}
                 </div>
               </div>
@@ -1084,6 +1125,11 @@ export default function CatSocialProfile() {
                 <div className="min-w-0">
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Tutor</p>
                   <p className="text-[13px] font-black text-gray-900 truncate leading-tight">{tutorName}</p>
+                  {tutorBadge && (
+                    <p className="text-[9px] font-black uppercase tracking-[1.5px] truncate" style={{ color: tutorBadge.pillBg || tutorBadge.color || themeHex }}>
+                      {tutorBadge.label}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1145,7 +1191,7 @@ export default function CatSocialProfile() {
         <div className="mt-4 pb-24">
           <AnimatePresence mode="wait">
             <motion.div key={activeTab}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}>
 
               {activeTab === 'galeria' && (
@@ -1173,7 +1219,7 @@ export default function CatSocialProfile() {
             </motion.div>
           </AnimatePresence>
         </div>
-      </motion.div>
+      </div>
 
       {/* ── Bottom sheets ── */}
       <ShareSheet open={showShare} onClose={() => setShowShare(false)} cat={cat} themeHex={themeHex} />

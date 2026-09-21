@@ -2,12 +2,11 @@ import React, { memo, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Book,
-  TrendingUp,
   Brain,
   ShieldAlert,
   Syringe,
   FileText,
-  History,
+  TrendingUp,
 } from 'lucide-react';
 
 const TABS = [
@@ -21,13 +20,13 @@ const TABS = [
     border: 'border-amber-100',
   },
   {
-    id: 'EVOLUCAO',
-    label: 'Evolução',
-    mobileLabel: 'Evolução',
+    id: 'LINHATEMPO',
+    label: 'Linha do tempo',
+    mobileLabel: 'Timeline',
     icon: TrendingUp,
-    color: 'bg-rose-500',
-    text: 'text-rose-600',
-    border: 'border-rose-100',
+    color: 'bg-red-500',
+    text: 'text-red-600',
+    border: 'border-red-100',
   },
   {
     id: 'COMPORTAMENTO',
@@ -52,18 +51,9 @@ const TABS = [
     label: 'Imunização',
     mobileLabel: 'Imuniz.',
     icon: Syringe,
-    color: 'bg-indigo-500',
-    text: 'text-indigo-600',
-    border: 'border-indigo-100',
-  },
-  {
-    id: 'LINHATEMPO',
-    label: 'Linha do tempo',
-    mobileLabel: 'Timeline',
-    icon: History,
-    color: 'bg-cyan-500',
-    text: 'text-cyan-600',
-    border: 'border-cyan-100',
+    color: 'bg-teal-500',
+    text: 'text-teal-600',
+    border: 'border-teal-100',
   },
   {
     id: 'DOCUMENTOS',

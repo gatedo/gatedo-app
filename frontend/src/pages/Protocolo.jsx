@@ -82,10 +82,13 @@ export default function Protocolo() {
       .finally(() => setLoading(false));
   }, [slug, user?.id]);
 
-  // Se não veio com gato, busca a lista pra escolher
+  // Se não veio com gato, busca a lista pra escolher — gato falecido
+  // (memorial/arquivado) não recebe protocolo novo.
   useEffect(() => {
     if (catId) return;
-    api.get('/pets').then((r) => setCats(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get('/pets')
+      .then((r) => setCats(Array.isArray(r.data) ? r.data.filter((c) => !c.isMemorial && !c.isArchived) : []))
+      .catch(() => {});
   }, [catId]);
 
   // Verifica se já existe uma inscrição ativa deste protocolo pra este gato

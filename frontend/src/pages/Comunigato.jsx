@@ -4,7 +4,7 @@ import {
   Search, Bell, Heart, MessageCircle, Share2, Plus,
   Bookmark, Brain, Stethoscope, Sparkles, ChevronRight,
   Shield, CheckCircle, MoreHorizontal, X, AlertCircle, Camera,
-  Copy, Download, Instagram, Facebook
+  Copy, Download, Instagram, Facebook, Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
@@ -14,6 +14,7 @@ import useSensory from '../hooks/useSensory';
 import SocialPostComposerModal from '../components/social/SocialPostComposerModal';
 import CommunityCatsBar from '../components/social/CommunityCatsBar';
 import OfficialNoticesStack from '../components/social/OfficialNoticesStack';
+import { getCatLifeBadge, getPrimaryTutorBadge } from '../utils/membershipMeta';
 
 const C = {
   purple: '#823fff',
@@ -125,6 +126,20 @@ function buildShareCaption(post) {
 }
 
 function AuthorBadge({ badge }) {
+  if (badge && typeof badge === 'object') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase"
+        style={{ background: badge.pillBg || badge.color || C.purple, color: badge.pillText || '#ebfc66' }}
+      >
+        {badge.launchBadge ? (
+          <img src={badge.asset || `/assets/badges/${badge.key}.png`} alt="" className="h-3 w-3 object-contain" />
+        ) : null}
+        {badge.label}
+      </span>
+    );
+  }
+
   const b = BADGES[badge];
   if (!b) return null;
 
@@ -156,6 +171,7 @@ function TypeBadge({ type }) {
 
 function CatChip({ cat, navigate }) {
   if (!cat) return null;
+  const tutorBadge = cat.tutorBadge || cat.ownerBadge || null;
 
   return (
     <motion.div
@@ -168,7 +184,18 @@ function CatChip({ cat, navigate }) {
         <AppImage src={cat.img} fallback={APP_FALLBACK_CAT} className="w-full h-full object-cover" alt={cat.name} />
       </div>
       <span className="text-[10px] font-black truncate" style={{ color: C.purple }}>{cat.name}</span>
-      <span className="text-[9px] text-gray-400 font-bold truncate">· {cat.breed}</span>
+      <span className="text-[9px] text-gray-400 font-bold truncate">· {getCatLifeBadge(cat)}</span>
+      {tutorBadge ? (
+        <span
+          className="relative ml-2 inline-flex items-center overflow-visible text-[8px] font-black uppercase truncate max-w-[110px] rounded-full px-1.5 py-0.5 pl-4"
+          style={{ background: tutorBadge.gradient || tutorBadge.pillBg || tutorBadge.color || C.purple, color: tutorBadge.pillText || '#ebfc66' }}
+        >
+          {tutorBadge.launchBadge ? (
+            <img src={tutorBadge.asset} alt="" className="absolute left-0 top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 object-contain" />
+          ) : null}
+          <span className="relative z-10 truncate">{tutorBadge.petLabel || tutorBadge.label}</span>
+        </span>
+      ) : null}
       <ChevronRight size={10} style={{ color: C.purple, opacity: 0.6 }} className="flex-shrink-0" />
     </motion.div>
   );
@@ -193,7 +220,7 @@ function VetRefChip({ vetRef }) {
   );
 }
 
-function PostCard({ post, onLike, onSave, onShare, onMenu, onComments, navigate }) {
+function PostCard({ post, onLike, onSave, onShare, onMenu, onDelete, onComments, navigate }) {
   const postType = POST_TYPES[post.type] || POST_TYPES.PHOTO;
 
   return (
@@ -233,12 +260,27 @@ function PostCard({ post, onLike, onSave, onShare, onMenu, onComments, navigate 
           </div>
         </div>
 
-        <button
-          onClick={() => onMenu(post)}
-          className="w-8 h-8 rounded-full hover:bg-gray-50 flex items-center justify-center transition-colors flex-shrink-0"
-        >
-          <MoreHorizontal size={16} className="text-gray-400" />
-        </button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {post.canDelete && (
+            <button
+              onClick={() => onDelete(post)}
+              className="w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center transition-colors"
+              title="Excluir publicação"
+              aria-label="Excluir publicação"
+            >
+              <Trash2 size={15} className="text-red-400" />
+            </button>
+          )}
+
+          <button
+            onClick={() => onMenu(post)}
+            className="w-8 h-8 rounded-full hover:bg-gray-50 flex items-center justify-center transition-colors"
+            title="Ações do post"
+            aria-label="Ações do post"
+          >
+            <MoreHorizontal size={16} className="text-gray-400" />
+          </button>
+        </div>
       </div>
 
       {post.cat && (
@@ -323,7 +365,7 @@ function PostCard({ post, onLike, onSave, onShare, onMenu, onComments, navigate 
   );
 }
 
-function FavoritesDrawer({ open, posts, onClose, onOpenPostMenu, onLike, onSave, onShare, onComments, navigate }) {
+function FavoritesDrawer({ open, posts, onClose, onOpenPostMenu, onLike, onSave, onShare, onDelete, onComments, navigate }) {
   return (
     <AnimatePresence>
       {open && (
@@ -336,10 +378,10 @@ function FavoritesDrawer({ open, posts, onClose, onOpenPostMenu, onLike, onSave,
           onClick={onClose}
         >
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+            initial={{ y: 24, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 18, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md rounded-[32px] pb-8"
             style={{
@@ -382,6 +424,7 @@ function FavoritesDrawer({ open, posts, onClose, onOpenPostMenu, onLike, onSave,
                     onLike={onLike}
                     onSave={onSave}
                     onShare={onShare}
+                    onDelete={onDelete}
                     onMenu={onOpenPostMenu}
                     onComments={onComments}
                     navigate={navigate}
@@ -396,7 +439,7 @@ function FavoritesDrawer({ open, posts, onClose, onOpenPostMenu, onLike, onSave,
   );
 }
 
-function PostActionSheet({ post, onClose, onCopyLink, onFacebookShare, onInstagramPrep, onTikTokPrep, onOpenCard }) {
+function PostActionSheet({ post, onClose, onCopyLink, onFacebookShare, onInstagramPrep, onTikTokPrep, onOpenCard, onDelete }) {
   if (!post) return null;
 
   const itemClass = 'w-full flex items-center gap-3 px-4 py-3 rounded-[16px] text-left border border-gray-100 bg-white';
@@ -412,10 +455,10 @@ function PostActionSheet({ post, onClose, onCopyLink, onFacebookShare, onInstagr
         onClick={onClose}
       >
         <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+          initial={{ y: 24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 18, opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
           onClick={(e) => e.stopPropagation()}
           className="w-full max-w-md rounded-[32px] pb-8"
           style={{
@@ -482,6 +525,19 @@ function PostActionSheet({ post, onClose, onCopyLink, onFacebookShare, onInstagr
                 <p className="text-[10px] text-gray-400 font-medium">Preview do card com branding do GATEDO</p>
               </div>
             </button>
+
+            {post.canDelete && (
+              <button
+                onClick={() => onDelete(post)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-[16px] text-left border border-red-100 bg-red-50"
+              >
+                <Trash2 size={16} className="text-red-500" />
+                <div>
+                  <p className="text-sm font-black text-red-600">Excluir publicação</p>
+                  <p className="text-[10px] text-red-400 font-medium">Remove este post do feed da Comunigato</p>
+                </div>
+              </button>
+            )}
           </div>
         </motion.div>
       </motion.div>
@@ -508,10 +564,10 @@ function SocialCardModal({ post, onClose, onCopyCaption, onCopyLink }) {
         onClick={onClose}
       >
         <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+          initial={{ y: 24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 18, opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
           onClick={(e) => e.stopPropagation()}
           className="w-full max-w-md rounded-[32px] pb-8"
           style={{
@@ -868,8 +924,13 @@ export default function Comunigato() {
     setTimeout(() => setToast(null), 2500);
   }, []);
 
-  const normalizePost = useCallback((p) => ({
+  const normalizePost = useCallback((p) => {
+    const authorBadge = getPrimaryTutorBadge(p.user || p.author || {});
+    const catTutorBadge = getPrimaryTutorBadge(p.pet?.owner || p.user || p.author || {});
+
+    return ({
     id: p.id,
+    userId: p.userId || p.user?.id || p.ownerId || null,
     type: p.type || 'PHOTO',
     visibility: p.visibility || 'PUBLIC',
     source: p.source || 'manual',
@@ -885,13 +946,23 @@ export default function Comunigato() {
         p.author?.avatar ||
         p.authorAvatar ||
         APP_FALLBACK_AVATAR,
-      badge: p.author?.badge || 'Gateiro Raiz',
+      badge: authorBadge || p.author?.badge || 'Gateiro Raiz',
     },
+    canDelete: Boolean(
+      p.canDelete ||
+      p.isMine ||
+      isAdmin ||
+      (authUser?.id && (p.userId === authUser.id || p.user?.id === authUser.id || p.ownerId === authUser.id))
+    ),
     cat: p.pet ? {
       id: p.pet.id,
       name: p.pet.name,
       breed: p.pet.breed || 'SRD',
       img: p.pet.photoUrl || APP_FALLBACK_CAT,
+      ageYears: p.pet.ageYears,
+      ageMonths: p.pet.ageMonths,
+      birthDate: p.pet.birthDate,
+      tutorBadge: catTutorBadge,
     } : null,
     caption: p.content || p.caption || '',
     image: p.imageUrl || p.image || null,
@@ -912,7 +983,8 @@ export default function Comunigato() {
       : 'agora',
     category: mapCategory(p.type),
     canShare: isAdmin || userXP >= XP_TO_SHARE,
-  }), [userXP, isAdmin]);
+  });
+  }, [userXP, isAdmin, authUser?.id]);
 
   const fetchPosts = useCallback(async () => {
     setFetchingPosts(true);
@@ -1173,6 +1245,36 @@ export default function Comunigato() {
     }
   };
 
+  const handleDeletePost = async (post) => {
+    if (!post?.id || !post.canDelete) {
+      showToast('Você só pode excluir publicações criadas pelo seu usuário.', 'warn');
+      return;
+    }
+
+    const confirmed = window.confirm('Excluir esta publicação da Comunigato? Essa ação não pode ser desfeita.');
+    if (!confirmed) return;
+
+    touch();
+
+    try {
+      await api.delete(`/social/posts/${post.id}`);
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+      setActiveActionPost((prev) => (prev?.id === post.id ? null : prev));
+
+      if (commentsPost?.id === post.id) {
+        setShowComments(false);
+        setCommentsPost(null);
+      }
+
+      showToast('Publicação excluída do feed', 'success');
+      await fetchCommunityCats();
+      await fetchMyCats();
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Não foi possível excluir a publicação agora';
+      showToast(msg, 'warn');
+    }
+  };
+
   const handleComments = async (post) => {
     setCommentsPost(post);
     setShowComments(true);
@@ -1297,6 +1399,7 @@ export default function Comunigato() {
         onLike={handleLike}
         onSave={handleSave}
         onShare={handleShare}
+        onDelete={handleDeletePost}
         onComments={handleComments}
         navigate={navigate}
       />
@@ -1348,6 +1451,7 @@ export default function Comunigato() {
               setSocialCardPost(activeActionPost);
               setActiveActionPost(null);
             }}
+            onDelete={handleDeletePost}
           />
         )}
       </AnimatePresence>
@@ -1623,6 +1727,7 @@ export default function Comunigato() {
                 onLike={handleLike}
                 onSave={handleSave}
                 onShare={handleShare}
+                onDelete={handleDeletePost}
                 onMenu={openPostMenu}
                 onComments={handleComments}
                 navigate={navigate}

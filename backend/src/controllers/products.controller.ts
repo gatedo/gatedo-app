@@ -81,12 +81,13 @@ export class ProductsController {
         images:       dto.images       || [],
         videoReview:  dto.videoReview  || null,
         badge:        dto.badge        || null,
+        tags:         Array.isArray(dto.tags) ? dto.tags : [],
         categoryId,
       },
       include: { category: true },
     });
   }
- 
+
   // ── PATCH /products/:id ───────────────────────────────────────────────────
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: any) {
@@ -102,6 +103,7 @@ export class ProductsController {
         images:       dto.images,
         videoReview:  dto.videoReview ?? null,
         badge:        dto.badge       ?? null,
+        tags:         Array.isArray(dto.tags) ? dto.tags : undefined,
         categoryId,
       },
       include: { category: true },

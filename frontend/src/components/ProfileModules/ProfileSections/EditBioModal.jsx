@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -112,6 +113,8 @@ function formatCatRegistry(cat) {
 }
 
 function Section({ icon: Icon, title, subtitle, children }) {
+  if (title === 'Comportamento' || title === 'Atributos RPG') return null;
+
   return (
     <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-5 pt-5 pb-3 border-b border-gray-50">
@@ -386,22 +389,22 @@ export default function EditBioModal({ isOpen, onClose, cat, onSave }) {
     }
   };
 
-  return (
+  const modal = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[2200] flex items-end justify-center bg-black/38 backdrop-blur-[2px]"
+        className="fixed inset-0 z-[2200] w-screen h-dvh min-h-screen flex items-end sm:items-center justify-center bg-[#210B46]/72 backdrop-blur-md sm:p-4"
         onClick={onClose}
       >
         <motion.div
-          initial={{ y: 56, opacity: 0.96 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 56, opacity: 0.96 }}
-          transition={{ duration: 0.28, ease: SHEET_EASE }}
+          initial={{ y: 34, opacity: 0.96, scale: 0.985 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: 34, opacity: 0.96, scale: 0.985 }}
+          transition={{ duration: 0.2, ease: SHEET_EASE }}
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-2xl rounded-t-[34px] bg-[#F8F9FE] shadow-[0_-12px_40px_rgba(33,16,72,0.16)] max-h-[92vh] flex flex-col overflow-hidden"
+          className="relative w-full max-w-2xl rounded-t-[34px] sm:rounded-[34px] bg-[#F8F9FE] shadow-[0_-12px_40px_rgba(33,16,72,0.16)] max-h-[86vh] flex flex-col overflow-hidden"
         >
           <div className="sticky top-0 z-10 bg-white/96 backdrop-blur border-b border-gray-100 px-5 py-4">
             <div className="flex justify-between items-center gap-3">
@@ -721,4 +724,7 @@ export default function EditBioModal({ isOpen, onClose, cat, onSave }) {
       </motion.div>
     </AnimatePresence>
   );
+
+  if (typeof document === 'undefined') return modal;
+  return createPortal(modal, document.body);
 }

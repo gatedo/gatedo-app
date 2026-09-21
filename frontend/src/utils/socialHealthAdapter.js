@@ -1,3 +1,6 @@
+import { normalizeHealthHistory } from './healthHistoryAdapter';
+import { calculateHealthScore } from './healthScore';
+
 function formatDateLabel(dateInput) {
   if (!dateInput) return 'Recente';
 
@@ -118,6 +121,15 @@ export function buildSocialHealthTimeline(healthData, pet = {}) {
 }
 
 export function buildSocialHealthSummary(healthData, pet = {}) {
+  const mergedPet = {
+    ...pet,
+    healthRecords: healthData?.healthRecords || healthData?.records || pet?.healthRecords || [],
+    vaccines: healthData?.vaccines || healthData?.immunizations || pet?.vaccines || pet?.immunizations || [],
+    consultations: healthData?.consultations || pet?.consultations || [],
+    deworming: healthData?.deworming || pet?.deworming || [],
+    weightLogs: healthData?.weightLogs || pet?.weightLogs || [],
+  };
+  const scoreData = calculateHealthScore(normalizeHealthHistory(mergedPet));
   const immunizations =
     healthData?.immunizations ||
     healthData?.vaccines ||
@@ -131,13 +143,9 @@ export function buildSocialHealthSummary(healthData, pet = {}) {
     pet?.consultCount ||
     0;
 
-  let score =
-    healthData?.healthScore ||
-    healthData?.score ||
-    pet?.healthScore ||
-    98;
+  let score = Number(scoreData.score ?? healthData?.healthScore ?? healthData?.score ?? pet?.healthScore ?? 0);
 
-  if (typeof score !== 'number') score = 98;
+  if (!Number.isFinite(score)) score = 0;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   let overdue = 0;
@@ -153,20 +161,25 @@ export function buildSocialHealthSummary(healthData, pet = {}) {
     }
   }
 
-  let statusLabel = 'Saudável';
-  let summaryText = `${pet?.name || 'Seu gato'} está com acompanhamento em bom estado.`;
+  let statusLabel = scoreData.status || 'Em análise';
+  let summaryText =
+    score >= 75
+      ? `${pet?.name || 'Seu gato'} está com rotina preventiva bem acompanhada no GATEDO.`
+      : score >= 55
+        ? `${pet?.name || 'Seu gato'} tem uma base saudável, com alguns pontos que podem ser fortalecidos.`
+        : score >= 35
+          ? `${pet?.name || 'Seu gato'} tem lacunas de cuidado que merecem revisão.`
+          : `${pet?.name || 'Seu gato'} ainda precisa de mais registros para uma leitura preventiva segura.`;
   let emoji = '😸';
 
   if (overdue > 0) {
     statusLabel = 'Atenção';
     summaryText = `${pet?.name || 'Seu gato'} possui ${overdue} item(ns) de saúde vencido(s) que merecem revisão.`;
     emoji = '😿';
-    score = Math.max(45, score - 18);
   } else if (upcoming > 0) {
     statusLabel = 'Em acompanhamento';
     summaryText = `${pet?.name || 'Seu gato'} tem ${upcoming} item(ns) próximo(s) do reforço ou acompanhamento.`;
     emoji = '😺';
-    score = Math.max(70, score - 6);
   } else if ((Array.isArray(immunizations) && immunizations.length > 0) || consultCount > 0) {
     statusLabel = 'Em dia';
     summaryText = `${pet?.name || 'Seu gato'} está com rotina preventiva organizada no GATEDO.`;
@@ -177,9 +190,13 @@ export function buildSocialHealthSummary(healthData, pet = {}) {
     score,
     statusLabel,
     summaryText,
+    statusText: summaryText,
+    headline: summaryText,
     emoji,
     consultCount,
     overdue,
     upcoming,
+    pendingAlertsCount: scoreData.summary?.pendingAlertsCount || 0,
+    alerts: scoreData.alerts || [],
   };
 }

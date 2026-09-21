@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertOctagon,
+  Check,
   X,
   Stethoscope,
   MessageCircleHeart,
@@ -13,17 +14,40 @@ const RED = '#DC2626';
 const RED_BG = '#FEF2F2';
 const RED_BORDER = '#FECACA';
 
-const SIGNS = [
-  { id: 'urinary', label: 'Macho tentando urinar e não sai nada' },
-  { id: 'prostration', label: 'Prostração — não reage, muito fraco' },
-  { id: 'breathing', label: 'Dificuldade para respirar' },
-  { id: 'seizure', label: 'Convulsão' },
-  { id: 'anorexia', label: 'Mais de 24h sem comer' },
-  { id: 'belly', label: 'Barriga dura e dolorida' },
-];
+function getSigns(cat) {
+  const urinaryLabel =
+    cat?.gender === 'MALE'
+      ? 'Macho tentando urinar e não sai nada'
+      : 'Tentando urinar e não sai nada';
+
+  return [
+    { id: 'urinary', label: urinaryLabel },
+    { id: 'prostration', label: 'Prostração — não reage, muito fraco' },
+    { id: 'breathing', label: 'Dificuldade para respirar' },
+    { id: 'seizure', label: 'Convulsão' },
+    { id: 'anorexia', label: 'Mais de 24h sem comer' },
+    { id: 'belly', label: 'Barriga dura e dolorida' },
+  ];
+}
+
+function catArticle(cat) {
+  return cat?.gender === 'FEMALE' ? 'a' : 'o';
+}
 
 // ─── Checklist inicial ───────────────────────────────────────────────────────
-function ChecklistScreen({ onFlag, onNoneSelected }) {
+function ChecklistScreen({ cat, onFlag, onNoneSelected }) {
+  const signs = getSigns(cat);
+  const [checkedId, setCheckedId] = useState(null);
+  const title = cat?.name
+    ? `O que está acontecendo com ${catArticle(cat)} ${cat.name}?`
+    : 'Seu gato está estranho agora?';
+
+  const handleSelect = (id) => {
+    if (checkedId) return;
+    setCheckedId(id);
+    window.setTimeout(() => onFlag(id), 260);
+  };
+
   return (
     <>
       <div className="flex items-start gap-3 mb-5">
@@ -31,7 +55,7 @@ function ChecklistScreen({ onFlag, onNoneSelected }) {
           <AlertOctagon size={22} style={{ color: RED }} />
         </div>
         <div>
-          <p className="font-black text-gray-900 text-[15px] leading-tight">Seu gato está estranho agora?</p>
+          <p className="font-black text-gray-900 text-[15px] leading-tight">{title}</p>
           <p className="text-[12px] font-medium text-gray-500 mt-1">
             Marque se notar qualquer um destes sinais neste momento:
           </p>
@@ -39,20 +63,38 @@ function ChecklistScreen({ onFlag, onNoneSelected }) {
       </div>
 
       <div className="space-y-2 mb-5">
-        {SIGNS.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => onFlag(s.id)}
-            className="w-full text-left flex items-center gap-3 px-4 py-3.5 rounded-2xl border"
-            style={{ borderColor: RED_BORDER, background: RED_BG }}
-          >
-            <span
-              className="w-5 h-5 rounded-md border-2 shrink-0"
-              style={{ borderColor: RED }}
-            />
-            <span className="text-[13px] font-bold text-gray-800">{s.label}</span>
-          </button>
-        ))}
+        {signs.map((s) => {
+          const checked = checkedId === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => handleSelect(s.id)}
+              disabled={checkedId !== null}
+              className={`w-full text-left flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors duration-200 ${
+                checked
+                  ? 'bg-[#DC2626] border-[#DC2626]'
+                  : 'bg-[#FEF2F2] border-[#FECACA] hover:bg-[#FEE2E2] hover:border-[#FCA5A5] active:bg-[#FECACA] active:border-[#FCA5A5]'
+              }`}
+            >
+              <span
+                className={`w-5 h-5 rounded-md border-2 shrink-0 flex items-center justify-center transition-colors duration-200 ${
+                  checked ? 'bg-white border-white' : 'border-current'
+                }`}
+                style={!checked ? { borderColor: RED } : undefined}
+              >
+                {checked && <Check size={14} strokeWidth={3.5} style={{ color: RED }} />}
+              </span>
+              <span
+                className={`text-[13px] font-bold transition-colors duration-200 ${
+                  checked ? 'text-white' : 'text-gray-800'
+                }`}
+              >
+                {s.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <button
@@ -138,7 +180,7 @@ export default function EmergencyCheckModal({ cat, onClose, navigate }) {
   const [flaggedLabel, setFlaggedLabel] = useState(null);
 
   const handleFlag = (id) => {
-    const sign = SIGNS.find((s) => s.id === id);
+    const sign = getSigns(cat).find((s) => s.id === id);
     setFlaggedLabel(sign?.label || null);
     setScreen('urgent');
   };
@@ -182,7 +224,7 @@ export default function EmergencyCheckModal({ cat, onClose, navigate }) {
         <AnimatePresence mode="wait">
           {screen === 'checklist' && (
             <motion.div key="checklist" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <ChecklistScreen onFlag={handleFlag} onNoneSelected={() => setScreen('calm')} />
+              <ChecklistScreen cat={cat} onFlag={handleFlag} onNoneSelected={() => setScreen('calm')} />
             </motion.div>
           )}
           {screen === 'urgent' && (

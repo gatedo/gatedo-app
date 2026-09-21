@@ -9,6 +9,20 @@ const isValidDate = (value) => {
 const sortDesc = (arr) =>
   [...arr].sort((a, b) => new Date(b.date) - new Date(a.date));
 
+const WEIGHT_CHECKIN_RE = /check-in de peso[:\s]*([\d.,]+)\s*kg/i;
+
+// Mesma fonte real usada pela Linha do tempo — evita que o "peso desatualizado"
+// se baseie em pet.updatedAt (que muda a cada edição de perfil, não só ao pesar).
+const extractWeightCheckins = (healthRecords = []) =>
+  (Array.isArray(healthRecords) ? healthRecords : [])
+    .filter((r) => r?.type === 'EXAM' && WEIGHT_CHECKIN_RE.test(r.title || ''))
+    .map((r) => {
+      const match = r.title.match(WEIGHT_CHECKIN_RE);
+      const value = parseFloat(String(match?.[1] || '').replace(',', '.'));
+      return { id: r.id, value, unit: 'kg', date: r.date, raw: r };
+    })
+    .filter((item) => Number.isFinite(item.value) && item.value > 0 && isValidDate(item.date));
+
 const normalizeLegacyHealthRecords = (healthRecords = []) => {
   const list = Array.isArray(healthRecords) ? healthRecords : [];
 
@@ -188,8 +202,13 @@ export function normalizeHealthHistory(pet = {}) {
     }))
     .filter((item) => item.value > 0 && isValidDate(item.date));
 
+  const weightCheckins = extractWeightCheckins(pet?.healthRecords);
+
+  // pet.weight + pet.updatedAt só entra como último recurso, quando não existe
+  // nenhum check-in de peso datado de verdade — senão uma edição qualquer do
+  // perfil (sem relação com peso) mascararia um peso desatualizado.
   const latestWeightFromPet =
-    Number(pet?.weight || 0) > 0
+    weightCheckins.length === 0 && normalizedWeights.length === 0 && Number(pet?.weight || 0) > 0
       ? [
           {
             id: 'pet-weight',
@@ -201,7 +220,7 @@ export function normalizeHealthHistory(pet = {}) {
         ]
       : [];
 
-  const mergedWeights = sortDesc([...normalizedWeights, ...latestWeightFromPet]);
+  const mergedWeights = sortDesc([...normalizedWeights, ...weightCheckins, ...latestWeightFromPet]);
 
   return {
     vaccines: sortDesc([...normalizedVaccines, ...legacy.vaccines]),

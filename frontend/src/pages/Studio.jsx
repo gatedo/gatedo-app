@@ -11,6 +11,7 @@ import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import StudioGallery from '../components/Studiogallery';
+import { brandAssets } from '../brand/assets';
 
 const C = {
   purple: '#8B4AFF', accentDim: '#ebfc66', accent: '#DFFF40',
@@ -317,6 +318,145 @@ function BetaBanner({ onSaibaMais }) {
 }
 
 // ─── ComingSoonModal ──────────────────────────────────────────────────────────
+function StudioPhaseNotice({ onOpen }) {
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileTap={{ scale: 0.985 }}
+      onClick={onOpen}
+      className="relative w-full text-left rounded-[26px] overflow-hidden"
+      style={{
+        background: 'linear-gradient(145deg,#21104b 0%,#321668 56%,#170826 100%)',
+        border: '1px solid rgba(139,74,255,0.36)',
+        boxShadow: '0 14px 42px rgba(80,36,180,0.28)',
+      }}
+    >
+      <div className="absolute inset-0 opacity-60 pointer-events-none"
+        style={{ background: 'radial-gradient(circle at 14% 0%,rgba(223,255,64,0.13),transparent 34%), radial-gradient(circle at 92% 30%,rgba(139,74,255,0.32),transparent 34%)' }} />
+      <div className="relative z-10 p-5">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3"
+          style={{ background: 'rgba(223,255,64,0.09)', border: '1px solid rgba(223,255,64,0.22)' }}>
+          <Sparkles size={9} color={C.accentDim} fill={C.accentDim} />
+          <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: C.accentDim }}>
+            Beta - prioridade fundadores
+          </span>
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-black text-white leading-tight tracking-tight">
+              O <span style={{ color: C.accentDim }}>GATEDO Studio</span> entra na fase final de validacao
+            </h3>
+            <p className="text-[10px] text-white/50 font-semibold leading-relaxed mt-2">
+              Fundadores Genese, Raiz e Semente tem prioridade no desenvolvimento, testes e primeiras features.
+            </p>
+          </div>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <ChevronRight size={15} className="text-white/55" />
+          </div>
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
+function StudioFounderModal({ onClose, onOpenFounders }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[360] flex items-center justify-center px-4 py-8"
+      style={{ background: 'rgba(9,3,24,0.78)', backdropFilter: 'blur(14px)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 22, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 18, scale: 0.96 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+        onClick={(event) => event.stopPropagation()}
+        className="relative w-full max-w-[760px] rounded-[28px] overflow-hidden"
+        style={{
+          background: 'linear-gradient(145deg,#241052 0%,#2d155d 58%,#170826 100%)',
+          border: '1px solid rgba(139,74,255,0.42)',
+          boxShadow: '0 24px 80px rgba(51,22,120,0.42)',
+        }}
+      >
+        <div className="absolute inset-0 pointer-events-none opacity-50"
+          style={{ background: 'radial-gradient(circle at 18% 0%,rgba(223,255,64,0.16),transparent 35%), radial-gradient(circle at 86% 24%,rgba(139,74,255,0.28),transparent 34%)' }} />
+        <div className="relative z-10 p-5 sm:p-7">
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4"
+                style={{ background: 'rgba(223,255,64,0.09)', border: '1px solid rgba(223,255,64,0.28)' }}>
+                <Sparkles size={11} color={C.accentDim} fill={C.accentDim} />
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.accentDim }}>
+                  Beta - prioridade fundadores
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                O <span style={{ color: C.accentDim }}>GATEDO Studio</span> sera introduzido na fase final de validacao
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+              aria-label="Fechar aviso do Studio"
+            >
+              <X size={17} className="text-white/50" />
+            </button>
+          </div>
+
+          <p className="text-sm text-white/58 font-semibold leading-relaxed max-w-3xl mb-5">
+            Os modulos criativos estao sendo preparados para entrar com mais estabilidade, qualidade e utilidade real para tutores. Fundadores das fases Genese, Raiz e Semente terao prioridade no desenvolvimento, acesso antecipado aos testes e receberao as primeiras features liberadas.
+          </p>
+
+          <div className="grid sm:grid-cols-3 gap-3 mb-5">
+            <StudioPriorityCard title="Genese" text="primeiro grupo de validacao e feedback" tone="#ebfc66" />
+            <StudioPriorityCard title="Raiz" text="prioridade nos testes e ajustes de produto" tone="#ff7a3d" />
+            <StudioPriorityCard title="Semente" text="primeiras features antes da abertura ampla" tone="#ff5ab3" />
+          </div>
+
+          <div className="flex items-center gap-3 px-4 py-3 rounded-[18px] mb-5"
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(223,255,64,0.12)' }}>
+              <Crown size={18} color={C.accentDim} />
+            </div>
+            <div>
+              <p className="text-sm font-black text-white">Fundadores entram primeiro</p>
+              <p className="text-[11px] text-white/45 font-semibold leading-relaxed">
+                Mais voz nas features, acesso prioritario e participacao direta no refinamento do Studio.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenFounders}
+            className="w-full py-4 rounded-[18px] font-black text-sm uppercase tracking-wider text-white flex items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(135deg,#936cff,#742cff)', boxShadow: '0 10px 26px rgba(139,74,255,0.34)' }}
+          >
+            <Crown size={15} /> Ver prioridade dos fundadores
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function StudioPriorityCard({ title, text, tone }) {
+  return (
+    <div className="rounded-[18px] p-4"
+      style={{ background: 'rgba(255,255,255,0.055)', border: `1px solid ${tone}55` }}>
+      <p className="text-sm font-black" style={{ color: tone }}>{title}</p>
+      <p className="text-[11px] text-white/46 font-semibold leading-relaxed mt-1">{text}</p>
+    </div>
+  );
+}
+
 function ComingSoonModal({ tool, onClose }) {
   if (!tool) return null;
   const handleNotify = () => {
@@ -685,6 +825,9 @@ export default function Studio() {
   const [galleryRefreshKey, setGalleryRefreshKey] = useState(0);
   const [recentCreations,   setRecentCreations]   = useState([]);
   const [recentLoading,     setRecentLoading]     = useState(true);
+  const [showStudioPhaseModal, setShowStudioPhaseModal] = useState(() => {
+    try { return !sessionStorage.getItem('gatedo_studio_phase_modal_seen'); } catch { return true; }
+  });
 
   useEffect(() => {
     api.get('/pets').then(r => {
@@ -710,6 +853,16 @@ export default function Studio() {
       .finally(() => setRecentLoading(false));
   };
   useEffect(() => { loadRecent(); }, []);
+
+  const closeStudioPhaseModal = () => {
+    setShowStudioPhaseModal(false);
+    try { sessionStorage.setItem('gatedo_studio_phase_modal_seen', '1'); } catch {}
+  };
+
+  const openFounderPriority = () => {
+    closeStudioPhaseModal();
+    navigate('/clube');
+  };
 
   useEffect(() => {
     const load = () => {
@@ -755,6 +908,7 @@ export default function Studio() {
   return (
     <div className="min-h-screen pb-32 pt-6 px-5 font-sans text-white overflow-x-hidden"
       style={{ background: C.dark }}>
+      <div className="w-full max-w-[920px] mx-auto">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-5">
@@ -765,7 +919,7 @@ export default function Studio() {
         </button>
         <div className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10"
           style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <img src="/assets/logo_gatedo_full.webp" alt="Gatedo"
+          <img src={brandAssets.gatedoFull} alt="Gatedo"
             className="h-5 w-auto object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
           <span className="text-sm font-black tracking-wide" style={{ color: C.accentDim }}>Studio</span>
         </div>
@@ -817,7 +971,7 @@ export default function Studio() {
 
           {activeSection === 'criar' && (
             <>
-              <BetaBanner onSaibaMais={() => navigate('/clube')} />
+              <StudioPhaseNotice onOpen={() => setShowStudioPhaseModal(true)} />
 
               {/* Últimas criações */}
               <div>
@@ -923,7 +1077,15 @@ export default function Studio() {
         </motion.div>
       </AnimatePresence>
 
+      </div>
+
       <AnimatePresence>
+        {showStudioPhaseModal && (
+          <StudioFounderModal
+            onClose={closeStudioPhaseModal}
+            onOpenFounders={openFounderPriority}
+          />
+        )}
         {comingSoonTool && (
           <ComingSoonModal tool={comingSoonTool} onClose={() => setComingSoonTool(null)} />
         )}

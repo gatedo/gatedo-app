@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -14,6 +14,7 @@ import {
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
 import { formatDateOnlyBR } from '../utils/catAge';
+import { AuthContext } from '../context/AuthContext';
 
 const FALLBACK_CAT = '/assets/App_gatedo_logo1.webp';
 const PAGE_SIZE = 12;
@@ -67,6 +68,25 @@ function getSlidesFromTribute(tribute) {
   return [...new Set(slides)];
 }
 
+function sameId(a, b) {
+  if (!a || !b) return false;
+  return String(a) === String(b);
+}
+
+function getTributeOwnerId(tribute) {
+  const pet = tribute?.pet || {};
+  return (
+    tribute?.userId ||
+    tribute?.ownerId ||
+    tribute?.user?.id ||
+    pet?.ownerId ||
+    pet?.userId ||
+    pet?.owner?.id ||
+    pet?.user?.id ||
+    null
+  );
+}
+
 function InfoBlock({ label, value }) {
   return (
     <div className="rounded-[18px] bg-black/20 border border-white/5 p-3">
@@ -81,9 +101,11 @@ function InfoBlock({ label, value }) {
   );
 }
 
-function MemorialIntroScreen({ tribute, onBack, onLightCandle }) {
+function MemorialIntroScreen({ tribute, currentUser, onBack, onLightCandle }) {
   const pet = tribute?.pet || {};
   const tutorName = tribute?.user?.name || pet?.owner?.name || 'Tutor';
+  const petName = tribute?.name || pet?.name || 'este gatinho';
+  const isOwnTribute = sameId(currentUser?.id, getTributeOwnerId(tribute));
   const deathDate = pet?.deathDate
     ? formatDateOnlyBR(pet.deathDate, { month: 'long', fallback: '' })
     : tribute?.deathYear || null;
@@ -95,7 +117,7 @@ function MemorialIntroScreen({ tribute, onBack, onLightCandle }) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
-      className="min-h-screen relative overflow-hidden"
+      className="min-h-screen relative overflow-x-hidden"
       style={{
         background:
           'linear-gradient(160deg, #1a1428 0%, #2D2657 50%, #1a1428 100%)',
@@ -117,7 +139,7 @@ function MemorialIntroScreen({ tribute, onBack, onLightCandle }) {
         ))}
       </div>
 
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 py-12 max-w-[820px] mx-auto w-full">
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 pt-10 pb-[calc(11rem+env(safe-area-inset-bottom,0px))] sm:pb-16 max-w-[820px] mx-auto w-full">
         <button
           onClick={onBack}
           className="self-start mb-8 flex items-center gap-2 text-white/50 font-bold text-sm hover:text-white/80 transition-colors"
@@ -156,7 +178,7 @@ function MemorialIntroScreen({ tribute, onBack, onLightCandle }) {
         </div>
 
         <h2 className="font-black text-3xl text-white tracking-tight mb-1">
-          {tribute?.name || pet?.name || 'Gatinho'}
+          {petName}
         </h2>
 
         {deathDate && (
@@ -164,21 +186,42 @@ function MemorialIntroScreen({ tribute, onBack, onLightCandle }) {
         )}
 
         <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-[28px] p-6 mb-4 text-center w-full">
-          <p className="text-white/85 text-base leading-relaxed font-medium">
-            {tutorName}, sabemos o quanto{' '}
-            <span className="text-white font-black">
-              {tribute?.name || pet?.name}
-            </span>{' '}
-            foi importante para você. ❤️
-          </p>
+          {isOwnTribute ? (
+            <>
+              <p className="text-white/85 text-base leading-relaxed font-medium">
+                {tutorName}, sabemos o quanto{' '}
+                <span className="text-white font-black">{petName}</span>{' '}
+                foi importante para você. ❤️
+              </p>
 
-          <p className="text-white/50 text-sm leading-relaxed mt-3">
-            A Gatedo aprende com cada história. As informações de{' '}
-            {tribute?.name || pet?.name} ajudarão a cuidar de outros felinos —{' '}
-            {pet?.breed && pet.breed !== 'SRD'
-              ? `especialmente outros ${pet.breed} que precisam de atenção especial.`
-              : 'de outros gatinhos que precisam de cuidado.'}
-          </p>
+              <p className="text-white/50 text-sm leading-relaxed mt-3">
+                A Gatedo aprende com cada história. As informações de{' '}
+                {petName} ajudarão a cuidar de outros felinos —{' '}
+                {pet?.breed && pet.breed !== 'SRD'
+                  ? `especialmente outros ${pet.breed} que precisam de atenção especial.`
+                  : 'de outros gatinhos que precisam de cuidado.'}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-white/85 text-base leading-relaxed font-medium">
+                Este foi <span className="text-white font-black">{petName}</span>,
+                uma estrelinha eternizada no Memorial GATEDO.
+              </p>
+
+              {tribute?.message && (
+                <p className="text-white/70 text-sm leading-relaxed mt-3 italic">
+                  &ldquo;{tribute.message}&rdquo;
+                </p>
+              )}
+
+              <p className="text-white/50 text-sm leading-relaxed mt-3">
+                Hoje, {petName} vive não só no coração de {tutorName}, mas também
+                na memória da nossa comunidade. Cada história compartilhada ajuda
+                a Gatedo a cuidar melhor de outros felinos.
+              </p>
+            </>
+          )}
         </div>
 
         {deathCauseLabel && (
@@ -224,7 +267,7 @@ function MemorialIntroScreen({ tribute, onBack, onLightCandle }) {
             boxShadow: '0 0 30px rgba(234,179,8,0.08)',
           }}
         >
-          🕯️ Acender uma velinha para {tribute?.name || pet?.name}
+          🕯️ Acender uma velinha para {petName}
         </button>
       </div>
     </motion.div>
@@ -395,7 +438,7 @@ function MemorialGrid({
 }) {
   return (
     <div
-      className="min-h-screen relative overflow-hidden"
+      className="min-h-screen relative overflow-x-hidden"
       style={{
         background:
           'linear-gradient(160deg, #1a1428 0%, #2D2657 50%, #1a1428 100%)',
@@ -534,6 +577,7 @@ export default function Memorial() {
   const navigate = useNavigate();
   const { petId } = useParams();
   const touch = useSensory();
+  const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
   const [tributes, setTributes] = useState([]);
@@ -627,6 +671,7 @@ export default function Memorial() {
           <MemorialIntroScreen
             key={`intro_${introTribute.id}`}
             tribute={introTribute}
+            currentUser={user}
             onBack={() => {
               setIntroTribute(null);
               if (petId) navigate('/memorial');

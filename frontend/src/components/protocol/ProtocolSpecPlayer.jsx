@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Lock,
@@ -17,9 +17,11 @@ import {
   Download,
 } from 'lucide-react';
 import api from '../../services/api';
+import OfferCard from '../offers/OfferCard';
 import useSensory from '../../hooks/useSensory';
 import { AuthContext } from '../../context/AuthContext';
 import MiniMarkdown from '../../utils/MiniMarkdown';
+import BlockRenderer from '../content/BlockRenderer';
 
 const C = { purple: '#8B4AFF', purpleDark: '#4B40C6', bg: '#F4F3FF', green: '#10B981', red: '#DC2626', amber: '#F59E0B' };
 
@@ -243,8 +245,13 @@ function EmergencyScreen({ telaUrgencia, catId, navigate, onVoltar }) {
 
 export default function ProtocolSpecPlayer({ slug, initialCatId, onBack }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const touch = useSensory();
   const { user } = useContext(AuthContext);
+
+  // Veio de um card de oferta (contexto de dor / slot da home)? Guarda pra
+  // registrar a conversão de verdade quando a inscrição acontecer.
+  const offerContext = location.state?.offerContext || null;
 
   const [catId, setCatId] = useState(initialCatId || null);
   const [cats, setCats] = useState([]);
@@ -268,7 +275,11 @@ export default function ProtocolSpecPlayer({ slug, initialCatId, onBack }) {
 
   useEffect(() => {
     if (catId) return;
-    api.get('/pets').then((r) => setCats(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    // Gato falecido (memorial/arquivado) não recebe protocolo novo — só
+    // aparece em listas de memória, com overlay, como já é feito alhures.
+    api.get('/pets')
+      .then((r) => setCats(Array.isArray(r.data) ? r.data.filter((c) => !c.isMemorial && !c.isArchived) : []))
+      .catch(() => {});
   }, [catId]);
 
   useEffect(() => {
@@ -332,6 +343,17 @@ export default function ProtocolSpecPlayer({ slug, initialCatId, onBack }) {
       try {
         await api.post(`/content/protocol-spec/${slug}/start`, { userId: user.id, petId: catId });
         load();
+
+        // Conversão de verdade — o tutor veio de um card de oferta e agora
+        // começou o protocolo mesmo (não só clicou).
+        if (offerContext?.offerKey) {
+          api.post('/offers/event', {
+            surface: offerContext.surface,
+            petId: catId,
+            offerKey: offerContext.offerKey,
+            action: 'CONVERT',
+          }).catch(() => {});
+        }
       } finally {
         setSubmitting(false);
       }
@@ -492,6 +514,7 @@ function TriageFlow({ spec, enrollmentId, slug, onInterrupted, onDone, submittin
 // ─── Fluxo do dia (checklist + registro + hábitos herdados) ─────────────────
 function DayFlow({ spec, enrollment, slug, onReload, onBack, onTriggerEmergency, touch }) {
   const [submitting, setSubmitting] = useState(false);
+  const [postOffer, setPostOffer] = useState(null);
   const dayNumber = enrollment.currentDay;
   const dia = (spec.dias || []).find((d) => d.numero === dayNumber);
   const log = enrollment.logs.find((l) => l.dayNumber === dayNumber);
@@ -572,6 +595,12 @@ function DayFlow({ spec, enrollment, slug, onReload, onBack, onTriggerEmergency,
     try {
       await api.post(`/content/protocol-spec/${slug}/complete-day`, { enrollmentId: enrollment.id, dayNumber });
       onReload();
+
+      // Pós-sucesso — dia concluído: card leve, nunca modal, se o módulo
+      // único de decisão devolver alguma coisa pra esse contexto.
+      api.get('/offers/decide', { params: { surface: 'POST_SUCCESS', petId: enrollment.petId, trigger: 'protocol_day' } })
+        .then((r) => { if (r.data?.offer) setPostOffer(r.data.offer); })
+        .catch(() => {});
     } finally {
       setSubmitting(false);
     }
@@ -607,7 +636,9 @@ function DayFlow({ spec, enrollment, slug, onReload, onBack, onTriggerEmergency,
         <div className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-wide text-gray-400 mb-1.5">Tarefa de hoje</p>
           <p className="text-[14px] font-black text-gray-800 mb-3">{dia.tarefa}</p>
-          <MiniMarkdown text={dia.corpo} className="text-[13px] font-medium text-gray-600 leading-relaxed" />
+          {Array.isArray(dia.corpo)
+            ? <BlockRenderer blocks={dia.corpo} petId={enrollment.petId} />
+            : <MiniMarkdown text={dia.corpo} className="text-[13px] font-medium text-gray-600 leading-relaxed" />}
         </div>
 
         {dia.porque && (
@@ -676,6 +707,15 @@ function DayFlow({ spec, enrollment, slug, onReload, onBack, onTriggerEmergency,
         >
           <CheckCircle2 size={18} /> {log?.completedAt ? 'Dia concluído' : 'Marcar dia como feito'}
         </button>
+
+        {postOffer && (
+          <OfferCard
+            offer={postOffer}
+            surface="POST_SUCCESS"
+            petId={enrollment.petId}
+            onDismiss={() => setPostOffer(null)}
+          />
+        )}
 
         {spec.lembrete_permanente && (
           <button

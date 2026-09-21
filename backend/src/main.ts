@@ -7,6 +7,9 @@ import { join } from 'path';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.use(express.json({ limit: '15mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
   /**
    * PREFIXO GLOBAL API
    */
@@ -18,6 +21,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:5173',
+      'http://localhost:5174',
       'http://localhost:3000',
       'https://app.gatedo.com',
       'https://gatedo.com',

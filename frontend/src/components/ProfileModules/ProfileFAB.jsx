@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Syringe, PenTool, Stethoscope, Pill, Scale, X, AlertOctagon } from 'lucide-react';
+import { Syringe, PenTool, Stethoscope, Pill, Scale, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
-import EmergencyCheckModal from './EmergencyCheckModal';
 
 export default function ProfileFAB({
   id,
@@ -15,7 +14,6 @@ export default function ProfileFAB({
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [newWeight, setNewWeight] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
 
   const saveWeight = async () => {
     if (!newWeight || !id) return;
@@ -84,24 +82,6 @@ export default function ProfileFAB({
           />
         )}
       </AnimatePresence>
-
-      {/* Acesso sempre visível — sinais graves, sem gamificação, sem IA */}
-      <div className="fixed inset-x-0 bottom-[96px] z-[999] pointer-events-none">
-        <div className="mx-auto w-full max-w-[560px] px-4 sm:px-5 flex justify-start">
-          <motion.button
-            type="button"
-            onClick={() => setIsEmergencyOpen(true)}
-            whileTap={{ scale: 0.92 }}
-            className="pointer-events-auto flex items-center gap-2 pl-3 pr-4 py-3 rounded-full text-white shadow-lg"
-            style={{ background: '#DC2626', boxShadow: '0 6px 20px rgba(220,38,38,0.45)' }}
-          >
-            <AlertOctagon size={18} />
-            <span className="text-[11px] font-black uppercase tracking-wide whitespace-nowrap">
-              Meu gato está estranho
-            </span>
-          </motion.button>
-        </div>
-      </div>
 
       <div className="fixed inset-x-0 bottom-[96px] z-[999] pointer-events-none">
         <div className="mx-auto w-full max-w-[560px] px-4 sm:px-5">
@@ -246,16 +226,6 @@ export default function ProfileFAB({
               </div>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isEmergencyOpen && (
-          <EmergencyCheckModal
-            cat={cat}
-            navigate={navigate}
-            onClose={() => setIsEmergencyOpen(false)}
-          />
         )}
       </AnimatePresence>
     </>

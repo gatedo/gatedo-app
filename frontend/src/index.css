@@ -5,6 +5,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .admin-input {
+    @apply w-full border border-gray-200 rounded-xl p-3 text-sm font-bold text-gray-700 outline-none focus:border-[#8B4AFF] focus:ring-2 focus:ring-[#8B4AFF]/10;
+  }
+}
+
 :root {
   --gatedo-light-bg: #eeeeff;
   --gatedo-app-bg: #eeeeff;
@@ -43,9 +49,9 @@ body::after {
   right: 0;
   bottom: 0;
   height: env(safe-area-inset-bottom, 0px);
-  background: var(--gatedo-app-bg);
+  background: #592bb6;
   pointer-events: none;
-  z-index: 0;
+  z-index: 45;
 }
 
 /* Box sizing global */

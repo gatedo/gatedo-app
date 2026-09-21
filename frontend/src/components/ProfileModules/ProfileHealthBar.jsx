@@ -149,7 +149,7 @@ function calcCareScore(history, cat) {
   let s = 0;
   if (cat?.weight)            s += 18;
   if (cat?.healthSummary)     s += 16;
-  if (cat?.foodType)          s += 12;
+  if (Array.isArray(cat?.foodType) && cat.foodType.length > 0) s += 12;
   if (cat?.feedFrequencyMode) s += 12;
   if (cat?.microchip)         s += 8;
   if (Array.isArray(history?.vaccines)      && history.vaccines.length      > 0) s += 14;

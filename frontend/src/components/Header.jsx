@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Clock3,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
@@ -24,6 +25,8 @@ import api from '../services/api';
 import useNotifications from '../hooks/useNotifications';
 import NotificationCenter from './NotificationCenter';
 import GamificationDrawer from './GamificationDrawer';
+import { getPrimaryTutorBadge } from '../utils/membershipMeta';
+import { brandAssets } from '../brand/assets';
 
 const VACCINE_ALERT_WINDOW_DAYS = 30;
 
@@ -32,6 +35,11 @@ const getBadge = (user) => {
 
   const badges = user.badges || [];
   const plan = String(user.plan || 'FREE').toUpperCase();
+  const primaryBadge = getPrimaryTutorBadge(user);
+
+  if (primaryBadge) {
+    return primaryBadge;
+  }
 
   if (
     badges.includes('FOUNDER_EARLY') ||
@@ -122,6 +130,14 @@ export default function Header() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isGamifOpen, setIsGamifOpen] = useState(false);
   const [tipIndex, setTipIndex] = useState(0);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const [tipDismissed, setTipDismissedState] = useState(() => {
+    try { return sessionStorage.getItem('gatedo_tip_dismissed_day') === todayKey; } catch { return false; }
+  });
+  const setTipDismissed = (value) => {
+    setTipDismissedState(value);
+    try { if (value) sessionStorage.setItem('gatedo_tip_dismissed_day', todayKey); } catch {}
+  };
   const [photoUrl, setPhotoUrl] = useState(user?.photoUrl || '');
 
   const badge = getBadge(user);
@@ -333,13 +349,19 @@ export default function Header() {
   return (
     <>
       <div className="relative mb-6">
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-16"
+          style={{
+            background: 'linear-gradient(180deg, rgb(130, 63, 255) 0%, rgba(130, 63, 255, 0.83) 10%, rgba(140, 74, 255, 0.33) 50%, rgba(139,74,255,0) 100%)',
+          }}
+        />
         <div className="relative z-50 px-4 pt-4">
           <div
             className="h-20 rounded-[60px] flex justify-between items-center px-4 shadow-lg border-t-4 border-[#8b4dff] relative"
             style={{ backgroundColor: CORES.accent }}
           >
             <div className="w-32 h-8 relative flex items-center">
-              <img src="/logo_gatedo_full.webp" alt="Gatedo" className="w-full h-full object-contain object-left" />
+              <img src={brandAssets.gatedoFull} alt="Gatedo" className="w-full h-full object-contain object-left" />
             </div>
 
             <div className="flex gap-2 items-center">
@@ -547,86 +569,58 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="mx-4 -mt-8 relative z-10">
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="rounded-[35px] px-6 pb-5 pt-12 text-white shadow-lg relative"
-            style={{ backgroundColor: TIPS[tipIndex]?.urgent ? '#B91C1C' : CORES.primary }}
-          >
-            <div className="relative z-10">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={tipIndex}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex items-start gap-3"
-                >
-                  <div className="bg-white/20 p-2 rounded-full mt-0.5 flex-shrink-0">
-                    {React.createElement(TIPS[tipIndex].icon, { size: 18, className: 'text-[#edff61]' })}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold opacity-60 uppercase tracking-wider mb-0.5">
-                      {TIPS[tipIndex]?.urgent ? '⚠ Alerta de Saúde' : 'Dica do Momento'}
-                    </p>
-
-                    <p className="text-sm font-bold leading-tight">{TIPS[tipIndex]?.text}</p>
-
-                    {TIPS[tipIndex]?.cta && (
-                      <motion.button
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        onClick={() => {
-                          touch();
-                          const cta = TIPS[tipIndex].cta;
-                          if (cta.action === 'gamif') setIsGamifOpen(true);
-                          else if (cta.path) navigate(cta.path);
-                        }}
-                        className="mt-2.5 text-[10px] font-black px-3 py-1.5 rounded-full inline-flex items-center gap-1"
-                        style={{
-                          background: 'rgba(255,255,255,0.2)',
-                          color: '#edff61',
-                          backdropFilter: 'blur(4px)',
-                        }}
-                      >
-                        {TIPS[tipIndex].cta.label} →
-                      </motion.button>
-                    )}
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-
-              {TIPS.length > 1 && (
-                <div className="flex gap-1 mt-4 justify-end">
-                  {TIPS.slice(0, Math.min(TIPS.length, 6)).map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setTipIndex(i)}
-                      className="rounded-full transition-all"
-                      style={{
-                        width: i === tipIndex % Math.min(TIPS.length, 6) ? 16 : 5,
-                        height: 5,
-                        background:
-                          i === tipIndex % Math.min(TIPS.length, 6)
-                            ? '#edff61'
-                            : 'rgba(255,255,255,0.3)',
-                      }}
-                    />
-                  ))}
+        <AnimatePresence>
+          {!tipDismissed && TIPS[tipIndex] && (
+            <div className="mx-4 mt-3 relative z-10">
+              <motion.div
+                key={tipIndex}
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                className="rounded-[22px] px-4 py-3 text-white shadow-lg flex items-start gap-2.5"
+                style={{ backgroundColor: TIPS[tipIndex]?.urgent ? '#B91C1C' : CORES.primary }}
+              >
+                <div className="bg-white/20 p-1.5 rounded-full flex-shrink-0 mt-0.5">
+                  {React.createElement(TIPS[tipIndex].icon, { size: 13, className: 'text-[#edff61]' })}
                 </div>
-              )}
-            </div>
 
-            <div
-              className="absolute right-0 bottom-0 opacity-20 w-44 h-44 bg-contain bg-no-repeat bg-bottom pointer-events-none"
-              style={{ backgroundImage: 'url(/pattern_gatos.webp)' }}
-            />
-          </motion.div>
-        </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold leading-snug">
+                    {firstName ? <span className="opacity-70">Oi, {firstName} — </span> : null}
+                    {TIPS[tipIndex]?.text}
+                  </p>
+
+                  {TIPS[tipIndex]?.cta && (
+                    <button
+                      onClick={() => {
+                        touch();
+                        const cta = TIPS[tipIndex].cta;
+                        if (cta.action === 'gamif') setIsGamifOpen(true);
+                        else if (cta.path) navigate(cta.path);
+                      }}
+                      className="mt-1.5 text-[10px] font-black px-2.5 py-1 rounded-full inline-block"
+                      style={{ background: 'rgba(255,255,255,0.2)', color: '#edff61' }}
+                    >
+                      {TIPS[tipIndex].cta.label}
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    touch();
+                    setTipDismissed(true);
+                  }}
+                  aria-label="Dispensar"
+                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.16)' }}
+                >
+                  <X size={11} className="text-white/80" />
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
 
       <GamificationDrawer isOpen={isGamifOpen} onClose={() => setIsGamifOpen(false)} />

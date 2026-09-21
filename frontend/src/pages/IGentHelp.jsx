@@ -204,7 +204,7 @@ export default function IGentHelp() {
         <div className="absolute bottom-[-20px] left-[-20px] w-32 h-32 rounded-full opacity-10"
           style={{ background: `radial-gradient(circle, ${C.accent} 0%, transparent 70%)` }} />
 
-        <div className="relative z-10 max-w-[800px] mx-auto">
+        <div className="relative z-10 max-w-[920px] mx-auto">
           <button onClick={() => { touch(); navigate(-1); }}
             className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center mb-5">
             <ArrowLeft size={20} className="text-white" />
@@ -234,7 +234,7 @@ export default function IGentHelp() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="px-4 -mt-4 relative z-10 max-w-[800px] mx-auto">
+      <div className="px-4 -mt-4 relative z-10 max-w-[920px] mx-auto">
         <div className="bg-white rounded-[22px] shadow-lg p-1.5 flex gap-1">
           {TABS.map(t => {
             const Icon = t.icon;
@@ -252,7 +252,7 @@ export default function IGentHelp() {
       </div>
 
       {/* ── Conteúdo ── */}
-      <div className="px-4 mt-5 max-w-[800px] mx-auto">
+      <div className="px-4 mt-5 max-w-[920px] mx-auto">
         <AnimatePresence mode="wait">
 
           {/* ═══ SINTOMAS ═══ */}

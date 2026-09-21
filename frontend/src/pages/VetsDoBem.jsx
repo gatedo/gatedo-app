@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Stethoscope, MapPin, Star, Share2,
+  ArrowLeft, Stethoscope, MapPin, Star,
   Search, ShieldCheck, Phone, Navigation, Heart, Lock, Users, Building2, X
 } from 'lucide-react';
 import useSensory from '../hooks/useSensory';
@@ -131,6 +131,7 @@ export default function VetsDoBem() {
   const [filter, setFilter] = useState('todos');
   const [showModal, setShowModal] = useState(true);
   const [query, setQuery] = useState('');
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     setShowModal(true);
@@ -198,6 +199,42 @@ export default function VetsDoBem() {
     setShowModal(true);
   };
 
+  const openMapsSearch = (queryValue) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryValue)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const openNearbyVets = () => {
+    touch?.('nav');
+    if (!navigator.geolocation) {
+      openMapsSearch('veterinario perto de mim');
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords || {};
+        setLocating(false);
+        openMapsSearch(latitude && longitude ? `veterinario gato perto de ${latitude},${longitude}` : 'veterinario perto de mim');
+      },
+      () => {
+        setLocating(false);
+        openMapsSearch('veterinario perto de mim');
+      },
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 300000 }
+    );
+  };
+
+  const openVetRoute = (vet) => {
+    touch?.('nav');
+    if (vet?.address) {
+      openMapsSearch(vet.address);
+      return;
+    }
+    openNearbyVets();
+  };
+
   return (
     <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-32 pt-6 px-5 font-sans relative overflow-hidden">
       <ComingSoonModal open={showModal} onClose={() => setShowModal(false)} />
@@ -237,10 +274,15 @@ export default function VetsDoBem() {
           {['Perto de mim', '24h', 'Cat Friendly', 'Especialistas'].map((tag, i) => (
             <button
               key={i}
-              onClick={() => { touch?.(); setFilter(tag); reopenPreview(); }}
+              onClick={() => {
+                touch?.('nav');
+                setFilter(tag);
+                if (tag === 'Perto de mim') openNearbyVets();
+                else reopenPreview();
+              }}
               className={`whitespace-nowrap px-4 py-1.5 rounded-full border text-xs font-bold transition-all ${filter === tag ? 'bg-green-100 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:border-green-200 hover:text-green-600'}`}
             >
-              {tag}
+              {tag === 'Perto de mim' && locating ? 'Localizando...' : tag}
             </button>
           ))}
         </div>
@@ -256,10 +298,10 @@ export default function VetsDoBem() {
             Os dados informados pelos tutores no HealthForm já preparam a inteligência do ranking futuro de veterinários e clínicas.
           </p>
           <button
-            onClick={reopenPreview}
+            onClick={openNearbyVets}
             className="bg-white text-green-600 px-5 py-2.5 rounded-full text-xs font-black flex items-center gap-2 hover:scale-105 transition-transform shadow-sm"
           >
-            <Share2 size={16} /> Entender o modo prévia
+            <Navigation size={16} /> {locating ? 'Buscando local...' : 'Vets perto de mim'}
           </button>
         </div>
         <Stethoscope size={120} className="absolute -right-6 -bottom-6 opacity-20 rotate-[-15deg] text-white" />
@@ -349,7 +391,7 @@ export default function VetsDoBem() {
 
             <div className="mt-4 grid grid-cols-2 gap-2">
               <PreviewActionButton icon={Phone} label="Ligar" onClick={reopenPreview} />
-              <PreviewActionButton icon={Navigation} label="Ir Agora" secondary onClick={reopenPreview} />
+              <PreviewActionButton icon={Navigation} label="Ir Agora" secondary onClick={() => openVetRoute(vet)} />
             </div>
           </motion.div>
         ))}

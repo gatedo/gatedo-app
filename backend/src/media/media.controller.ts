@@ -1,10 +1,12 @@
-import { Controller, Post, UploadedFile, UseInterceptors, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import { Controller, Post, UploadedFile, UseGuards, UseInterceptors, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CloudflareService } from '../cloudflare/cloudflare.service';
-import { Express } from 'express'; 
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Express } from 'express';
 import 'multer'; // <--- Corrige a tipagem
 
 @Controller('media')
+@UseGuards(JwtAuthGuard)
 export class MediaController {
   constructor(private readonly cloudflareService: CloudflareService) {}
 

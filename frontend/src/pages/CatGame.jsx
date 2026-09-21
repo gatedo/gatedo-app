@@ -1,8 +1,37 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Play, Settings2, RotateCcw, Volume2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Play, Settings2, RotateCcw, Volume2, ShieldAlert, X } from 'lucide-react';
 import { useAppSettings } from '../context/AppSettingsContext';
+
+const SCREEN_WARNING_KEY = 'gatedo_game_screen_warning_dismissed';
+
+// Aviso curto, dispensável e lembrado — o gato vai tocar a tela.
+function ScreenProtectionNotice({ onDismiss }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -14 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -14 }}
+      className="fixed top-3 inset-x-3 z-[300] rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg"
+      style={{ background: 'rgba(20,10,45,0.92)', backdropFilter: 'blur(8px)' }}
+    >
+      <ShieldAlert size={18} className="text-amber-300 shrink-0" />
+      <p className="flex-1 text-[11px] font-bold text-white/90 leading-snug">
+        Seu gato vai tocar a tela — proteja com uma película ou use um tablet com capa.
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dispensar"
+        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+        style={{ background: 'rgba(255,255,255,0.15)' }}
+      >
+        <X size={13} className="text-white/70" />
+      </button>
+    </motion.div>
+  );
+}
 
 const C = {
   purple: '#8B4AFF',
@@ -966,10 +995,25 @@ export default function CatGame() {
   const [gameConfig, setGameConfig] = useState(null);
   const [finalScore, setFinalScore] = useState(0);
   const [themeKey, setThemeKey] = useState(initialTheme);
+  const [showScreenWarning, setShowScreenWarning] = useState(false);
 
   useEffect(() => {
     storeGameConfig(menuConfig);
   }, [menuConfig]);
+
+  useEffect(() => {
+    if (screen !== 'game') return;
+    try {
+      if (localStorage.getItem(SCREEN_WARNING_KEY) !== '1') setShowScreenWarning(true);
+    } catch {
+      setShowScreenWarning(true);
+    }
+  }, [screen]);
+
+  const dismissScreenWarning = () => {
+    setShowScreenWarning(false);
+    try { localStorage.setItem(SCREEN_WARNING_KEY, '1'); } catch {}
+  };
 
   useEffect(() => {
     const hidden = screen === 'game';
@@ -1014,14 +1058,19 @@ export default function CatGame() {
 
   if (screen === 'game') {
     return (
-      <GameScreen
-        config={gameConfig || menuConfig}
-        soundEnabled={settings.soundEnabled}
-        onEnd={(score) => {
-          setFinalScore(score);
-          setScreen('end');
-        }}
-      />
+      <>
+        <GameScreen
+          config={gameConfig || menuConfig}
+          soundEnabled={settings.soundEnabled}
+          onEnd={(score) => {
+            setFinalScore(score);
+            setScreen('end');
+          }}
+        />
+        <AnimatePresence>
+          {showScreenWarning && <ScreenProtectionNotice onDismiss={dismissScreenWarning} />}
+        </AnimatePresence>
+      </>
     );
   }
 

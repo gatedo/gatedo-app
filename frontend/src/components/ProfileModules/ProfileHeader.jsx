@@ -19,12 +19,10 @@ import {
   Stethoscope,
   Shield,
   UserRound,
-  AlertOctagon,
   ClipboardCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resolveThemeHex } from './CatIdentityCard';
-import EmergencyCheckModal from './EmergencyCheckModal';
 import { getCatLifeBadge, getPrimaryTutorBadge } from '../../utils/membershipMeta';
 
 const NUN = { fontFamily: 'Nunito, sans-serif' };
@@ -52,12 +50,12 @@ const NAV_ITEMS = [
   {
     id: 'NUTRICAO',
     label: 'Nutrição',
-    subtitle: 'Evolução',
+    subtitle: 'Linha do tempo',
     icon: TrendingUp,
     color: '#22C55E',
     bg: '#DCFCE7',
     action: 'tab',
-    targetTab: 'EVOLUCAO',
+    targetTab: 'LINHATEMPO',
   },
   {
     id: 'DADOS_PREDITIVOS',
@@ -721,7 +719,6 @@ function ProfileHeader({
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
 
   const themeHex = useMemo(() => {
     return resolveThemeHex(cat?.themeColor || cat?.theme || cat?.profileColor || '#8B4AFF');
@@ -729,8 +726,8 @@ function ProfileHeader({
 
   const currentLabel = useMemo(() => {
     switch (activeTab) {
-      case 'EVOLUCAO':
-        return 'Nutrição';
+      case 'LINHATEMPO':
+        return 'Linha do tempo';
       case 'SAUDE':
         return 'Saúde';
       case 'IMUNIZANTES':
@@ -999,35 +996,6 @@ function ProfileHeader({
             <MoreVertical size={18} color="#111827" />
           </motion.button>
         </div>
-
-        {/* Acesso sempre visível — sinais graves, sem gamificação, sem IA */}
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setIsEmergencyOpen(true)}
-          style={{
-            ...NUN,
-            marginTop: 10,
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            padding: '10px 14px',
-            borderRadius: 999,
-            border: 'none',
-            background: '#DC2626',
-            boxShadow: '0 6px 20px rgba(220,38,38,0.4)',
-            color: '#fff',
-            fontSize: 11,
-            fontWeight: 900,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-          }}
-        >
-          <AlertOctagon size={16} />
-          Meu gato está estranho agora
-        </motion.button>
       </div>
 
       <RightSidebar
@@ -1041,16 +1009,6 @@ function ProfileHeader({
         onOpenSocial={handleOpenSocial}
         onOpenDiary={handleDiaryOpen}
       />
-
-      <AnimatePresence>
-        {isEmergencyOpen && (
-          <EmergencyCheckModal
-            cat={cat}
-            navigate={navigate}
-            onClose={() => setIsEmergencyOpen(false)}
-          />
-        )}
-      </AnimatePresence>
     </>
   );
 }

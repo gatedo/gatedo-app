@@ -61,6 +61,18 @@ export class PetsController {
   async findAll(@Req() req: any, @Query('scope') scope?: string) {
     const authUser = this.getAuthUser(req);
 
+    // Seleção enxuta — só os campos que o status de saúde (verde/âmbar/vermelho)
+    // da Home precisa, sem trazer o histórico inteiro de healthRecords.
+    const healthRecordsStatusSelect = {
+      select: {
+        type: true,
+        title: true,
+        date: true,
+        nextDueDate: true,
+      },
+      orderBy: { date: 'desc' as const },
+    };
+
     if (authUser.role === 'ADMIN' && scope === 'admin') {
       return this.prisma.pet.findMany({
         include: {
@@ -76,6 +88,7 @@ export class PetsController {
               badges: true,
             },
           },
+          healthRecords: healthRecordsStatusSelect,
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -96,6 +109,7 @@ export class PetsController {
             badges: true,
           },
         },
+        healthRecords: healthRecordsStatusSelect,
       },
       orderBy: { createdAt: 'asc' },
     });

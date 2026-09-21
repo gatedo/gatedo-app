@@ -168,8 +168,12 @@ export class MetaAdsService {
     });
 
     const campaigns = Array.isArray(data?.data) ? data.data : [];
+    const creativeMap = await this.getCampaignCreativeMap(accountId, campaigns.map((campaign) => campaign.id));
     return {
-      data: campaigns,
+      data: campaigns.map((campaign) => ({
+        ...campaign,
+        ...(creativeMap[campaign.id] || {}),
+      })),
       paging: data?.paging || null,
       meta: {
         accountId,
@@ -179,6 +183,58 @@ export class MetaAdsService {
         fetchedAt: new Date().toISOString(),
       },
     };
+  }
+
+  private pickCreativeImage(creative: any) {
+    return (
+      creative?.image_url ||
+      creative?.thumbnail_url ||
+      creative?.object_story_spec?.link_data?.picture ||
+      creative?.object_story_spec?.video_data?.image_url ||
+      creative?.asset_feed_spec?.images?.[0]?.url ||
+      creative?.asset_feed_spec?.images?.[0]?.thumbnail_url ||
+      ''
+    );
+  }
+
+  private async getCampaignCreativeMap(accountId: string, campaignIds: string[]) {
+    const ids = campaignIds.filter(Boolean).slice(0, 100);
+    if (!ids.length) return {};
+
+    try {
+      const data = await this.graphGet(`${accountId}/ads`, {
+        fields: [
+          'id',
+          'name',
+          'effective_status',
+          'campaign{id}',
+          'creative{id,name,title,body,image_url,thumbnail_url,object_story_spec,asset_feed_spec,effective_object_story_id}',
+        ].join(','),
+        filtering: JSON.stringify([{ field: 'campaign.id', operator: 'IN', value: ids }]),
+        limit: 200,
+      });
+
+      return (Array.isArray(data?.data) ? data.data : []).reduce((acc, ad) => {
+        const campaignId = ad?.campaign?.id;
+        if (!campaignId || acc[campaignId]) return acc;
+        const creative = ad?.creative || {};
+        acc[campaignId] = {
+          adPreview: {
+            id: ad.id,
+            name: ad.name,
+            status: ad.effective_status,
+          },
+          creative: {
+            ...creative,
+            image_url: this.pickCreativeImage(creative),
+          },
+        };
+        return acc;
+      }, {});
+    } catch (error) {
+      this.logger.warn(`Nao foi possivel buscar miniaturas dos criativos Meta: ${error?.message || error}`);
+      return {};
+    }
   }
 
   async getAudiences(query: any) {

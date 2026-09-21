@@ -35,6 +35,7 @@ function buildFormState(profile) {
     name: profile?.name || '',
     city: profile?.city || '',
     whatsapp: profile?.phone || profile?.whatsapp || '',
+    tutorTitle: profile?.tutorTitle || 'TUTOR',
   };
 }
 
@@ -47,6 +48,7 @@ function mergeProfileSnapshot(...parts) {
     name: merged?.name ?? '',
     photoUrl: merged?.photoUrl ?? '',
     email: merged?.email ?? '',
+    tutorTitle: merged?.tutorTitle ?? 'TUTOR',
   };
 }
 
@@ -232,6 +234,7 @@ export default function ProfileEdit() {
         name: formData.name.trim(),
         city: formData.city.trim(),
         phone: formData.whatsapp.trim(),
+        tutorTitle: formData.tutorTitle || 'TUTOR',
       };
 
       let response;
@@ -258,6 +261,7 @@ export default function ProfileEdit() {
           name: response.data?.name ?? formData.name.trim(),
           city: response.data?.city ?? formData.city.trim(),
           phone: response.data?.phone ?? formData.whatsapp.trim(),
+          tutorTitle: response.data?.tutorTitle ?? formData.tutorTitle ?? 'TUTOR',
           photoUrl:
             response.data?.photoUrl ||
             (previewUrlRef.current ? avatarPreview : profile?.photoUrl) ||
@@ -374,6 +378,38 @@ export default function ProfileEdit() {
               onChange={(event) => updateField('name', event.target.value)}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest ml-4 mb-2 block">
+            Como quer aparecer no Gatedo
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: 'TUTOR', label: 'Tutor' },
+              { value: 'TUTORA', label: 'Tutora' },
+              { value: 'PESSOA_TUTORA', label: 'Pessoa tutora' },
+            ].map((option) => {
+              const active = formData.tutorTitle === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => updateField('tutorTitle', option.value)}
+                  className={`rounded-[20px] px-3 py-3 text-[10px] font-black uppercase tracking-[1.4px] border transition-all ${
+                    active
+                      ? 'bg-[#8b4dff] text-white border-[#8b4dff] shadow-lg shadow-violet-100'
+                      : 'bg-white text-gray-400 border-gray-100'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[9px] font-bold text-gray-300 ml-4 mt-1.5">
+            Isso personaliza selos como Tutor Raiz, Tutora Raiz ou Pessoa tutora Raiz.
+          </p>
         </div>
 
         <div>

@@ -3,6 +3,7 @@ export class RegisterDto {
   email: string;
   password: string;
   phone?: string;
+  tutorTitle?: string;
 }
 
 export class LoginDto {

@@ -33,22 +33,41 @@ export default function useSensory() {
           osc.start(ctx.currentTime + index * 0.08);
           osc.stop(ctx.currentTime + index * 0.08 + 0.2);
         });
-      } else {
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(500, ctx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1);
+      } else if (type === 'nav') {
+        [880, 1240].forEach((freq, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const start = ctx.currentTime + index * 0.045;
 
-        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.022, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.11);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + 0.11);
+        });
+      } else {
+        // Fade-in curto em vez de pular direto pro volume de pico — é o salto
+        // instantâneo de ganho que soa como uma "batida seca"/clique percussivo.
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(420, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.09);
+
+        gainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.018);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.13);
 
         oscillator.start();
-        oscillator.stop(ctx.currentTime + 0.1);
+        oscillator.stop(ctx.currentTime + 0.14);
       }
     } catch (error) {
       console.error('Erro no sintetizador:', error);
     }
 
-    if (navigator.vibrate) navigator.vibrate(10);
+    if (navigator.vibrate) navigator.vibrate(type === 'nav' ? 5 : 10);
   }, [settings.soundEnabled]);
 
   return trigger;

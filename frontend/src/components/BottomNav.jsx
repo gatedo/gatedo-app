@@ -1,12 +1,16 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { motion, useAnimation } from 'framer-motion';
-import { Home, Sparkles, MessagesSquare, ShoppingBag } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion, useAnimation, AnimatePresence } from 'framer-motion';
+import { AlertOctagon, Cat, HeartPulse, Home, MapPin, Menu, MessagesSquare, Stethoscope } from 'lucide-react';
 import useSensory from '../hooks/useSensory';
+import { brandAssets } from '../brand/assets';
+import EmergencyCheckModal from './ProfileModules/EmergencyCheckModal';
+import EmergencyCatPicker from './EmergencyCatPicker';
+import useEmergencyCheck from '../hooks/useEmergencyCheck';
 
 // ─── CORES — mantém a identidade original ────────────────────────────────────
-const ICON_ACTIVE = '#5B21B6';
-const ICON_INACTIVE = 'rgba(211,204,255,0.68)';
+const ICON_ACTIVE = '#ecff3e';
+const ICON_INACTIVE = 'rgba(236, 232, 255, 0.86)';
 const NEON = '#ecff3e';
 const PURPLE = '#8b4aff';
 
@@ -22,7 +26,7 @@ const NavIcon = memo(function NavIcon({ active, Icon }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       style={{
-        filter: active ? 'drop-shadow(0 0 5px rgba(236,255,62,0.45))' : 'none',
+        filter: active ? 'drop-shadow(0 0 8px rgba(236,255,62,0.42))' : 'none',
         transition: 'filter 180ms ease, stroke 180ms ease',
       }}
     />
@@ -32,31 +36,37 @@ const NavIcon = memo(function NavIcon({ active, Icon }) {
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const glassCSS = `
   .gatedo-bottom-nav-wrap {
-    padding-bottom: max(20px, env(safe-area-inset-bottom));
-    background: linear-gradient(
-      to top,
-      var(--gatedo-app-bg, #eeeeff) 0,
-      var(--gatedo-app-bg, #eeeeff) env(safe-area-inset-bottom, 0px),
-      transparent calc(env(safe-area-inset-bottom, 0px) + 1px)
-    );
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: linear-gradient(180deg, rgba(89,43,182,0) 0%, rgba(89,43,182,0) 72px, rgba(89,43,182,0.96) 72px, rgba(89,43,182,0.96) 100%);
   }
 
   .bn-pill {
     background:
-      linear-gradient(175deg,
-        rgba(58,20,129,0.50) 0%,
-        rgba(39,18,99,0.58) 48%,
-        rgba(42,9,78,0.70) 100%
+      linear-gradient(180deg,
+        rgba(159,99,255,0.90) 0%,
+        rgba(126,70,225,0.91) 54%,
+        rgba(89,43,182,0.96) 100%
       );
-    backdrop-filter: blur(18px) saturate(165%);
-    -webkit-backdrop-filter: blur(18px) saturate(165%);
-    border: 1px solid rgba(190,157,255,0.46);
-    border-top: 1px solid rgba(255,255,255,0.22);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid rgba(220,207,255,0.24);
+    border-bottom: 0;
+    border-radius: 42px 42px 0 0;
     position: relative;
     overflow: hidden;
-    animation: glowBorder 3.5s ease-in-out infinite;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg width='368' height='72' viewBox='0 0 368 72' preserveAspectRatio='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='white' d='M44 0H128C151 0 154 34 184 34C214 34 217 0 240 0H324C348.301 0 368 19.6995 368 44V72H0V44C0 19.6995 19.6995 0 44 0Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg width='368' height='72' viewBox='0 0 368 72' preserveAspectRatio='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='white' d='M44 0H128C151 0 154 34 184 34C214 34 217 0 240 0H324C348.301 0 368 19.6995 368 44V72H0V44C0 19.6995 19.6995 0 44 0Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    animation: none;
     transform: translateZ(0);
     will-change: transform, opacity;
+    box-shadow:
+      0 -8px 22px rgba(70,34,145,0.14),
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 0 -18px 24px rgba(52,25,132,0.18);
   }
 
   .bn-pill::before {
@@ -66,7 +76,7 @@ const glassCSS = `
     background:
       linear-gradient(180deg,
         rgba(255,255,255,0.16) 0%,
-        rgba(255,255,255,0.055) 42%,
+        rgba(255,255,255,0.07) 46%,
         rgba(255,255,255,0.02) 100%
       );
     pointer-events: none;
@@ -76,12 +86,10 @@ const glassCSS = `
   .bn-pill::after {
     content: '';
     position: absolute;
-    top: 0;
-    left: 8px;
-    right: 8px;
-    height: 47%;
-    background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, transparent 100%);
-    border-radius: 50px 50px 0 0;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='368' height='72' viewBox='0 0 368 72' preserveAspectRatio='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M44 1H128C151 1 154 35 184 35C214 35 217 1 240 1H324' fill='none' stroke='rgba(255,255,255,0.34)' stroke-width='1.25' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
     z-index: 4;
     pointer-events: none;
   }
@@ -127,7 +135,7 @@ const glassCSS = `
     left: 10px;
     width: 22px;
     height: 8px;
-    background: radial-gradient(ellipse, rgba(255,255,255,0.76), transparent 70%);
+    background: radial-gradient(ellipse, rgba(255, 255, 255, 0.76), transparent 70%);
     border-radius: 50%;
     opacity: 0.48;
     pointer-events: none;
@@ -177,6 +185,55 @@ const glassCSS = `
     touch-action: manipulation;
   }
 
+  .bn-fab-action {
+    width: 46px;
+    height: 46px;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 32% 22%, rgba(255,255,255,0.68), transparent 34%),
+      linear-gradient(145deg, var(--fab-glass-a), var(--fab-glass-b));
+    color: var(--fab-icon);
+    box-shadow:
+      0 8px 24px var(--fab-shadow),
+      0 0 18px var(--fab-glow),
+      inset 0 1px 0 rgba(255,255,255,0.72),
+      inset 0 -10px 18px rgba(35,19,92,0.10);
+    border: 1px solid rgba(255,255,255,0.58);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .bn-fab-action-label {
+    position: absolute;
+    top: 50%;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--fab-label-bg);
+    color: #ffffff;
+    font-size: 7px;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .bn-fab-action-label-left {
+    right: calc(100% + 8px);
+    transform: translateY(-50%);
+    text-align: right;
+  }
+
+  .bn-fab-action-label-right {
+    left: calc(100% + 8px);
+    transform: translateY(-50%);
+    text-align: left;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .bn-pill,
     .bn-center,
@@ -188,11 +245,82 @@ const glassCSS = `
 
 // ─── ROTAS — mesmas rotas definidas ───────────────────────────────────────────
 const NAV = [
-  { to: '/home', Icon: Home, match: (p) => p === '/home' || p === '/' },
-  { to: '/studio', Icon: Sparkles, match: (p) => p.includes('studio') },
-  { to: '/comunigato', Icon: MessagesSquare, match: (p) => p.includes('comunigato') || p.includes('social') },
-  { to: '/store', Icon: ShoppingBag, match: (p) => p.includes('store') || p.includes('loja') },
+  { to: '/home', label: 'Início', Icon: Home, match: (p) => p === '/home' || p === '/' },
+  { to: '/health', label: 'Saúde', Icon: HeartPulse, match: (p) => p.includes('health') },
+  { to: '/comunigato', label: 'ComuniGato', Icon: MessagesSquare, match: (p) => p.includes('comunigato') || p.includes('social') },
+  { to: '/more', label: 'Mais', Icon: Menu, match: (p) => p.includes('more') },
 ];
+
+const CENTER_ACTIONS = [
+  {
+    to: '/cats',
+    label: 'Meus Gatos',
+    Icon: Cat,
+    x: -71,
+    y: -33,
+    side: 'left',
+    theme: {
+      '--fab-glass-a': 'rgba(244,255,104,0.88)',
+      '--fab-glass-b': 'rgba(220,244,26,0.72)',
+      '--fab-icon': '#4d3f00',
+      '--fab-shadow': 'rgba(149,164,0,0.24)',
+      '--fab-glow': 'rgba(236,255,62,0.48)',
+      '--fab-label-bg': 'rgba(98,92,8,0.78)',
+    },
+  },
+  {
+    to: '/igent-vet',
+    label: 'iGentVet',
+    Icon: Stethoscope,
+    x: -33,
+    y: -71,
+    side: 'left',
+    theme: {
+      '--fab-glass-a': 'rgba(204,164,255,0.90)',
+      '--fab-glass-b': 'rgba(137,82,255,0.76)',
+      '--fab-icon': '#ffffff',
+      '--fab-shadow': 'rgba(75,32,164,0.28)',
+      '--fab-glow': 'rgba(174,113,255,0.46)',
+      '--fab-label-bg': 'rgba(70,37,146,0.82)',
+    },
+  },
+  {
+    to: '/vets',
+    label: 'Guia Vet',
+    Icon: MapPin,
+    x: 33,
+    y: -71,
+    side: 'right',
+    theme: {
+      '--fab-glass-a': 'rgba(92,248,224,0.88)',
+      '--fab-glass-b': 'rgba(16,196,170,0.74)',
+      '--fab-icon': '#064f49',
+      '--fab-shadow': 'rgba(0,119,105,0.24)',
+      '--fab-glow': 'rgba(57,238,216,0.44)',
+      '--fab-label-bg': 'rgba(7,94,87,0.80)',
+    },
+  },
+  {
+    key: 'emergency',
+    label: 'Emergência',
+    Icon: AlertOctagon,
+    x: 71,
+    y: -33,
+    side: 'right',
+    isEmergency: true,
+    theme: {
+      '--fab-glass-a': 'rgba(255,140,140,0.92)',
+      '--fab-glass-b': 'rgba(220,38,38,0.84)',
+      '--fab-icon': '#ffffff',
+      '--fab-shadow': 'rgba(153,15,15,0.32)',
+      '--fab-glow': 'rgba(255,90,90,0.52)',
+      '--fab-label-bg': 'rgba(153,15,15,0.86)',
+    },
+  },
+];
+
+// Acesso sempre visível — sinais graves, sem gamificação, sem IA
+const CAT_ROUTE_RE = /^\/(cat|gato)\/([^/]+)/;
 
 const BLOB_H = 44;
 const BLOB_BR = 22;
@@ -349,7 +477,7 @@ function NavSlot({ item, index, slotRef, pathname, onTap }) {
       ref={slotRef}
       to={item.to}
       onClick={onTap}
-      aria-label={item.to.replace('/', '') || 'home'}
+      aria-label={item.label}
       className="bn-item flex-1 flex items-center justify-center h-full relative select-none"
       style={{ zIndex: 10 }}
     >
@@ -366,8 +494,12 @@ function NavSlot({ item, index, slotRef, pathname, onTap }) {
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export default function BottomNav() {
   const location = useLocation();
+  const navigate = useNavigate();
   const touch = useSensory();
   const [ripples, setRipples] = useState([]);
+  const [centerOpen, setCenterOpen] = useState(false);
+
+  const emergency = useEmergencyCheck({ navigate, touch });
 
   const pillRef = useRef(null);
   const ref0 = useRef(null);
@@ -385,13 +517,26 @@ export default function BottomNav() {
   }, []);
 
   const handleNavTap = useCallback(() => {
-    touch?.('light');
+    setCenterOpen(false);
+    touch?.('nav');
   }, [touch]);
 
   const handleCenterTap = useCallback(() => {
     fireRipple();
+    setCenterOpen((open) => !open);
     touch?.('success');
   }, [fireRipple, touch]);
+
+  const handleCenterActionTap = useCallback(() => {
+    setCenterOpen(false);
+    touch?.('nav');
+  }, [touch]);
+
+  const handleEmergencyTap = useCallback(() => {
+    setCenterOpen(false);
+    const match = CAT_ROUTE_RE.exec(location.pathname);
+    emergency.trigger(match ? match[2] : undefined);
+  }, [emergency, location.pathname]);
 
   return (
     <>
@@ -400,7 +545,11 @@ export default function BottomNav() {
       <div
         data-bottom-nav="true"
         className="gatedo-bottom-nav-wrap fixed bottom-0 left-1/2 -translate-x-1/2 w-full z-50 transition-all duration-300"
-        style={{ maxWidth: '460px', paddingLeft: 12, paddingRight: 12 }}
+        style={{
+          maxWidth: '460px',
+          paddingLeft: 2,
+          paddingRight: 2,
+        }}
       >
         <motion.div
           initial={{ y: 100, opacity: 0 }}
@@ -413,23 +562,81 @@ export default function BottomNav() {
             className="absolute left-1/2 -translate-x-1/2 z-20 flex flex-col items-center"
             style={{ top: '-34px' }}
           >
-            <Link to="/igent-vet" onClick={handleCenterTap} aria-label="iGent Vet">
+            <div className="absolute left-1/2 top-[31px] -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+              {CENTER_ACTIONS.map((action, index) => {
+                const Icon = action.Icon;
+                const labelClass = `bn-fab-action-label bn-fab-action-label-${action.side === 'left' ? 'left' : 'right'}`;
+                return (
+                  <motion.div
+                    key={action.to || action.key}
+                    className="absolute left-1/2 top-1/2 pointer-events-auto"
+                    initial={false}
+                    animate={{
+                      x: centerOpen ? action.x : 0,
+                      y: centerOpen ? action.y : 0,
+                      scale: centerOpen ? 1 : 0.2,
+                      opacity: centerOpen ? 1 : 0,
+                    }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 520,
+                      damping: 28,
+                      delay: centerOpen ? index * 0.035 : 0,
+                    }}
+                    style={{ transformOrigin: 'center', pointerEvents: centerOpen ? 'auto' : 'none' }}
+                  >
+                    {action.isEmergency ? (
+                      <button
+                        type="button"
+                        onClick={handleEmergencyTap}
+                        disabled={emergency.loading}
+                        aria-label={action.label}
+                        className="bn-fab-action relative -translate-x-1/2 -translate-y-1/2"
+                        style={action.theme}
+                      >
+                        <Icon size={19} strokeWidth={2.25} />
+                        <span className={labelClass}>{action.label}</span>
+                      </button>
+                    ) : (
+                      <Link
+                        to={action.to}
+                        onClick={handleCenterActionTap}
+                        aria-label={action.label}
+                        className="bn-fab-action relative -translate-x-1/2 -translate-y-1/2"
+                        style={action.theme}
+                      >
+                        <Icon size={19} strokeWidth={2.25} />
+                        <span className={labelClass}>{action.label}</span>
+                      </Link>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCenterTap}
+              aria-label="Abrir atalhos iGentVet"
+              className="p-0 border-0 bg-transparent"
+            >
               <motion.div
                 whileTap={{ scale: 0.9 }}
+                animate={{ rotate: centerOpen ? 12 : 0, scale: centerOpen ? 1.04 : 1 }}
                 transition={{ type: 'spring', stiffness: 520, damping: 22 }}
                 className="bn-center w-[62px] h-[62px] rounded-full flex items-center justify-center"
               >
                 {ripples.map((id) => <div key={id} className="tap-ripple" />)}
                 <img
-                  src="/assets/Gatedo_logo.webp"
+                  src={brandAssets.gatedoSymbol}
                   alt="G"
                   className="w-10 h-10 object-contain relative z-10 drop-shadow-[0_2px_8px_rgba(0,0,0,0.58)]"
                 />
               </motion.div>
-            </Link>
+            </button>
 
             <img
-              src="/assets/igentvet_logo.webp"
+              src={brandAssets.igentvetLogo}
               alt="iGentVet"
               className="w-12 h-12 object-contain relative z-10 drop-shadow-[0_2px_8px_rgba(0,0,0,0.58)]"
             />
@@ -438,17 +645,14 @@ export default function BottomNav() {
           {/* ─── PÍLULA GLASS ─── */}
           <div
             ref={pillRef}
-            className="bn-pill rounded-[50px]"
-            style={{ height: 64 }}
+            className="bn-pill"
+            style={{ height: 72 }}
           >
-            <LiquidBlob activeIdx={activeIdx} slotRefs={slotRefs} pillRef={pillRef} />
-            <NavBar activeIdx={activeIdx} slotRefs={slotRefs} pillRef={pillRef} />
-
             <div className="flex items-center h-full relative z-[8]">
               <NavSlot item={NAV[0]} index={0} slotRef={ref0} pathname={location.pathname} onTap={handleNavTap} />
               <NavSlot item={NAV[1]} index={1} slotRef={ref1} pathname={location.pathname} onTap={handleNavTap} />
 
-              <div style={{ width: 78, flexShrink: 0 }} />
+              <div style={{ width: 84, flexShrink: 0 }} />
 
               <NavSlot item={NAV[2]} index={2} slotRef={ref2} pathname={location.pathname} onTap={handleNavTap} />
               <NavSlot item={NAV[3]} index={3} slotRef={ref3} pathname={location.pathname} onTap={handleNavTap} />
@@ -456,6 +660,26 @@ export default function BottomNav() {
           </div>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {emergency.open && (
+          <EmergencyCheckModal
+            cat={emergency.cat}
+            navigate={navigate}
+            onClose={emergency.close}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {emergency.pickerOpen && (
+          <EmergencyCatPicker
+            cats={emergency.pickerCats}
+            onPick={emergency.pickCat}
+            onClose={emergency.closePicker}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

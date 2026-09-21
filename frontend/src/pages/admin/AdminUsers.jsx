@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   Search,
@@ -28,6 +28,7 @@ import {
   getInitials,
   getTutorLevelMeta,
 } from '../../utils/adminPanelMeta';
+import { TUTOR_BADGE_META, formatTutorBadgeLabel, getPrimaryTutorBadge } from '../../utils/membershipMeta';
 
 const PLAN_OPTIONS = [
   { value: 'FREE', label: 'Free', className: 'bg-gray-100 text-gray-600 border-gray-200' },
@@ -62,6 +63,12 @@ const SUBSCRIPTION_PLAN_TYPE_OPTIONS = [
 ];
 
 const BADGE_OPTIONS = [
+  'TUTOR_SUPREME',
+  'TUTOR_GENESIS',
+  'TUTOR_RAIZ',
+  'TUTOR_CERNE',
+  'TUTOR_PRIME',
+  'TUTOR_VIP',
   'FOUNDER_EARLY',
   'TESTER_FRIENDLY',
   'TUTOR_PLUS',
@@ -100,10 +107,48 @@ function InfoChip({ children, className = '' }) {
   );
 }
 
-function BadgePill({ badge }) {
+function BadgePill({ badge, user }) {
+  const meta = TUTOR_BADGE_META[badge] || getPrimaryTutorBadge({ badges: [badge] });
+
+  if (meta) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black border shadow-sm"
+        style={{
+          background: meta.pillBg || meta.color || '#8B4AFF',
+          color: meta.pillText || '#ebfc66',
+          borderColor: meta.pillBg || meta.color || '#8B4AFF',
+        }}
+        title={meta.title || meta.label}
+      >
+        <Crown size={9} /> {formatTutorBadgeLabel(meta, user) || meta.label}
+      </span>
+    );
+  }
+
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black border bg-yellow-50 text-yellow-700 border-yellow-200">
       <Crown size={9} /> {badge}
+    </span>
+  );
+}
+
+function TutorHierarchyPill({ user }) {
+  const badge = getPrimaryTutorBadge(user || {});
+  if (!badge) return null;
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border shadow-sm"
+      style={{
+        background: badge.pillBg || badge.color || '#8B4AFF',
+        color: badge.pillText || '#ebfc66',
+        borderColor: badge.pillBg || badge.color || '#8B4AFF',
+      }}
+      title={badge.title || badge.label}
+    >
+      <Crown size={10} />
+      {badge.label}
     </span>
   );
 }
@@ -144,6 +189,7 @@ function EditModal({ user, onClose, onSaved }) {
     email: user?.email || '',
     phone: user?.phone || '',
     city: user?.city || '',
+    tutorTitle: user?.tutorTitle || 'TUTOR',
     plan: user?.plan || 'FREE',
     status: user?.status || 'ACTIVE',
     badges: Array.isArray(user?.badges) ? user.badges : [],
@@ -184,6 +230,7 @@ function EditModal({ user, onClose, onSaved }) {
         email: form.email,
         phone: form.phone,
         city: form.city,
+        tutorTitle: form.tutorTitle,
         plan: form.plan,
         status: form.status,
         badges: form.badges,
@@ -253,6 +300,30 @@ function EditModal({ user, onClose, onSaved }) {
                 />
               </div>
             ))}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-2">Forma de tratamento</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: 'TUTOR', label: 'Tutor' },
+                { value: 'TUTORA', label: 'Tutora' },
+                { value: 'PESSOA_TUTORA', label: 'Pessoa tutora' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setForm((current) => ({ ...current, tutorTitle: option.value }))}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-black border transition-all ${
+                    form.tutorTitle === option.value
+                      ? 'bg-[#8B4AFF] text-white border-[#8B4AFF]'
+                      : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-[#8B4AFF]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -363,6 +434,7 @@ function EditModal({ user, onClose, onSaved }) {
             <div className="flex flex-wrap gap-2">
               {BADGE_OPTIONS.map((badge) => {
                 const active = form.badges.includes(badge);
+                const badgeMeta = TUTOR_BADGE_META[badge];
                 return (
                   <button
                     key={badge}
@@ -374,7 +446,7 @@ function EditModal({ user, onClose, onSaved }) {
                         : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-[#8B4AFF]'
                     }`}
                   >
-                    {active ? '✓ ' : '+ '}{badge}
+                    {active ? '✓ ' : '+ '}{badgeMeta?.label || badge}
                   </button>
                 );
               })}
@@ -584,6 +656,7 @@ export default function AdminUsers() {
                 const subscriptionStatus = SUBSCRIPTION_STATUS_OPTIONS.find((option) => option.value === user.subscription?.status);
                 const nextDue = user.subscription?.expiresAt || user.planExpires;
                 const UserStatusIcon = userStatus.icon;
+                const tutorBadge = getPrimaryTutorBadge(user);
 
                 return (
                   <tr key={user.id} className={`hover:bg-gray-50/60 transition-colors ${user.status === 'BANNED' ? 'opacity-70' : ''}`}>
@@ -617,10 +690,14 @@ export default function AdminUsers() {
 
                     <td className="px-5 py-4">
                       <div className="space-y-2">
-                        <InfoChip className={(PLAN_OPTIONS.find((option) => option.value === user.plan) || PLAN_OPTIONS[0]).className}>
-                          <Crown size={10} />
-                          {(PLAN_OPTIONS.find((option) => option.value === user.plan) || PLAN_OPTIONS[0]).label}
-                        </InfoChip>
+                        {tutorBadge ? (
+                          <TutorHierarchyPill user={user} />
+                        ) : (
+                          <InfoChip className={(PLAN_OPTIONS.find((option) => option.value === user.plan) || PLAN_OPTIONS[0]).className}>
+                            <Crown size={10} />
+                            {(PLAN_OPTIONS.find((option) => option.value === user.plan) || PLAN_OPTIONS[0]).label}
+                          </InfoChip>
+                        )}
                         {user.phone && (
                           <p className="text-[10px] text-gray-400 flex items-center gap-1">
                             <Phone size={10} /> {user.phone}
@@ -644,7 +721,7 @@ export default function AdminUsers() {
                         )}
                         <div>
                           <p className="text-[10px] font-black text-gray-500 uppercase">
-                            {user.subscription?.planType || user.plan || 'FREE'}
+                            {tutorBadge?.label || user.subscription?.planType || user.plan || 'FREE'}
                           </p>
                           <p className="text-[11px] text-gray-400">
                             Proximo venc.: {formatDate(nextDue)}
@@ -678,8 +755,8 @@ export default function AdminUsers() {
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-1 max-w-[180px]">
                         {(user.badges || []).length > 0
-                          ? user.badges.map((badge) => <BadgePill key={badge} badge={badge} />)
-                          : <span className="text-gray-300 text-xs">—</span>}
+                          ? user.badges.map((badge) => <BadgePill key={badge} badge={badge} user={user} />)
+                          : <span className="text-gray-300 text-xs">â€”</span>}
                       </div>
                     </td>
 

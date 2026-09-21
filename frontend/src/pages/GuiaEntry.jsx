@@ -4,6 +4,9 @@ import { ArrowLeft, MessageCircleHeart, AlertTriangle, AlertOctagon, ChevronRigh
 import api from '../services/api';
 import useSensory from '../hooks/useSensory';
 import MiniMarkdown from '../utils/MiniMarkdown';
+import OfferCard from '../components/offers/OfferCard';
+import BlockRenderer from '../components/content/BlockRenderer';
+import { isBlocksArray } from '../components/content/blockTypes';
 
 const C = { purple: '#8B4AFF', purpleDark: '#4B40C6', bg: '#F4F3FF' };
 
@@ -62,6 +65,7 @@ export default function GuiaEntry() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [offer, setOffer] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -71,6 +75,20 @@ export default function GuiaEntry() {
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [slug]);
+
+  // Contexto de dor — verbete legado (sem blocos), categoria "caixa": pergunta
+  // ao módulo único de decisão se cabe o card do Protocolo, no fim do texto.
+  // Verbetes com blocos ricos decidem isso via bloco OFFER_SLOT (o admin
+  // escolhe onde; o motor único continua sendo quem decide o quê) — por isso
+  // esse fallback só roda quando NÃO há blocos, pra nunca duplicar oferta.
+  const hasBlocks = isBlocksArray(entry?.blocks);
+  useEffect(() => {
+    setOffer(null);
+    if (hasBlocks || entry?.category?.id !== 'caixa') return;
+    api.get('/offers/decide', { params: { surface: 'PAIN_ALMANAC', petId: catId || undefined } })
+      .then((r) => setOffer(r.data?.offer || null))
+      .catch(() => {});
+  }, [entry, catId, hasBlocks]);
 
   const askIgent = async () => {
     touch();
@@ -131,9 +149,23 @@ export default function GuiaEntry() {
         <h1 className="text-2xl font-black text-gray-900 leading-tight mb-1.5">{entry.title}</h1>
         {entry.excerpt && <p className="text-[13px] font-medium text-gray-500 leading-relaxed mb-4">{entry.excerpt}</p>}
 
-        <div className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm mb-4">
-          <MiniMarkdown text={entry.body} className="text-[14px] font-medium text-gray-600 leading-relaxed" />
-        </div>
+        {hasBlocks ? (
+          <div className="mb-4">
+            <BlockRenderer blocks={entry.blocks} petId={catId} />
+          </div>
+        ) : (
+          <>
+            <div className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm mb-4">
+              <MiniMarkdown text={entry.body} className="text-[14px] font-medium text-gray-600 leading-relaxed" />
+            </div>
+
+            {offer && (
+              <div className="mb-4">
+                <OfferCard offer={offer} surface="PAIN_ALMANAC" petId={catId} onDismiss={() => setOffer(null)} />
+              </div>
+            )}
+          </>
+        )}
 
         {entry.tags?.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">

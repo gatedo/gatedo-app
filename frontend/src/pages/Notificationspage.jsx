@@ -220,7 +220,7 @@ export default function NotificationsPage() {
         <div className="absolute top-[-30px] right-[-20px] w-40 h-40 rounded-full opacity-10 pointer-events-none"
           style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }} />
 
-        <div className="max-w-[800px] mx-auto">
+        <div className="max-w-[920px] mx-auto">
           {/* Topbar */}
           <div className="flex items-center justify-between mb-5">
             <button onClick={() => { touch(); navigate(-1); }}
@@ -267,7 +267,7 @@ export default function NotificationsPage() {
 
       {/* ── Tabs (scroll horizontal) ── */}
       <div className="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-100">
-        <div className="max-w-[800px] mx-auto px-3 py-2 flex items-center gap-2 overflow-x-auto"
+        <div className="max-w-[920px] mx-auto px-3 py-2 flex items-center gap-2 overflow-x-auto"
           style={{ scrollbarWidth: 'none' }}>
           {TABS.map(t => {
             const count = tabCount(t.id);
@@ -309,7 +309,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* ── Lista ── */}
-      <div className="max-w-[800px] mx-auto px-4 py-4 space-y-5">
+      <div className="max-w-[920px] mx-auto px-4 py-4 space-y-5">
         <AnimatePresence mode="wait">
           {filtered.length === 0 ? (
 

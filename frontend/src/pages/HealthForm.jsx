@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import OfferCard from '../components/offers/OfferCard';
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import { awardHealthXP } from '../utils/healthGamification';
@@ -556,6 +557,8 @@ export default function HealthForm() {
 
   const [loading, setLoading]                 = useState(false);
   const [saved, setSaved]                     = useState(false);
+  const [postOffer, setPostOffer]             = useState(null);
+  const [stepIndex, setStepIndex]             = useState(0);
   const [hasPrescription, setHasPrescription] = useState(false);
   const [isOngoing, setIsOngoing]             = useState(false);
   const [isControlled, setIsControlled]       = useState(false);
@@ -925,6 +928,14 @@ export default function HealthForm() {
       }
 
       setSaved(true);
+
+      // Pós-sucesso — carteira de vacinas pode ter ficado completa agora:
+      // pergunta ao módulo único de decisão, card leve se houver algo pra mostrar.
+      if (type === 'vaccine') {
+        api.get('/offers/decide', { params: { surface: 'POST_SUCCESS', petId: id, trigger: 'vaccine' } })
+          .then((r) => { if (r.data?.offer) setPostOffer(r.data.offer); })
+          .catch(() => {});
+      }
     } catch (error) {
       const msg = error?.response?.data?.message;
       const final = Array.isArray(msg) ? msg.join(' | ') : msg||'Erro ao salvar.';
@@ -933,179 +944,166 @@ export default function HealthForm() {
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  return (
-    <>
-      <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-24 pt-6 px-5 overflow-y-auto">
+  // Passos do formulário — dinâmicos conforme o tipo de registro
+  // ─────────────────────────────────────────────────────────────────────────
+  const steps = [];
 
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => navigate(-1)} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Registrar</p>
-            <h1 className="text-lg font-black text-gray-800 tracking-tight leading-none">{config.icon} {config.label}</h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#F4F3FF] rounded-2xl border border-[#8B4AFF]/15 mb-3">
+  steps.push({
+    key: 'basic',
+    title: 'Sobre o registro',
+    content: (
+      <>
+        <div className="flex items-center gap-2 px-3 py-2 bg-[#F4F3FF] rounded-2xl border border-[#8B4AFF]/15">
           <Sparkles size={12} className="text-[#8B4AFF]" />
           <p className="text-[10px] font-bold text-[#8B4AFF]">Ao salvar, o iGentVet aprende com essa informação automaticamente</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-2xl border border-[#8B4AFF]/10 mb-5">
+        <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-2xl border border-[#8B4AFF]/10">
           <Zap size={12} className="text-[#8B4AFF]" />
           <p className="text-[10px] font-bold text-gray-700">Esta ação gera <span className="text-[#8B4AFF]">+5 XP</span> para o tutor</p>
         </div>
 
-        {/* Success banner */}
-        <AnimatePresence>
-          {saved && (
-            <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
-              className="rounded-[22px] px-4 py-3 mb-4 flex items-center gap-3"
-              style={{ background:'#F0FDF4', border:'1px solid #BBF7D0' }}>
-              <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-[10px] font-black text-green-800">{config.label} registrada com sucesso!</p>
-                {type === 'consultation' && protocolNumber && (
-                  <p className="text-[9px] font-bold text-green-700 mt-0.5">Prontuário gerado · protocolo {protocolNumber}</p>
-                )}
-                {createdTreatment && (
-                  <p className="text-[9px] font-bold text-green-600 mt-0.5">Tratamento ativo · role abaixo para gerenciar as doses</p>
-                )}
-              </div>
-              <button onClick={() => navigate(-1)} className="text-[9px] font-black text-green-700 px-2.5 py-1 bg-green-100 rounded-full">
-                Voltar
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
+          <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-widest">Nome / Motivo principal</label>
+          <input type="text" disabled={saved}
+            className="w-full text-sm font-bold outline-none bg-transparent text-gray-800 placeholder-gray-300"
+            placeholder={`Qual ${config.label.toLowerCase()}?`}
+            value={formData.title} onChange={(e) => set('title', e.target.value)} />
+        </div>
 
-        <div className="space-y-3">
-          {/* Title */}
-          <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
-            <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-widest">Nome / Motivo principal</label>
-            <input type="text" disabled={saved}
-              className="w-full text-sm font-bold outline-none bg-transparent text-gray-800 placeholder-gray-300"
-              placeholder={`Qual ${config.label.toLowerCase()}?`}
-              value={formData.title} onChange={(e) => set('title', e.target.value)} />
-          </div>
-
-          {/* Consultation extras */}
-          {type === 'consultation' && (
-            <>
-              <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
-                <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-widest">Motivo da consulta</label>
-                <select className="w-full text-sm font-bold outline-none bg-transparent text-gray-800" disabled={saved}
-                  value={formData.reason} onChange={(e) => set('reason', e.target.value)}>
-                  <option value="">Selecione</option>
-                  {COMMON_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-                {formData.reason === 'Outro' && (
-                  <input type="text" disabled={saved}
-                    className="w-full text-sm font-bold outline-none bg-transparent text-gray-800 placeholder-gray-300 mt-3 pt-3 border-t border-gray-100"
-                    placeholder="Descreva o motivo" value={formData.customReason}
-                    onChange={(e) => set('customReason', e.target.value)} />
-                )}
-              </div>
-
-              <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Stethoscope size={14} className="text-[#8B4AFF]" />
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tipo de atendimento</p>
-                </div>
-                <div className="flex gap-2">
-                  <SegmentedButton label="Clínico"     active={formData.appointmentMode==='clinical'}   onClick={() => set('appointmentMode','clinical')} />
-                  <SegmentedButton label="Especialista" active={formData.appointmentMode==='specialist'} onClick={() => set('appointmentMode','specialist')} />
-                </div>
-                <AnimatePresence>
-                  {formData.appointmentMode === 'specialist' && (
-                    <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }}
-                      exit={{ opacity:0, height:0 }} className="overflow-hidden">
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-widest">Especialidade</label>
-                        <select className="w-full text-sm font-bold outline-none bg-transparent text-gray-800" disabled={saved}
-                          value={formData.specialty} onChange={(e) => set('specialty', e.target.value)}>
-                          <option value="">Selecione</option>
-                          {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        {formData.specialty === 'Outro' && (
-                          <input type="text" disabled={saved}
-                            className="w-full text-sm font-bold outline-none bg-transparent text-gray-800 placeholder-gray-300 mt-3 pt-3 border-t border-gray-100"
-                            placeholder="Qual especialidade?" value={formData.specialtyCustom}
-                            onChange={(e) => set('specialtyCustom', e.target.value)} />
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </>
-          )}
-
-          <ProvidersSelector petId={id}
-            healthRecords={providerSources.healthRecords} treatments={providerSources.treatments}
-            value={{ veterinarian:formData.veterinarian, clinicName:formData.clinicName, clinicPhone:formData.clinicPhone, clinicAddress:formData.clinicAddress }}
-            onChange={updateProviders} />
-
-          {/* Dates */}
-          {type === 'consultation' ? (
-            <div className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-50">
-              <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-tighter text-center">Data da consulta</label>
-              <input type="date" disabled={saved}
-                className="w-full text-xs font-bold outline-none bg-transparent text-center text-gray-700"
-                value={formData.date} onChange={(e) => set('date', e.target.value)} />
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {[['date','Data'],['nextDate','Próxima dose']].map(([k,l]) => (
-                <div key={k} className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-50">
-                  <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-tighter text-center">{l}</label>
-                  <input type="date" disabled={saved}
-                    className="w-full text-xs font-bold outline-none bg-transparent text-center text-gray-700"
-                    value={formData[k]} onChange={(e) => set(k, e.target.value)} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Recheck */}
-          {type === 'consultation' && (
+        {type === 'consultation' && (
+          <>
             <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
-              <Toggle label="Reconsulta recomendada" sublabel="Ativa lembrete para retorno"
-                icon={<CalendarClock size={14} className="text-[#8B4AFF]" />}
-                active={!!formData.recommendedRecheck}
-                onToggle={() => set('recommendedRecheck', !formData.recommendedRecheck)} color="bg-[#8B4AFF]" />
+              <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-widest">Motivo da consulta</label>
+              <select className="w-full text-sm font-bold outline-none bg-transparent text-gray-800" disabled={saved}
+                value={formData.reason} onChange={(e) => set('reason', e.target.value)}>
+                <option value="">Selecione</option>
+                {COMMON_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+              {formData.reason === 'Outro' && (
+                <input type="text" disabled={saved}
+                  className="w-full text-sm font-bold outline-none bg-transparent text-gray-800 placeholder-gray-300 mt-3 pt-3 border-t border-gray-100"
+                  placeholder="Descreva o motivo" value={formData.customReason}
+                  onChange={(e) => set('customReason', e.target.value)} />
+              )}
+            </div>
+
+            <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
+              <div className="flex items-center gap-2 mb-3">
+                <Stethoscope size={14} className="text-[#8B4AFF]" />
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tipo de atendimento</p>
+              </div>
+              <div className="flex gap-2">
+                <SegmentedButton label="Clínico"     active={formData.appointmentMode==='clinical'}   onClick={() => set('appointmentMode','clinical')} />
+                <SegmentedButton label="Especialista" active={formData.appointmentMode==='specialist'} onClick={() => set('appointmentMode','specialist')} />
+              </div>
               <AnimatePresence>
-                {formData.recommendedRecheck && (
-                  <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }} className="overflow-hidden">
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-tighter text-center">Data da reconsulta</label>
-                      <input type="date" disabled={saved}
-                        className="w-full text-xs font-bold outline-none bg-transparent text-center text-gray-700"
-                        value={formData.recheckDate} onChange={(e) => set('recheckDate', e.target.value)} />
+                {formData.appointmentMode === 'specialist' && (
+                  <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }}
+                    exit={{ opacity:0, height:0 }} className="overflow-hidden">
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-widest">Especialidade</label>
+                      <select className="w-full text-sm font-bold outline-none bg-transparent text-gray-800" disabled={saved}
+                        value={formData.specialty} onChange={(e) => set('specialty', e.target.value)}>
+                        <option value="">Selecione</option>
+                        {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {formData.specialty === 'Outro' && (
+                        <input type="text" disabled={saved}
+                          className="w-full text-sm font-bold outline-none bg-transparent text-gray-800 placeholder-gray-300 mt-3 pt-3 border-t border-gray-100"
+                          placeholder="Qual especialidade?" value={formData.specialtyCustom}
+                          onChange={(e) => set('specialtyCustom', e.target.value)} />
+                      )}
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
-          )}
+          </>
+        )}
+      </>
+    ),
+  });
 
-          {/* Ongoing / controlled */}
-          {ONGOING_TYPES.includes(type) && (
-            <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50 space-y-3">
-              <Toggle label="Tratamento contínuo"
-                sublabel={type==='medicine' ? 'Ativa agendamento de doses com alertas automáticos' : 'iGentVet saberá que está em uso ativo'}
-                icon={<RefreshCw size={14} className="text-[#8B4AFF]" />}
-                active={isOngoing} onToggle={() => setIsOngoing((o) => !o)} color="bg-[#8B4AFF]" />
-              {type === 'medicine' && (
-                <Toggle label="Medicação controlada" sublabel="Ativa lembretes de dose no iGentVet"
-                  icon={<Bell size={14} className="text-amber-500" />}
-                  active={isControlled} onToggle={() => setIsControlled((o) => !o)} color="bg-amber-500" />
+  steps.push({
+    key: 'providers',
+    title: 'Veterinário e clínica',
+    content: (
+      <ProvidersSelector petId={id}
+        healthRecords={providerSources.healthRecords} treatments={providerSources.treatments}
+        value={{ veterinarian:formData.veterinarian, clinicName:formData.clinicName, clinicPhone:formData.clinicPhone, clinicAddress:formData.clinicAddress }}
+        onChange={updateProviders} />
+    ),
+  });
+
+  steps.push({
+    key: 'dates',
+    title: type === 'consultation' ? 'Data e reconsulta' : 'Datas',
+    content: (
+      <>
+        {type === 'consultation' ? (
+          <div className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-50">
+            <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-tighter text-center">Data da consulta</label>
+            <input type="date" disabled={saved}
+              className="w-full text-xs font-bold outline-none bg-transparent text-center text-gray-700"
+              value={formData.date} onChange={(e) => set('date', e.target.value)} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {[['date','Data'],['nextDate','Próxima dose']].map(([k,l]) => (
+              <div key={k} className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-50">
+                <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-tighter text-center">{l}</label>
+                <input type="date" disabled={saved}
+                  className="w-full text-xs font-bold outline-none bg-transparent text-center text-gray-700"
+                  value={formData[k]} onChange={(e) => set(k, e.target.value)} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {type === 'consultation' && (
+          <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
+            <Toggle label="Reconsulta recomendada" sublabel="Ativa lembrete para retorno"
+              icon={<CalendarClock size={14} className="text-[#8B4AFF]" />}
+              active={!!formData.recommendedRecheck}
+              onToggle={() => set('recommendedRecheck', !formData.recommendedRecheck)} color="bg-[#8B4AFF]" />
+            <AnimatePresence>
+              {formData.recommendedRecheck && (
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }} className="overflow-hidden">
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-tighter text-center">Data da reconsulta</label>
+                    <input type="date" disabled={saved}
+                      className="w-full text-xs font-bold outline-none bg-transparent text-center text-gray-700"
+                      value={formData.recheckDate} onChange={(e) => set('recheckDate', e.target.value)} />
+                  </div>
+                </motion.div>
               )}
-            </div>
-          )}
+            </AnimatePresence>
+          </div>
+        )}
 
-          {/* Prescription */}
+        {ONGOING_TYPES.includes(type) && (
+          <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50 space-y-3">
+            <Toggle label="Tratamento contínuo"
+              sublabel={type==='medicine' ? 'Ativa agendamento de doses com alertas automáticos' : 'iGentVet saberá que está em uso ativo'}
+              icon={<RefreshCw size={14} className="text-[#8B4AFF]" />}
+              active={isOngoing} onToggle={() => setIsOngoing((o) => !o)} color="bg-[#8B4AFF]" />
+            {type === 'medicine' && (
+              <Toggle label="Medicação controlada" sublabel="Ativa lembretes de dose no iGentVet"
+                icon={<Bell size={14} className="text-amber-500" />}
+                active={isControlled} onToggle={() => setIsControlled((o) => !o)} color="bg-amber-500" />
+            )}
+          </div>
+        )}
+      </>
+    ),
+  });
+
+  if (PRESCRIPTION_TYPES.includes(type) || TREATMENT_TRIGGER_TYPES.includes(type)) {
+    steps.push({
+      key: 'treatment',
+      title: 'Receita e tratamento',
+      content: (
+        <>
           {PRESCRIPTION_TYPES.includes(type) && (
             <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
               <Toggle label="Possui receita?" sublabel="Anexe PDF ou foto"
@@ -1136,7 +1134,6 @@ export default function HealthForm() {
             </div>
           )}
 
-          {/* ── TREATMENT TRIGGER CARD ─────────────────────────────────── */}
           {TREATMENT_TRIGGER_TYPES.includes(type) && !createdTreatment && (
             <motion.div initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }}
               className="rounded-[24px] p-5 border"
@@ -1193,7 +1190,6 @@ export default function HealthForm() {
                         </div>
                       )}
 
-                      {/* Interval selector */}
                       <div className="grid grid-cols-3 gap-2">
                         {INTERVALS.map((opt) => (
                           <button key={opt.value} type="button" disabled={saved}
@@ -1227,66 +1223,171 @@ export default function HealthForm() {
               </AnimatePresence>
             </motion.div>
           )}
+        </>
+      ),
+    });
+  }
 
-          {/* Notes */}
-          <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
-            <label className="text-[9px] font-black text-gray-400 uppercase mb-2 block tracking-tighter">Observações</label>
-            <textarea rows={3} disabled={saved}
-              className="w-full text-sm font-bold outline-none resize-none bg-transparent text-gray-800 placeholder-gray-300"
-              placeholder="Reações, lote, posologia, orientações..."
-              value={formData.notes} onChange={(e) => set('notes', e.target.value)} />
+  steps.push({
+    key: 'notes',
+    title: 'Observações',
+    content: (
+      <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-50">
+        <label className="text-[9px] font-black text-gray-400 uppercase mb-2 block tracking-tighter">Observações</label>
+        <textarea rows={5} disabled={saved}
+          className="w-full text-sm font-bold outline-none resize-none bg-transparent text-gray-800 placeholder-gray-300"
+          placeholder="Reações, lote, posologia, orientações..."
+          value={formData.notes} onChange={(e) => set('notes', e.target.value)} />
+      </div>
+    ),
+  });
+
+  const clampedStep = Math.min(stepIndex, steps.length - 1);
+  const isFirstStep = clampedStep === 0;
+  const isLastStep  = clampedStep === steps.length - 1;
+  const nextDisabled = isFirstStep && !formData.title.trim();
+
+  const goNext = () => {
+    if (isLastStep) { handleSave(); return; }
+    setStepIndex((i) => Math.min(i + 1, steps.length - 1));
+  };
+  const goBack = () => setStepIndex((i) => Math.max(i - 1, 0));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-[200] flex items-stretch sm:items-center justify-center sm:p-4"
+        style={{ background: 'rgba(20,10,45,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+      >
+        <div className="bg-[var(--gatedo-light-bg)] w-full sm:max-w-lg sm:rounded-[32px] sm:max-h-[92vh] h-full sm:h-auto overflow-y-auto relative shadow-2xl">
+
+          {/* Header — fechar + progresso */}
+          <div className="sticky top-0 z-10 bg-[var(--gatedo-light-bg)] px-5 pt-5 pb-3 border-b border-black/5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Registrar</p>
+                <h1 className="text-lg font-black text-gray-800 tracking-tight leading-none">{config.icon} {config.label}</h1>
+              </div>
+              <button onClick={() => navigate(-1)} aria-label="Fechar"
+                className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+
+            {!saved && (
+              <>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                    Passo {clampedStep + 1} de {steps.length}
+                  </p>
+                  <p className="text-[10px] font-black" style={{ color: C.purple }}>
+                    {steps[clampedStep].title}
+                  </p>
+                </div>
+                <div className="flex gap-1.5">
+                  {steps.map((s, i) => (
+                    <div key={s.key}
+                      className={`flex-1 h-1.5 rounded-full transition-colors duration-300 ${i <= clampedStep ? config.color : 'bg-gray-100'}`} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          {saveError && (
-            <div className="bg-red-50 border border-red-100 rounded-[20px] px-4 py-3">
-              <p className="text-[10px] font-bold text-red-600">{saveError}</p>
-            </div>
-          )}
+          <div className="px-5 pt-5 pb-28">
+            {!saved ? (
+              <div className="space-y-3">
+                {steps[clampedStep].content}
 
-          {/* Submit */}
+                {saveError && (
+                  <div className="bg-red-50 border border-red-100 rounded-[20px] px-4 py-3">
+                    <p className="text-[10px] font-bold text-red-600">{saveError}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+                  className="rounded-[22px] px-4 py-3 flex items-center gap-3"
+                  style={{ background:'#F0FDF4', border:'1px solid #BBF7D0' }}>
+                  <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black text-green-800">{config.label} registrada com sucesso!</p>
+                    {type === 'consultation' && protocolNumber && (
+                      <p className="text-[9px] font-bold text-green-700 mt-0.5">Prontuário gerado · protocolo {protocolNumber}</p>
+                    )}
+                    {createdTreatment && (
+                      <p className="text-[9px] font-bold text-green-600 mt-0.5">Tratamento ativo · role abaixo para gerenciar as doses</p>
+                    )}
+                  </div>
+                </motion.div>
+
+                {postOffer && (
+                  <OfferCard
+                    offer={postOffer}
+                    surface="POST_SUCCESS"
+                    petId={id}
+                    onDismiss={() => setPostOffer(null)}
+                  />
+                )}
+
+                <AnimatePresence>
+                  {createdTreatment && (
+                    <motion.div ref={trackerRef} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }}
+                      transition={{ type:'spring', stiffness:220, damping:24, delay:0.1 }}>
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ background:'#8B4AFF15' }}>
+                          <Bell size={11} style={{ color:'#8B4AFF' }} />
+                        </div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tratamentos e Alertas</p>
+                        <span className="text-[8px] font-black px-2 py-0.5 rounded-full" style={{ background:'#8B4AFF10', color:'#8B4AFF' }}>
+                          Motor contínuo
+                        </span>
+                      </div>
+
+                      <InlineTreatmentTracker
+                        petId={id}
+                        petName={''}
+                        treatment={createdTreatment}
+                        userId={getLocalUserId()}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <button onClick={() => navigate(-1)}
+                  className="mt-2 w-full py-4 rounded-[22px] font-black text-[#8B4AFF] text-sm border border-[#8B4AFF20] bg-white"
+                  style={{ boxShadow:'0 2px 8px rgba(139,74,255,0.07)' }}>
+                  ← Voltar ao perfil
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Footer — navegação entre passos */}
           {!saved && (
-            <div className="pt-2">
-              <button onClick={handleSave} disabled={loading}
-                className={`w-full py-5 rounded-[24px] font-black text-white shadow-xl ${config.color} active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-2`}>
-                {loading ? 'Salvando...' : <>{config.icon} Confirmar {config.label}</>}
-              </button>
-              <p className="text-center text-[9px] text-[#8B4AFF] font-bold mt-3 flex items-center justify-center gap-1">
-                <Sparkles size={9} /> iGentVet será informado automaticamente
-              </p>
+            <div className="sticky bottom-0 bg-[var(--gatedo-light-bg)] px-5 pt-3 pb-5 border-t border-black/5">
+              <div className="flex gap-2.5">
+                {!isFirstStep && (
+                  <button onClick={goBack} disabled={loading}
+                    className="flex-1 py-4 rounded-[22px] font-black text-gray-500 bg-white border border-gray-100 flex items-center justify-center gap-1.5">
+                    <ArrowLeft size={16} /> Voltar
+                  </button>
+                )}
+                <button onClick={goNext} disabled={loading || nextDisabled}
+                  className={`flex-1 py-4 rounded-[22px] font-black text-white shadow-lg ${config.color} active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50`}>
+                  {loading ? 'Salvando...' : isLastStep ? <>{config.icon} Confirmar {config.label}</> : 'Próximo'}
+                </button>
+              </div>
+              {isLastStep && (
+                <p className="text-center text-[9px] text-[#8B4AFF] font-bold mt-3 flex items-center justify-center gap-1">
+                  <Sparkles size={9} /> iGentVet será informado automaticamente
+                </p>
+              )}
             </div>
           )}
         </div>
-
-        {/* ── INLINE TREATMENT TRACKER ─────────────────────────────────── */}
-        <AnimatePresence>
-          {createdTreatment && (
-            <motion.div ref={trackerRef} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }}
-              transition={{ type:'spring', stiffness:220, damping:24, delay:0.1 }} className="mt-5">
-              <div className="flex items-center gap-2 mb-3 px-1">
-                <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ background:'#8B4AFF15' }}>
-                  <Bell size={11} style={{ color:'#8B4AFF' }} />
-                </div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tratamentos e Alertas</p>
-                <span className="text-[8px] font-black px-2 py-0.5 rounded-full" style={{ background:'#8B4AFF10', color:'#8B4AFF' }}>
-                  Motor contínuo
-                </span>
-              </div>
-
-              <InlineTreatmentTracker
-                petId={id}
-                petName={''}
-                treatment={createdTreatment}
-                userId={getLocalUserId()}
-              />
-
-              <button onClick={() => navigate(-1)}
-                className="mt-4 w-full py-4 rounded-[22px] font-black text-[#8B4AFF] text-sm border border-[#8B4AFF20] bg-white"
-                style={{ boxShadow:'0 2px 8px rgba(139,74,255,0.07)' }}>
-                ← Voltar ao perfil
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <AnimatePresence>{xpToast ? <XPSuccessPill text={xpToast} /> : null}</AnimatePresence>

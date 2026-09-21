@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import api from '../services/api';
+import { brandAssets } from '../brand/assets';
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function VerifyEmail() {
 
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
+  const [nextHref, setNextHref] = useState('/home');
 
   useEffect(() => {
     if (!token) {
@@ -23,6 +25,7 @@ export default function VerifyEmail() {
       .then((r) => {
         setStatus('success');
         setMessage(r.data?.message || 'Email verificado!');
+        setNextHref(r.data?.welcomePath || '/home');
       })
       .catch((err) => {
         setStatus('error');
@@ -43,7 +46,7 @@ export default function VerifyEmail() {
       bg: '#F0FDF4',
       border: '#86EFAC',
       title: '✓ Email verificado!',
-      btn: { label: 'Ir para o App →', href: '/home' },
+      btn: { label: 'Continuar →', href: nextHref },
     },
     error: {
       icon: <AlertCircle size={40} className="text-red-400" />,
@@ -57,7 +60,7 @@ export default function VerifyEmail() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#936cff] via-[#8b4dff] to-[#682adb] relative overflow-hidden flex items-center justify-center p-4">
       <img
-        src="/assets/logo-fundo1.svg"
+        src={brandAssets.gatedoWatermark}
         alt=""
         className="absolute bottom-[-20%] left-[-40%] w-[150%] opacity-100 pointer-events-none"
       />
@@ -69,7 +72,7 @@ export default function VerifyEmail() {
       >
         <div className="absolute -top-12 left-1/2 -translate-x-1/2">
           <div className="w-24 h-24 bg-[#f8f4ff83] rounded-full flex items-center justify-center shadow-lg">
-            <img src="/assets/App_gatedo_logo1.webp" alt="" className="w-32 h-32 object-contain" />
+            <img src={brandAssets.appLogo} alt="" className="w-32 h-32 object-contain" />
           </div>
         </div>
 

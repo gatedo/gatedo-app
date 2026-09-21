@@ -30,6 +30,9 @@ import PrivacyPolicy from '../pages/legal/PrivacyPolicy';
 
 // Home e Gatos
 import Home from '../pages/Home';
+import Health from '../pages/Health';
+import More from '../pages/More';
+import Gatedoland from '../pages/Gatedoland';
 import Cats from '../pages/Cats';
 import CatProfile from '../pages/CatProfile';
 import CatEdit from '../pages/CatEdit';
@@ -124,6 +127,9 @@ const NO_LOADING_ROUTES = [
 // ─── Rotas que exibem a BottomNav ─────────────────────────────────────────────
 const APP_ROUTES_WITH_NAV = [
   '/home',
+  '/health',
+  '/more',
+  '/gatedoland',
   '/cats',
   '/notifications',
   '/notification-center',
@@ -380,6 +386,9 @@ const AppShell = () => {
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/home" element={<Home />} />
+                <Route path="/health" element={<Health />} />
+                <Route path="/more" element={<More />} />
+                <Route path="/gatedoland" element={<Gatedoland />} />
 
                 <Route path="/cats" element={<Cats />} />
                 <Route path="/cat-new" element={<AddCat />} />

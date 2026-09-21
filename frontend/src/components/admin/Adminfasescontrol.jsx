@@ -18,13 +18,10 @@ import {
   X, TrendingUp, Users, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import api from '../../services/api';
+import { FOUNDER_LAUNCH_PHASES } from '../../utils/founderLaunchConfig';
 
 // ─── Config base das fases ────────────────────────────────────────────────────
-const FASE_CONFIG = [
-  { n: 1, label: 'Early Bird',   price: 47,  totalVagas: 50,  color: '#EF4444', kiwifyUrl: 'https://pay.kiwify.com.br/VjePvmn' },
-  { n: 2, label: 'Fundador',     price: 67,  totalVagas: 100, color: '#f59e0b', kiwifyUrl: 'https://pay.kiwify.com.br/TlfQJm5' },
-  { n: 3, label: 'Acesso Final', price: 97,  totalVagas: 200, color: '#6158ca', kiwifyUrl: 'https://pay.kiwify.com.br/tcbqqVl' },
-];
+const FASE_CONFIG = FOUNDER_LAUNCH_PHASES;
 
 // ─── Estado inicial padrão ────────────────────────────────────────────────────
 const DEFAULT_STATE = {

@@ -42,7 +42,16 @@ const ICON_OPTIONS = [
   { name: 'Flame', icon: Flame },
 ];
 
-const EMPTY_PROD = { name: '', price: '', platform: 'Amazon', category: 'Saúde', externalLink: '', images: '', videoReview: '', badge: '', description: '', featured: false };
+const EMPTY_PROD = { name: '', price: '', platform: 'Amazon', category: 'Saúde', externalLink: '', images: '', videoReview: '', badge: '', description: '', featured: false, tags: [] };
+
+// Tags de perfil do gato — usadas pelo motor de recomendação da Loja
+// (GET /offers/recommend-products). Marcação manual, sem automação.
+const TAG_OPTIONS = [
+  { id: 'urinary', label: 'Histórico urinário' },
+  { id: 'kitten', label: 'Filhote' },
+  { id: 'senior', label: 'Sênior' },
+  { id: 'longhair', label: 'Pelo longo' },
+];
 const EMPTY_KIT  = { title: '', subtitle: '', iconName: 'Gift', gradient: 'from-yellow-400 to-orange-500', productIds: [], active: true };
 const EMPTY_CUP  = { code: '', description: '', discountType: 'POINTS', value: 10, maxUses: 1, expiresAt: '', targetUserId: '' };
 
@@ -95,7 +104,7 @@ export default function AdminStore() {
   const openProdModal = (prod = null) => {
     if (prod) {
       setEditingProdId(prod.id);
-      setProdForm({ name: prod.name || '', price: prod.price || '', platform: prod.platform || 'Amazon', category: prod.category?.name || 'Saúde', externalLink: prod.externalLink || '', images: (prod.images || []).join(', '), videoReview: prod.videoReview || '', badge: prod.badge || '', description: prod.description || '', featured: prod.featured ?? false });
+      setProdForm({ name: prod.name || '', price: prod.price || '', platform: prod.platform || 'Amazon', category: prod.category?.name || 'Saúde', externalLink: prod.externalLink || '', images: (prod.images || []).join(', '), videoReview: prod.videoReview || '', badge: prod.badge || '', description: prod.description || '', featured: prod.featured ?? false, tags: prod.tags || [] });
     } else {
       setEditingProdId(null);
       setProdForm(EMPTY_PROD);
@@ -107,7 +116,7 @@ export default function AdminStore() {
     e.preventDefault();
     setSavingProd(true);
     try {
-      const payload = { name: prodForm.name.trim(), description: prodForm.description.trim() || '', price: parseFloat(String(prodForm.price).replace(',', '.')) || 0, platform: prodForm.platform, externalLink: prodForm.externalLink.trim(), images: prodForm.images.split(',').map(u => u.trim()).filter(Boolean), videoReview: prodForm.videoReview.trim() || null, badge: prodForm.badge.trim() || null, categoryName: prodForm.category, featured: prodForm.featured ?? false };
+      const payload = { name: prodForm.name.trim(), description: prodForm.description.trim() || '', price: parseFloat(String(prodForm.price).replace(',', '.')) || 0, platform: prodForm.platform, externalLink: prodForm.externalLink.trim(), images: prodForm.images.split(',').map(u => u.trim()).filter(Boolean), videoReview: prodForm.videoReview.trim() || null, badge: prodForm.badge.trim() || null, categoryName: prodForm.category, featured: prodForm.featured ?? false, tags: prodForm.tags || [] };
       if (editingProdId) {
         const r = await api.patch(`/products/${editingProdId}`, payload);
         setProducts(prev => prev.map(p => p.id === editingProdId ? r.data : p));
@@ -516,6 +525,32 @@ export default function AdminStore() {
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="lbl">Badge</label><input value={prodForm.badge} onChange={pf('badge')} className="inp" placeholder="Top 1" /></div>
                   <div><label className="lbl">Descrição</label><input value={prodForm.description} onChange={pf('description')} className="inp" placeholder="Resumo..." /></div>
+                </div>
+
+                <div>
+                  <label className="lbl">Perfil de gato (recomendação da Loja)</label>
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    {TAG_OPTIONS.map((t) => {
+                      const active = (prodForm.tags || []).includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setProdForm((prev) => ({
+                            ...prev,
+                            tags: (prev.tags || []).includes(t.id)
+                              ? prev.tags.filter((x) => x !== t.id)
+                              : [...(prev.tags || []), t.id],
+                          }))}
+                          className={`px-3 py-2 rounded-full text-[11px] font-black border-2 transition-all ${
+                            active ? 'border-transparent text-white bg-[#8B4AFF]' : 'border-gray-100 text-gray-500 bg-gray-50'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Mostrar na Home */}

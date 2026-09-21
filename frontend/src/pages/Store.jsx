@@ -26,9 +26,15 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import api from '../services/api';
+import StoreRecommendations from '../components/offers/StoreRecommendations';
 import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
+import {
+  getAmbassadorAttribution,
+  getAmbassadorByToken,
+  setAmbassadorAttribution,
+} from '../services/ambassadorProgramStore';
 
 const PARTNER_STYLES = {
   Amazon: { color: 'bg-[#FF9900] text-white', text: 'text-[#FF9900]' },
@@ -107,6 +113,7 @@ export default function Store() {
   const [showCoupons, setShowCoupons] = useState(false);
   const [videoModal, setVideoModal] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => readFavoriteProductIds());
+  const [ambassador, setAmbassador] = useState(() => getAmbassadorAttribution());
 
   const rewardTimeoutRef = useRef(null);
   const copiedTimeoutRef = useRef(null);
@@ -162,6 +169,18 @@ export default function Store() {
     const url = new URL(window.location.href);
     url.searchParams.delete('ref');
     window.history.replaceState({}, '', url.toString());
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('amb') || params.get('embaixadora') || params.get('affiliate');
+    if (!token) return;
+
+    const profile = getAmbassadorByToken(token);
+    if (profile) {
+      setAmbassadorAttribution(profile);
+      setAmbassador(getAmbassadorAttribution());
+    }
   }, []);
 
   useEffect(() => {
@@ -385,6 +404,27 @@ export default function Store() {
       </div>
 
       <div className="p-4 space-y-7 max-w-5xl mx-auto">
+        <StoreRecommendations />
+
+        {ambassador?.token && (
+          <div className="rounded-[26px] p-4 text-white shadow-[0_18px_40px_rgba(20,11,46,0.16)]"
+            style={{ background: `linear-gradient(135deg, ${ambassador.color || '#8B4AFF'} 0%, #140B2E 100%)` }}>
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-white/16 border border-white/15 flex items-center justify-center shrink-0">
+                <Crown size={18} className="text-[#ebfc66]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ebfc66]">Vitrine de embaixadora</p>
+                <h2 className="text-lg font-black leading-tight">{ambassador.storefrontTitle || `Vitrine de ${ambassador.name}`}</h2>
+                <p className="text-xs text-white/70 mt-1 leading-relaxed">{ambassador.storefrontIntro}</p>
+                <p className="text-[10px] text-white/45 mt-2 truncate">
+                  Indicacao vinculada a {ambassador.handle || ambassador.name} · codigo {ambassador.affiliateCode}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!searchTerm && (
           <div
             className="rounded-[26px] p-4 text-white shadow-[0_18px_40px_rgba(255,126,51,0.18)]"

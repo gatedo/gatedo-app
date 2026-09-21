@@ -1,14 +1,16 @@
 // utils/healthScore.js
 
 export function getHealthStatusLabel(score) {
-  if (score >= 85) return 'Em dia';
-  if (score >= 65) return 'Atenção';
+  if (score >= 75) return 'Em dia';
+  if (score >= 55) return 'Atenção';
+  if (score >= 35) return 'Revisar';
   return 'Pendente';
 }
 
 export function getHealthTone(score) {
-  if (score >= 85) return 'green';
-  if (score >= 65) return 'amber';
+  if (score >= 75) return 'green';
+  if (score >= 55) return 'blue';
+  if (score >= 35) return 'amber';
   return 'red';
 }
 

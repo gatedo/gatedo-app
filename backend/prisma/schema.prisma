@@ -65,6 +65,7 @@ model User {
   igentUsageLogs         IgentUsageLog[]
   protocolEnrollments    ProtocolEnrollment[]
   productEntitlements    ProductEntitlement[]
+  offerEvents            OfferEvent[]
 }
 
 model Pet {
@@ -146,6 +147,7 @@ model Pet {
   followers             SocialFollow[]
   studioCreations       StudioCreation[]
   treatments            TreatmentSchedule[]
+  offerEvents           OfferEvent[]
 }
 
 model HealthRecord {
@@ -212,6 +214,25 @@ model IgentUsageLog {
   @@index([petId, createdAt])
 }
 
+// Rastreio de impressão/clique/conversão do motor único de decisão de oferta,
+// sempre com a superfície de origem (regra dura: toda oferta registra os 3).
+model OfferEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  petId     String?
+  surface   String
+  offerKey  String
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet       Pet?     @relation(fields: [petId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([offerKey, action])
+  @@index([surface, action])
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // MÓDULO DE CONTEÚDO — dois tipos: Guia (livre) e Protocolo (com entitlement)
 // ═══════════════════════════════════════════════════════════════════════
@@ -247,6 +268,10 @@ model GuideEntry {
   category         GuideCategory? @relation(fields: [categoryId], references: [id])
   excerpt          String?
   body             String
+  // Conteúdo rico opcional (seções coloridas, imagem, checklist, callout,
+  // slot de oferta) — array de blocos tipados. Quando ausente/vazio, o
+  // front cai pro `body` em markdown simples (compat com verbetes antigos).
+  blocks           Json?
   tags             String[]      @default([])
   urgency          GuideUrgency?
   vejaTambem       String[]      @default([])
@@ -600,14 +625,18 @@ model PetAchievement {
 }
 
 model DiaryEntry {
-  id      String   @id @default(uuid())
-  petId   String
-  title   String
-  content String?
-  date    DateTime @default(now())
-  type    String
-  photos  String[]
-  pet     Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  petId       String
+  title       String
+  content     String?
+  date        DateTime @default(now())
+  type        String
+  photos      String[]
+  // Ocorrências estruturadas marcadas pelo tutor (ex.: "URINARY_ACCIDENT" —
+  // xixi fora da caixa). Usado pelo motor de decisão de oferta pra detectar
+  // o contexto de dor sem depender de busca por palavra-chave em texto livre.
+  occurrences String[] @default([])
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
 model StudioCreation {
@@ -689,6 +718,9 @@ model Product {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   videoReview   String?
+  // Tags de perfil do gato pra recomendação da Loja (ex.: "urinary",
+  // "kitten", "senior", "longhair") — marcadas manualmente pelo admin.
+  tags          String[]       @default([])
   orderItems    OrderItem[]
   category      Category       @relation(fields: [categoryId], references: [id])
   productShares ProductShare[]

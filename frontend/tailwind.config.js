@@ -11,7 +11,7 @@ export default {
         gatedo: {
           bg: '#efeeff',
           primary: '#823fff',
-          accent: '#e7ff60',
+          accent: '#eaff00',
           card: '#FFFFFF',
           text: '#1A1A1A',
 

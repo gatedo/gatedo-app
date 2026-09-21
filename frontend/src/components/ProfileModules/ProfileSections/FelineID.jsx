@@ -2,25 +2,26 @@ import React, { useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
 import { ChevronDown, RefreshCcw, Palette, UserRound } from 'lucide-react';
 import { calculateAgeParts, formatCatAge, formatDateOnlyBR, getCatLifeStage } from '../../../utils/catAge';
+import { brandAssets } from '../../../brand/assets';
 
 const NUNITO_STACK = "'Nunito', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 const THEME_MAP = {
-  violet: { primary: '#823fff', secondary: '#e7ff60', surface: '#ffffff', line: '#e7eef7', ink: '#0F172A', soft: '#E0E7FF' },
-  purple: { primary: '#a352ff', secondary: '#F97316', surface: '#FAF5FF', line: '#DDD6FE', ink: '#1F2937', soft: '#F3E8FF' },
-  indigo: { primary: '#3B82F6', secondary: '#FBBF24', surface: '#EFF6FF', line: '#BFDBFE', ink: '#111827', soft: '#DBEAFE' },
-  emerald: { primary: '#059669', secondary: '#F59E0B', surface: '#ECFDF5', line: '#A7F3D0', ink: '#064E3B', soft: '#D1FAE5' },
-  rose: { primary: '#E11D48', secondary: '#F59E0B', surface: '#FFF1F2', line: '#FDA4AF', ink: '#4C0519', soft: '#FFE4E6' },
-  slate: { primary: '#475569', secondary: '#F59E0B', surface: '#F8FAFC', line: '#CBD5E1', ink: '#0F172A', soft: '#E2E8F0' },
-  amber: { primary: '#CA8A04', secondary: '#2563EB', surface: '#FFFBEB', line: '#FDE68A', ink: '#422006', soft: '#FEF3C7' },
-  sky: { primary: '#0284C7', secondary: '#F59E0B', surface: '#F0F9FF', line: '#BAE6FD', ink: '#082F49', soft: '#E0F2FE' },
+  violet: { primary: '#823fff', secondary: '#e7ff60', surface: '#ffffff', line: 'transparent', ink: '#0F172A', soft: '#823fff' },
+  purple: { primary: '#a352ff', secondary: '#F97316', surface: '#ffffff', line: 'transparent', ink: '#1F2937', soft: '#a352ff' },
+  indigo: { primary: '#3B82F6', secondary: '#FBBF24', surface: '#ffffff', line: 'transparent', ink: '#111827', soft: '#3B82F6' },
+  emerald: { primary: '#059669', secondary: '#F59E0B', surface: '#ffffff', line: 'transparent', ink: '#064E3B', soft: '#059669' },
+  rose: { primary: '#E11D48', secondary: '#F59E0B', surface: '#ffffff', line: 'transparent', ink: '#4C0519', soft: '#E11D48' },
+  slate: { primary: '#475569', secondary: '#F59E0B', surface: '#ffffff', line: 'transparent', ink: '#0F172A', soft: '#475569' },
+  amber: { primary: '#CA8A04', secondary: '#2563EB', surface: '#ffffff', line: 'transparent', ink: '#422006', soft: '#CA8A04' },
+  sky: { primary: '#0284C7', secondary: '#F59E0B', surface: '#ffffff', line: 'transparent', ink: '#082F49', soft: '#0284C7' },
 };
 
 function resolveTheme(themeColor) {
   if (!themeColor) return THEME_MAP.violet;
   if (THEME_MAP[themeColor]) return THEME_MAP[themeColor];
   if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(themeColor)) {
-    return { primary: themeColor, secondary: '#F59E0B', surface: '#FFFFFF', line: '#E5E7EB', ink: '#111827', soft: '#F3F4F6' };
+    return { primary: themeColor, secondary: '#F59E0B', surface: '#FFFFFF', line: 'transparent', ink: '#111827', soft: themeColor };
   }
   return THEME_MAP.violet;
 }
@@ -79,11 +80,17 @@ function getProfileUrl(cat) {
   return `${window.location.origin}/gato/${cat.id}`;
 }
 
+function hexAlpha(hex, alpha = '12') {
+  const value = String(hex || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(value)) return `${value}${alpha}`;
+  return 'rgba(130,63,255,0.08)';
+}
+
 function Badge({ children, tone }) {
   return (
     <span
-      className="inline-flex items-center rounded-full whitespace-nowrap px-2.5 py-1 text-[9px] font-black uppercase tracking-[1.3px]"
-      style={{ background: tone, color: '#0F172A' }}
+      className="inline-flex items-center rounded-full whitespace-nowrap px-2 py-0.5 text-[8.5px] font-black uppercase tracking-[1.15px]"
+      style={{ background: `${tone}e8`, color: '#ffffff' }}
     >
       {children}
     </span>
@@ -93,11 +100,11 @@ function Badge({ children, tone }) {
 function FrontDecor({ theme }) {
   return (
     <div
-      className="absolute left-0 top-0 h-full w-[28px] overflow-hidden rounded-l-[24px]"
+      className="absolute left-0 top-0 h-full w-[23px] overflow-hidden rounded-l-[24px]"
       style={{ background: theme.primary }}
     >
       <img
-        src="/assets/App_gatedo_logo.svg"
+        src={brandAssets.appLogo}
         alt=""
         aria-hidden="true"
         className="absolute select-none pointer-events-none max-w-none"
@@ -105,7 +112,7 @@ function FrontDecor({ theme }) {
           height: '410px',
           width: '410px',
           top: '50%',
-          left: '-146px',
+              left: '-151px',
           transform: 'translateY(-50%)',
         }}
       />
@@ -132,21 +139,26 @@ function FelineIDFace({ cat, tutor, theme, side = 'front' }) {
 
   if (side === 'front') {
     return (
-      <div className="relative h-full overflow-hidden rounded-[24px] border shadow-[0_18px_40px_rgba(15,23,42,0.16)]" style={{ background: theme.surface, borderColor: theme.line }}>
+      <div
+        className="relative h-full overflow-hidden rounded-[24px] shadow-[0_22px_46px_rgba(72,42,150,0.20),0_8px_20px_rgba(15,23,42,0.08)]"
+        style={{
+          background: `radial-gradient(circle at 58% 42%, ${hexAlpha(theme.primary, '0c')} 0%, rgba(255,255,255,0.98) 46%, #ffffff 100%)`,
+        }}
+      >
         <FrontDecor theme={theme} />
         <div className="relative z-10 flex h-full flex-col px-4 pt-4 pb-5" style={{ fontFamily: NUNITO_STACK }}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 pl-5">
-              <p className="text-[8px] font-black uppercase tracking-[1.8px]" style={{ color: theme.primary }}>Identidade Animal GATEDO</p>
+              <p className="text-[8px] font-black uppercase tracking-[1.8px]" style={{ color: theme.primary }}>Identidade Oficial GATEDO</p>
               <h3 className="mt-1 text-[18px] font-extrabold leading-none" style={{ color: theme.ink }}>Carteira Felina</h3>
               <p className="mt-1 text-[10px] font-bold text-slate-500">Documento oficial perfil GATEDO</p>
             </div>
-            <img src="/assets/App_gatedo_logo.svg" alt="GATEDO" className="h-16 w-16 rounded-full" />
+            <img src={brandAssets.appLogo} alt="GATEDO" className="h-16 w-16 rounded-full" />
           </div>
 
-          <div className="mt-3 grid flex-1 grid-cols-[98px_1fr] gap-3 pl-5 pb-2">
+          <div className="mt-2 grid flex-1 grid-cols-[88px_1fr] gap-3 pl-4 pb-2">
             <div className="flex flex-col gap-2">
-              <div className="h-[122px] overflow-hidden rounded-[16px] border bg-white shadow-sm" style={{ borderColor: theme.line }}>
+              <div className="h-[108px] overflow-hidden rounded-[15px] border border-white bg-white shadow-[0_8px_18px_rgba(72,42,150,0.10),0_1px_0_rgba(15,23,42,0.05)] ring-1 ring-slate-200/55">
                 {photo ? (
                   <img src={photo} alt={cat?.name || 'Gato'} className="h-full w-full object-cover" />
                 ) : (
@@ -156,21 +168,28 @@ function FelineIDFace({ cat, tutor, theme, side = 'front' }) {
               <div className="flex items-center justify-center">
                 <Badge tone={theme.soft}>{idLabel}</Badge>
               </div>
+              <div className="rounded-[9px] border border-slate-100/80 bg-white px-2 py-1 text-center shadow-[0_5px_14px_rgba(72,42,150,0.06),0_1px_0_rgba(15,23,42,0.04)]">
+                <p className="text-[7px] font-black uppercase tracking-[0.9px] text-slate-400">Microchip</p>
+                <p className="mt-0.5 truncate text-[8.5px] font-extrabold leading-none text-slate-700">{microchip}</p>
+              </div>
             </div>
 
-            <div className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-1.5 self-start pt-0.5">
-              <div className="col-span-2">
-                <p className="text-[9px] font-black uppercase tracking-[1.4px] text-slate-400">Nome do animal</p>
-                <p className="mt-0.5 text-[18px] font-extrabold leading-none" style={{ color: theme.ink }}>{cat?.name || 'Sem nome'}</p>
+            <div className="grid min-w-0 grid-cols-[1fr_1.08fr] gap-1.5 self-start pt-0">
+              <div className="col-span-2 rounded-[9px] border border-slate-100/80 bg-white px-2 py-1 shadow-[0_5px_14px_rgba(72,42,150,0.06),0_1px_0_rgba(15,23,42,0.04)]">
+                <p className="text-[8px] font-black uppercase tracking-[1.2px] text-slate-400">Nome do gato</p>
+                <p className="mt-0.5 text-[17px] font-extrabold leading-none" style={{ color: theme.ink }}>{cat?.name || 'Sem nome'}</p>
               </div>
-              <Info label="Registro" value={idLabel} noWrap />
-              <Info label="Microchip" value={microchip} />
-              <Info label="Especie - Raca" value={`Felina / ${getDisplayBreed(cat)}`} />
-              <Info label="Sexo" value={formatGender(cat?.gender)} />
-              <Info label="Pelagem" value={cat?.coatType || 'Não informado'} />
-              <Info label="Nasc. / Idade Aprox." value={getIdentityAgeLabel(cat)} />
-              <Info label="Castrado(a)" value={getNeuteredLabel(cat?.neutered)} />
-              <Info label="Naturalidade" value={city} />
+              <div className="space-y-1 rounded-[10px] border border-slate-100/80 bg-white px-2 py-1.5 shadow-[0_6px_16px_rgba(72,42,150,0.06),0_1px_0_rgba(15,23,42,0.04)]">
+                <Info label="Registro" value={idLabel} noWrap />
+                <Info label="Raça" value={getDisplayBreed(cat)} />
+                <Info label="Pelagem" value={cat?.coatType || 'Não informado'} />
+                <Info label="Castrado(a)" value={getNeuteredLabel(cat?.neutered)} />
+              </div>
+              <div className="space-y-1 rounded-[10px] border border-slate-100/80 bg-white px-2 py-1.5 shadow-[0_6px_16px_rgba(72,42,150,0.06),0_1px_0_rgba(15,23,42,0.04)]">
+                <Info label="Sexo" value={formatGender(cat?.gender)} />
+                <Info label="Nasc. / Idade Aprox." value={getIdentityAgeLabel(cat)} />
+                <Info label="Naturalidade" value={city} />
+              </div>
             </div>
           </div>
         </div>
@@ -179,7 +198,7 @@ function FelineIDFace({ cat, tutor, theme, side = 'front' }) {
   }
 
   return (
-    <div className="relative h-full overflow-hidden rounded-[24px] border shadow-[0_18px_40px_rgba(15,23,42,0.16)]" style={{ background: '#FFFEFB', borderColor: theme.line }}>
+    <div className="relative h-full overflow-hidden rounded-[24px] shadow-[0_22px_46px_rgba(72,42,150,0.18),0_8px_20px_rgba(15,23,42,0.08)]" style={{ background: '#ffffff' }}>
       <BackDecor theme={theme} />
       <div className="relative z-10 flex h-full flex-col px-4 pt-4 pb-5" style={{ fontFamily: NUNITO_STACK }}>
         <div className="flex items-start justify-between gap-3">
@@ -187,7 +206,7 @@ function FelineIDFace({ cat, tutor, theme, side = 'front' }) {
             <p className="text-[8px] font-black uppercase tracking-[1.8px]" style={{ color: theme.primary }}>Verso · Perfil social e responsável</p>
             <p className="mt-1 text-[11px] font-bold text-slate-500">QR real do perfil social do gato no GATEDO.</p>
           </div>
-          <img src="/assets/App_gatedo_logo.svg" alt="GATEDO" className="h-12 w-12 rounded-full bg-white p-1.5 shadow-sm ring-1 ring-black/5" />
+          <img src={brandAssets.appLogo} alt="GATEDO" className="h-12 w-12 rounded-full bg-white p-1.5 shadow-sm ring-1 ring-black/5" />
         </div>
 
         <div className="mt-3 grid flex-1 grid-cols-[108px_1fr] gap-4 pb-2">
@@ -221,8 +240,8 @@ function FelineIDFace({ cat, tutor, theme, side = 'front' }) {
 function Info({ label, value, noWrap = false }) {
   return (
     <div className="min-w-0">
-      <p className="text-[8px] font-black uppercase tracking-[1.2px] text-slate-400">{label}</p>
-      <p className={`mt-0.5 text-[11px] font-extrabold leading-[1.15] text-slate-700 ${noWrap ? 'whitespace-nowrap' : 'break-words'}`}>{value || 'Não informado'}</p>
+      <p className="text-[7.5px] font-black uppercase tracking-[1px] text-slate-400">{label}</p>
+      <p className={`mt-0.5 text-[10.5px] font-extrabold leading-[1.12] text-slate-700 ${noWrap ? 'whitespace-nowrap' : 'break-words'}`}>{value || 'Não informado'}</p>
     </div>
   );
 }

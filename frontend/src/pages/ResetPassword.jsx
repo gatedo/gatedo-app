@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../services/api';
+import { brandAssets } from '../brand/assets';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -88,7 +89,7 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#936cff] via-[#8b4dff] to-[#682adb] relative overflow-hidden flex items-center justify-center p-4">
       <img
-        src="/assets/logo-fundo1.svg"
+        src={brandAssets.gatedoWatermark}
         alt=""
         className="absolute bottom-[-20%] left-[-40%] w-[150%] max-w-none pointer-events-none z-0"
       />
@@ -100,7 +101,7 @@ export default function ResetPassword() {
       >
         <div className="absolute -top-12 left-1/2 -translate-x-1/2">
           <div className="w-24 h-24 bg-[#f8f4ff83] rounded-full flex items-center justify-center shadow-lg ">
-            <img src="/assets/App_gatedo_logo1.webp" alt="" className="w-32 h-32 object-contain" />
+            <img src={brandAssets.appLogo} alt="" className="w-32 h-32 object-contain" />
           </div>
         </div>
 
@@ -130,7 +131,7 @@ export default function ResetPassword() {
           ) : (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="text-center mb-6">
-                <img src="/assets/logo_gatedo_full.webp" alt="Gatedo" className="h-8 mx-auto mb-2" />
+                <img src={brandAssets.gatedoFull} alt="Gatedo" className="h-8 mx-auto mb-2" />
                 <h1 className="text-lg font-black text-gray-800 mb-1">Nova senha</h1>
                 <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
                   Escolha uma senha segura

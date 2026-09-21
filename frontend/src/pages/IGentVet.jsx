@@ -10,6 +10,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
+import OfferCard from '../components/offers/OfferCard';
 import { brandAssets } from '../brand/assets';
 import {
   buildIgentAlmanacContext,
@@ -725,6 +726,8 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory, skipAutoSta
   const [credits, setCredits] = useState(null);
   const [notifyingReset, setNotifyingReset] = useState(false);
   const [resetNotified, setResetNotified] = useState(false);
+  const [painOffer, setPainOffer] = useState(null);
+  const painOfferCheckedRef = useRef(null);
 
   // Saldo de perguntas do mês — buscado uma vez e atualizado a cada resposta da IA
   useEffect(() => {
@@ -756,6 +759,24 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory, skipAutoSta
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }, 80);
   }, [messages, isTyping]);
+
+  // Contexto de dor — pergunta sobre xixi/caixa/marcação: pergunta ao módulo
+  // único de decisão se cabe o card do Protocolo, depois da resposta.
+  useEffect(() => {
+    if (isTyping) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.sender !== 'bot' || last.type !== 'text') return;
+    if (painOfferCheckedRef.current === last.id) return;
+
+    const lastUser = [...messages].reverse().find((m) => m.sender === 'user' && m.type === 'text');
+    if (!lastUser?.text) return;
+    if (!/xixi|urin|caixa de areia|areia|marca(ç|c)[aã]o|marcando|marcou/i.test(lastUser.text)) return;
+
+    painOfferCheckedRef.current = last.id;
+    api.get('/offers/decide', { params: { surface: 'PAIN_IGENT', petId: cat.id } })
+      .then((r) => { if (r.data?.offer) setPainOffer(r.data.offer); })
+      .catch(() => {});
+  }, [messages, isTyping, cat.id]);
 
 // ─── FASE DE LOADING — só visual, zero áudio ────────────────────────────
 useEffect(() => {
@@ -1922,6 +1943,15 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             </motion.div>
           ))}
         </AnimatePresence>
+
+        {painOffer && !isTyping && (
+          <OfferCard
+            offer={painOffer}
+            surface="PAIN_IGENT"
+            petId={cat.id}
+            onDismiss={() => setPainOffer(null)}
+          />
+        )}
 
         {/* Typing indicator */}
         {isTyping && (

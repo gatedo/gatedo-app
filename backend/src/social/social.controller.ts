@@ -61,6 +61,11 @@ export class SocialController {
     return this.socialService.createPost(req.user, body);
   }
 
+  @Delete('posts/:postId')
+  deletePost(@Req() req: any, @Param('postId') postId: string) {
+    return this.socialService.deletePost(req.user, postId);
+  }
+
   @Post('posts/:postId/like')
   likePost(@Req() req: any, @Param('postId') postId: string) {
     return this.socialService.likePost(req.user, postId);

@@ -23,6 +23,8 @@ const C = {
   muted: "#9ca3af",
 };
 
+const META_AD_THUMBS_KEY = "gatedo_meta_ad_thumbnails_v1";
+
 // ─── UTILITIES ────────────────────────────────────────────────────────────────
 const fmt = {
   brl: v => "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -50,6 +52,30 @@ function getROAS(ins) {
 }
 function getConv(ins) { return parseInt(ins.actions?.find(a => a.action_type==="purchase")?.value||0); }
 function getRevenue(ins) { return parseFloat(ins.action_values?.find(a => a.action_type==="purchase")?.value||0); }
+
+function loadManualThumbs() {
+  try { return JSON.parse(localStorage.getItem(META_AD_THUMBS_KEY) || "{}"); } catch { return {}; }
+}
+
+function saveManualThumbs(next) {
+  try { localStorage.setItem(META_AD_THUMBS_KEY, JSON.stringify(next)); } catch {}
+}
+
+function getCreativeImage(campaign, manualThumbs = {}) {
+  const creative = campaign?.creative || {};
+  const story = creative.object_story_spec || {};
+  const assetFeed = creative.asset_feed_spec || {};
+  return (
+    manualThumbs[campaign.id] ||
+    creative.image_url ||
+    creative.thumbnail_url ||
+    story.link_data?.picture ||
+    story.video_data?.image_url ||
+    assetFeed.images?.[0]?.url ||
+    assetFeed.images?.[0]?.thumbnail_url ||
+    ""
+  );
+}
 
 function Badge({ color="gray", children }) {
   const map = { gray:[C.grayLight,C.gray], green:[C.greenLight,C.green], yellow:[C.yellowLight,C.yellow], red:[C.redLight,C.red], purple:[C.purpleLight,C.purple], blue:[C.blueLight,C.blue] };
@@ -310,6 +336,9 @@ export default function MetaAdsMonitor() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [advisor, setAdvisor] = useState(null);
   const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [manualThumbs, setManualThumbs] = useState(() => loadManualThumbs());
+  const [thumbUploading, setThumbUploading] = useState("");
+  const thumbRefs = useRef({});
 
   const loadBackendConfig = useCallback(async () => {
     try {
@@ -370,6 +399,32 @@ export default function MetaAdsMonitor() {
       setError("Erro na assistente IA: " + (e.response?.data?.error || e.message));
     } finally {
       setAdvisorLoading(false);
+    }
+  };
+
+  const setManualThumb = (campaignId, url) => {
+    const next = { ...manualThumbs };
+    if (url?.trim()) next[campaignId] = url.trim();
+    else delete next[campaignId];
+    setManualThumbs(next);
+    saveManualThumbs(next);
+  };
+
+  const uploadManualThumb = async (campaignId, event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setThumbUploading(campaignId);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      const response = await api.post("/media/upload", data, { headers: { "Content-Type": "multipart/form-data" } });
+      const url = response.data?.url || response.data?.publicUrl || "";
+      if (url) setManualThumb(campaignId, url);
+    } catch (e) {
+      setError("Erro ao subir miniatura: " + (e.response?.data?.message || e.message));
+    } finally {
+      setThumbUploading("");
+      event.target.value = "";
     }
   };
 
@@ -690,12 +745,13 @@ export default function MetaAdsMonitor() {
             <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:16}}>
               {processed.filter(c => creativeFilter==="ALL" || c.status===creativeFilter).map(c => {
                 const roas = getROAS(c.ins), score = scoreOf(c.ins), color = scoreColor(score);
+                const thumbUrl = getCreativeImage(c, manualThumbs);
                 return (
                   <div key={c.id} style={{...s.card, padding:0, overflow:"hidden"}}>
                     {/* Creative Image */}
                     <div style={{position:"relative", paddingTop:"56%", background:C.grayLight, overflow:"hidden"}}>
-                      {c.creative?.image_url ? (
-                        <img src={c.creative.image_url} alt="criativo" style={{position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover"}} />
+                      {thumbUrl ? (
+                        <img src={thumbUrl} alt="criativo" style={{position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover"}} />
                       ) : (
                         <div style={{position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:32}}>🖼</div>
                       )}
@@ -710,6 +766,29 @@ export default function MetaAdsMonitor() {
                       <div style={{fontSize:13, fontWeight:600, marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{c.name}</div>
                       <div style={{fontSize:12, color:C.muted, marginBottom:10, height:32, overflow:"hidden", lineHeight:1.4}}>
                         {c.creative?.body || c.objective || "—"}
+                      </div>
+                      <div style={{display:"grid", gridTemplateColumns:"1fr auto", gap:6, marginBottom:10}}>
+                        <input
+                          style={{...s.input, padding:"7px 9px", fontSize:11}}
+                          value={manualThumbs[c.id] || ""}
+                          onChange={(event) => setManualThumb(c.id, event.target.value)}
+                          placeholder={thumbUrl ? "Miniatura automatica da Meta" : "URL da miniatura"}
+                        />
+                        <button
+                          type="button"
+                          style={{...s.btnGhost, padding:"7px 10px", fontSize:11}}
+                          onClick={() => thumbRefs.current[c.id]?.click()}
+                          disabled={thumbUploading === c.id}
+                        >
+                          {thumbUploading === c.id ? "Subindo..." : "Upload"}
+                        </button>
+                        <input
+                          ref={(el) => { thumbRefs.current[c.id] = el; }}
+                          type="file"
+                          accept="image/*"
+                          style={{display:"none"}}
+                          onChange={(event) => uploadManualThumb(c.id, event)}
+                        />
                       </div>
                       <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, borderTop:"1px solid "+C.border, paddingTop:10}}>
                         {[

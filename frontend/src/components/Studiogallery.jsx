@@ -171,10 +171,10 @@ function ShareCardPreview({ imageUrl, moduleMeta, petName, onClose, onShare }) {
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: 60, scale: 0.94 }}
-        animate={{ y: 0, scale: 1 }}
-        exit={{ y: 60 }}
-        transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+        initial={{ y: 14, scale: 0.98, opacity: 0 }}
+        animate={{ y: 0, scale: 1, opacity: 1 }}
+        exit={{ y: 12, scale: 0.98, opacity: 0 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
         className="w-full max-w-sm rounded-[32px] overflow-hidden"
         style={{ background: C.card, border: '1px solid rgba(255,255,255,0.08)' }}
         onClick={(e) => e.stopPropagation()}

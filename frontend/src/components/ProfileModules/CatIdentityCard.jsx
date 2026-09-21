@@ -208,10 +208,10 @@ function QRCardModal({ cat, preset, onClose, onViewPDF, onOpenVets }) {
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.82, opacity: 0 }}
+        initial={{ scale: 0.97, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.85, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        exit={{ scale: 0.98, opacity: 0 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-[28px] shadow-2xl overflow-hidden"
         style={{ width: '85vw', maxWidth: '360px' }}
@@ -326,10 +326,10 @@ function CustomizeModal({ currentPreset, currentOverlay, onApply, onClose }) {
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: 300 }}
-        animate={{ y: 0 }}
-        exit={{ y: 300 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        initial={{ y: 24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 18, opacity: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-white rounded-t-[28px] p-6 pb-10"
       >
@@ -475,7 +475,7 @@ export default function CatIdentityCard({ cat, tutor: tutorProp, onOpenVets }) {
 
   return (
     <>
-      <div className="relative w-full px-0 max-w-sm mx-auto" style={{ height: '230px', perspective: '1200px' }}>
+      <div className="relative w-full px-0 max-w-[560px] mx-auto" style={{ height: '230px', perspective: '1200px' }}>
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={(e) => {

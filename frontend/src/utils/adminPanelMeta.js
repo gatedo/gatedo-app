@@ -60,6 +60,13 @@ export function getCatLevelMeta(xpg = 0) {
   return CAT_LEVELS.find((level) => xpg >= level.min && xpg <= level.max) || CAT_LEVELS[0];
 }
 
+export function getCatLevelProgress(xpg = 0) {
+  const level = getCatLevelMeta(xpg);
+  if (level.rank >= CAT_LEVELS.length) return 100;
+  const range = Math.max(1, level.max - level.min + 1);
+  return Math.max(0, Math.min(100, Math.round(((xpg - level.min) / range) * 100)));
+}
+
 export function formatShortId(id = '') {
   if (!id) return '---';
   return `${String(id).slice(0, 8)}...`;

@@ -347,11 +347,16 @@ function PedigreeViewer({
   );
 }
 
-function StatPill({ label, value }) {
+function StatPill({ label, value, color = '#8B4AFF' }) {
   return (
-    <div className="px-3 py-2 rounded-2xl bg-white/75 backdrop-blur border border-white/60 shadow-sm">
-      <p className="text-[8px] font-black text-white/70 uppercase tracking-[0.18em]">{label}</p>
-      <p className="text-sm font-black text-white leading-none mt-1">{value}</p>
+    <div
+      className="px-3 py-2 rounded-2xl bg-white/92 border shadow-sm min-w-[74px]"
+      style={{ borderColor: `${color}36` }}
+    >
+      <p className="text-[8px] font-black uppercase tracking-[0.18em]" style={{ color }}>
+        {label}
+      </p>
+      <p className="text-sm font-black text-slate-800 leading-none mt-1">{value}</p>
     </div>
   );
 }
@@ -747,38 +752,38 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
       </div>
 
       <div className="px-2">
-        <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#191B2A] to-[#2B1F53] p-5 text-white shadow-2xl">
-          <div className="absolute right-[-20px] top-[-14px] w-36 h-36 rounded-full bg-white/5 blur-2xl" />
-          <div className="absolute left-[-18px] bottom-[-40px] w-36 h-36 rounded-full bg-[#8B4AFF]/20 blur-2xl" />
+        <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#332267] via-[#2B1F53] to-[#21183F] p-5 text-white shadow-[0_18px_42px_rgba(46,31,83,0.18)] border border-white/10">
+          <div className="absolute right-[-42px] top-[-44px] w-44 h-44 rounded-full bg-[#8B4AFF]/16 blur-3xl" />
+          <div className="absolute left-[-34px] bottom-[-48px] w-44 h-44 rounded-full bg-[#DFFF40]/8 blur-3xl" />
 
           <div className="relative z-10 flex items-start justify-between gap-4">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/55">Biblioteca viva</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#DFFF40]/80">Biblioteca viva</p>
               <h3 className="text-lg font-black tracking-tight mt-1">Documentos do GATO</h3>
-              <p className="text-[11px] text-white/70 mt-2 max-w-[260px] leading-relaxed">
+              <p className="text-[11px] text-white/68 mt-2 max-w-[260px] leading-relaxed">
                 Centralize exames, receitas, laudos e arquivos oficiais com exportação rápida para Drive ou iCloud.
               </p>
             </div>
 
-            <button type="button" onClick={() => genericInputRef.current?.click()} className="px-4 py-3 rounded-2xl bg-white text-[#2B1F53] text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2">
+            <button type="button" onClick={() => genericInputRef.current?.click()} className="px-4 py-3 rounded-2xl bg-white text-[#2B1F53] text-[10px] font-black uppercase tracking-widest shadow-[0_12px_24px_rgba(0,0,0,0.12)] flex items-center gap-2 active:scale-[0.98] transition-transform">
               <Plus size={14} />
               Adicionar
             </button>
           </div>
 
           <div className="relative z-10 mt-5 flex gap-2 flex-wrap">
-            <StatPill label="Arquivos" value={totalDocs} />
-            <StatPill label="Favoritos" value={favoritesCount} />
-            <StatPill label="Vet Share" value={vetSharedCount} />
+            <StatPill label="Arquivos" value={totalDocs} color="#8B4AFF" />
+            <StatPill label="Favoritos" value={favoritesCount} color="#F59E0B" />
+            <StatPill label="Vet Share" value={vetSharedCount} color="#16A34A" />
           </div>
 
-          <div className="relative z-10 mt-4 rounded-[22px] bg-white/8 border border-white/10 backdrop-blur-md px-4 py-3 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center">
+          <div className="relative z-10 mt-4 rounded-[22px] bg-white/10 border border-white/14 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white/12 border border-white/12 flex items-center justify-center text-[#DFFF40]">
               <Share2 size={16} />
             </div>
             <div className="flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Exportar para Drive / iCloud</p>
-              <p className="text-[10px] text-white/60 mt-1">No MVP, o GATEDO usa o compartilhamento nativo do aparelho e fallback em download no desktop.</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/82">Exportar para Drive / iCloud</p>
+              <p className="text-[10px] text-white/58 mt-1">Compartilhamento nativo no app e download de apoio no desktop.</p>
             </div>
           </div>
 

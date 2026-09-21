@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useMemo, useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import BioModule from './ProfileSections/BioModule';
-import EvoNutrition from './ProfileSections/EvoNutrition';
 import BehaviorModule from './ProfileSections/BehaviorModule';
 import HealthModule from './ProfileSections/HealthModule';
 import ImmunizationModule from './ProfileSections/ImmunizationModule';
@@ -91,20 +90,6 @@ function ProfileContent({ activeTab, setActiveTab, cat, touch, refreshCat, navig
               cat={cat}
               refreshCat={refreshCat}
               navigate={navigate}
-            />
-          </motion.div>
-        )}
-
-        {mountedTabs.EVOLUCAO && (
-          <motion.div
-            initial={false}
-            animate={{ opacity: activeTab === 'EVOLUCAO' ? 1 : 0 }}
-            transition={{ duration: 0.1, ease: 'easeOut' }}
-            style={{ display: activeTab === 'EVOLUCAO' ? 'block' : 'none', willChange: 'opacity' }}
-          >
-            <EvoNutrition
-              cat={cat}
-              touch={touch}
             />
           </motion.div>
         )}

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { brandAssets } from '../brand/assets';
 
 // ─── Ícone de Compartilhar do iOS (SVG nativo) ────────────────────────────────
 const ShareIcon = () => (
@@ -31,7 +32,7 @@ export default function PWAInstallBanner() {
           className="fixed left-4 right-4 z-[999] flex items-center gap-3 bg-white rounded-[22px] px-4 py-3.5 shadow-2xl border border-gray-100"
           style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}
         >
-          <img src="/assets/Gatedo_logo.webp" alt="Gatedo" className="w-10 h-10 rounded-2xl flex-shrink-0" />
+          <img src={brandAssets.gatedoSymbol} alt="Gatedo" className="w-10 h-10 rounded-2xl flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-black text-gray-800 text-sm leading-none">Instalar o Gatedo</p>
             <p className="text-[11px] text-gray-400 font-bold mt-0.5">Acesso rápido, funciona offline</p>
@@ -62,7 +63,7 @@ export default function PWAInstallBanner() {
           <div className="px-4 pt-3 pb-2 flex items-center justify-between"
             style={{ background: 'linear-gradient(135deg, #8B4AFF15, #8B4AFF08)' }}>
             <div className="flex items-center gap-2">
-              <img src="/assets/Gatedo_logo.webp" alt="Gatedo" className="w-8 h-8 rounded-xl flex-shrink-0" />
+              <img src={brandAssets.gatedoSymbol} alt="Gatedo" className="w-8 h-8 rounded-xl flex-shrink-0" />
               <div>
                 <p className="font-black text-gray-800 text-sm leading-none">Instalar o Gatedo</p>
                 <p className="text-[10px] text-[#8B4AFF] font-bold">Adicionar à Tela de Início</p>

@@ -6,6 +6,7 @@ node_modules/
 .env.*
 backend/.env
 frontend/.env
+backend/env_dev.env
 
 # Builds e Cache
 dist/

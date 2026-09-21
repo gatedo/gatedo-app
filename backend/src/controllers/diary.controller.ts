@@ -20,7 +20,8 @@ export class DiaryController {
           content: data.content,
           type: data.type, // 'happy', 'lazy', etc.
           date: new Date(data.date),
-          photos: data.photos || []
+          photos: data.photos || [],
+          occurrences: Array.isArray(data.occurrences) ? data.occurrences : [],
         },
       });
 

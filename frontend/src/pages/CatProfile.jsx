@@ -17,7 +17,6 @@ import api from '../services/api';
 const ALLOWED_TABS = new Set([
   'BIO',
   'SAUDE',
-  'EVOLUCAO',
   'COMPORTAMENTO',
   'IMUNIZANTES',
   'LINHATEMPO',

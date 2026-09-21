@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Search, MapPin, Filter, ChevronDown } from 'lucide-react';
 import api from '../../services/api';
+import { getCatLifeBadge, getPrimaryTutorBadge } from '../../utils/membershipMeta';
 
 const FALLBACK_CAT = '/assets/App_gatedo_logo1.webp';
 
@@ -133,6 +134,7 @@ function ProgressRing({ percent, size = 62, stroke = 4, imageUrl, alt }) {
 function CatBubble({ cat, onSelect }) {
   const percent = getProgressPercent(cat);
   const nickname = normalizeNickname(cat);
+  const tutorBadge = getPrimaryTutorBadge(cat.owner || cat.tutor || {});
 
   return (
     <button
@@ -151,6 +153,21 @@ function CatBubble({ cat, onSelect }) {
       {nickname ? (
         <span className="text-[8px] font-bold text-gray-400 truncate w-full text-center">
           @{nickname}
+        </span>
+      ) : (
+        <span className="text-[8px] font-bold text-gray-400 truncate w-full text-center">
+          {getCatLifeBadge(cat)}
+        </span>
+      )}
+      {tutorBadge ? (
+        <span
+          className="relative ml-2 inline-flex max-w-full items-center justify-center overflow-visible rounded-full px-1.5 py-0.5 pl-4 text-center text-[7px] font-black uppercase truncate"
+          style={{ background: tutorBadge.gradient || tutorBadge.pillBg || tutorBadge.color || '#823fff', color: tutorBadge.pillText || '#ebfc66' }}
+        >
+          {tutorBadge.launchBadge ? (
+            <img src={tutorBadge.asset} alt="" className="absolute left-0 top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 object-contain" />
+          ) : null}
+          <span className="relative z-10 truncate">{tutorBadge.petLabel || tutorBadge.label}</span>
         </span>
       ) : null}
     </button>

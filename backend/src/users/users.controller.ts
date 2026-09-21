@@ -51,6 +51,13 @@ export class UsersController {
     return [];
   }
 
+  private normalizeTutorTitle(value: any): string {
+    const normalized = String(value || '').trim().toUpperCase();
+    if (normalized === 'TUTORA' || normalized === 'FEMALE' || normalized === 'MULHER') return 'TUTORA';
+    if (normalized === 'PESSOA_TUTORA' || normalized === 'NEUTRAL' || normalized === 'OUTRO') return 'PESSOA_TUTORA';
+    return 'TUTOR';
+  }
+
   @Get('stats')
   async getStats() {
     return this.usersService.getDashboardStats();
@@ -94,9 +101,11 @@ async getPoints(@Param('id') id: string) {
         name: true,
         phone: true,
         city: true,
+        tutorTitle: true,
         photoUrl: true,
         email: true,
         plan: true,
+        role: true,
         planExpires: true,
         badges: true,
         gatedoPoints: true,
@@ -193,6 +202,7 @@ async getPoints(@Param('id') id: string) {
     if (body.name  !== undefined) dataToUpdate.name  = body.name  || null;
     if (body.city  !== undefined) dataToUpdate.city  = body.city  || null;
     if (body.phone !== undefined) dataToUpdate.phone = body.phone || null;
+    if (body.tutorTitle !== undefined && String(body.tutorTitle).trim()) dataToUpdate.tutorTitle = this.normalizeTutorTitle(body.tutorTitle);
     if (body.email !== undefined && String(body.email).trim()) dataToUpdate.email = String(body.email).trim().toLowerCase();
     if (body.status !== undefined && String(body.status).trim()) dataToUpdate.status = String(body.status).trim();
     if (body.plan !== undefined && String(body.plan).trim()) dataToUpdate.plan = String(body.plan).trim();
@@ -287,7 +297,9 @@ async getPoints(@Param('id') id: string) {
         photoUrl: true,
         email: true,
         phone: true,
+        tutorTitle: true,
         plan: true,
+        role: true,
         planExpires: true,
         badges: true,
         status: true,

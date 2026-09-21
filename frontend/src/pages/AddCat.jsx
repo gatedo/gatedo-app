@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useContext, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -20,6 +20,9 @@ import {
   X,
   Hash,
   Download,
+  QrCode,
+  Send,
+  Plus,
   ShieldPlus,
   Activity,
   Dog,
@@ -508,6 +511,90 @@ function VerticalCardPreview({
   );
 }
 
+function OfficialRgCardPreview({
+  name,
+  breed,
+  avatarPreview,
+  generatedId,
+  petId,
+  ageLabel,
+  weight,
+  actions,
+}) {
+  const profileUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/gato/${petId || generatedId || 'preview'}`
+      : `https://app.gatedo.com/gato/${petId || generatedId || 'preview'}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(profileUrl)}&bgcolor=ffffff&color=1f2333&margin=1&format=png&ecc=H`;
+
+  return (
+    <div className="relative mx-auto w-full max-w-[360px]">
+      <div className="overflow-hidden rounded-[26px] bg-white shadow-[0_24px_60px_rgba(80,70,176,0.18)]">
+        <div
+          className="relative h-28 overflow-hidden px-5 pt-4"
+          style={{ background: 'linear-gradient(135deg, #B36AF5 0%, #8B4AFF 100%)' }}
+        >
+          {avatarPreview && (
+            <img
+              src={avatarPreview}
+              alt=""
+              className="pointer-events-none absolute -right-6 -top-10 h-44 w-44 rounded-full object-cover opacity-[0.16] blur-[1px] saturate-75"
+            />
+          )}
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'linear-gradient(135deg, rgba(139,74,255,0.12), rgba(80,70,176,0.24))' }}
+          />
+          <div className="relative flex items-center justify-between">
+            <img src="/assets/logo_gatedo_amarelo.webp" alt="Gatedo" className="h-6 w-auto object-contain" />
+            <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-white/90">
+              <QrCode size={11} />
+              RG Oficial
+            </div>
+          </div>
+        </div>
+
+        <div className="relative px-5 pb-5 pt-12 text-center">
+          <div className="absolute left-1/2 top-0 h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-4 border-white bg-white shadow-xl">
+            {avatarPreview ? (
+              <img src={avatarPreview} className="h-full w-full object-cover" alt={name || 'Gato'} />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[#F4F3FF]">
+                <Camera size={28} className="text-[#8B4AFF]" />
+              </div>
+            )}
+          </div>
+
+          <h3 className="text-2xl font-black uppercase leading-none text-gray-800">{name || 'Seu gatinho'}</h3>
+          <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-300">ID #{generatedId || 'GATEDO'}</p>
+
+          <div className="mt-5 grid grid-cols-3 gap-3 border-t border-gray-100 pt-4">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">Idade</p>
+              <p className="mt-1 text-xs font-black text-gray-800">{ageLabel || '-'}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">Raca</p>
+              <p className="mt-1 text-xs font-black text-gray-800">{breed || 'SRD'}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">Peso</p>
+              <p className="mt-1 text-xs font-black text-gray-800">{weight || '-'}</p>
+            </div>
+          </div>
+
+          <div className="mx-auto mt-5 h-32 w-32 rounded-xl bg-white p-1 shadow-sm">
+            <img src={qrUrl} alt="QR Code" className="h-full w-full" />
+          </div>
+          <p className="mt-2 text-[8px] font-black uppercase tracking-[0.18em] text-gray-300">Escaneie para compartilhar</p>
+
+          {actions && <div className="mt-5">{actions}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Toggle({ value, onChange, color = 'green' }) {
   const bg = value ? (color === 'red' ? 'bg-red-500' : 'bg-green-500') : 'bg-gray-300';
   return (
@@ -526,6 +613,7 @@ export default function AddCat() {
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [generatedId, setGeneratedId] = useState('');
+  const [createdPetId, setCreatedPetId] = useState('');
   const [generatedPetPayload, setGeneratedPetPayload] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -652,7 +740,7 @@ export default function AddCat() {
     set('avatarPreview', URL.createObjectURL(file));
   };
 
-  const baseTheme = resolveCatTheme(formData.themeColor);
+  const baseTheme = resolveCatTheme('violet');
   const activeGradient = {
     ...baseTheme,
     from: baseTheme.fromHex,
@@ -665,6 +753,28 @@ export default function AddCat() {
     }`,
     style: active ? { background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` } : {},
   });
+
+  const socialProfileUrl = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}/gato/${createdPetId || generatedId || ''}`;
+  }, [createdPetId, generatedId]);
+
+  const shareSocialProfile = useCallback(async () => {
+    const url = socialProfileUrl || `${window.location.origin}/cats`;
+    const title = `${formData.name || 'Meu gato'} no Gatedo`;
+    const text = `Conheca o perfil de ${formData.name || 'meu gato'} no Gatedo.`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url });
+      } else {
+        await navigator.clipboard?.writeText(url);
+        alert('Link do perfil copiado.');
+      }
+    } catch {
+      // O usuario pode cancelar o compartilhamento nativo.
+    }
+  }, [formData.name, socialProfileUrl]);
 
   const ageLabel = useMemo(() => {
     if (formData.isDateEstimated) {
@@ -739,7 +849,7 @@ export default function AddCat() {
         adoptionStory: formData.arrivalType || '',
         hasAwards: String(formData.hasAwards),
         awardsDetail: formData.awardsDetail,
-        themeColor: formData.themeColor,
+        themeColor: 'violet',
         isDateEstimated: String(formData.isDateEstimated),
         hasBehaviorIssues: String(formData.hasBehaviorIssues),
         hasTraumaHistory: String(formData.hasTraumaHistory),
@@ -769,6 +879,7 @@ export default function AddCat() {
 
       const createdPetId = res.data?.id?.split('-').pop()?.toUpperCase() || generatedId;
       setGeneratedId(createdPetId);
+      setCreatedPetId(res.data?.id || '');
 
       const payload = {
         name: formData.name,
@@ -798,7 +909,6 @@ export default function AddCat() {
       };
 
       setGeneratedPetPayload(payload);
-      downloadFichaTecnicaHTML(payload);
       if (draftKey) localStorage.removeItem(draftKey);
       setShowSuccess(true);
     } catch (err) {
@@ -811,52 +921,95 @@ export default function AddCat() {
 
   if (showSuccess) {
     return (
-      <div className="min-h-screen bg-[var(--gatedo-light-bg)] flex items-center justify-center p-6">
+      <div
+        className="relative left-1/2 min-h-screen w-screen -translate-x-1/2 flex items-center justify-center p-6"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 23%, rgba(235,252,70,0.16), transparent 32%), linear-gradient(145deg, #8B4AFF 0%, #7644E8 48%, #5C35C8 100%)',
+        }}
+      >
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-sm text-center space-y-6">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.1, type: 'spring' }}
-            className="w-24 h-24 rounded-full mx-auto shadow-xl flex items-center justify-center"
+            className="hidden"
             style={{ background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` }}
           >
             <span className="text-4xl">🐾</span>
           </motion.div>
 
-          <div>
+          <div className="hidden">
             <h2 className="text-2xl font-black text-gray-800">Perfil criado com sucesso!</h2>
             <p className="text-gray-500 text-sm mt-1">
               ID <span className="font-black text-[#8B4AFF]">#{generatedId}</span> gerado para {formData.name}
             </p>
           </div>
 
-          <VerticalCardPreview
-            gradient={activeGradient}
+          <OfficialRgCardPreview
             name={formData.name}
             breed={displayBreed}
-            gender={formData.gender}
             avatarPreview={formData.avatarPreview}
             generatedId={generatedId}
-            city={formData.city}
+            petId={createdPetId}
+            actions={
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(createdPetId ? `/gato/${createdPetId}` : '/cats')}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-gray-100 px-3 py-3 text-[10px] font-black uppercase tracking-wide text-gray-700"
+                >
+                  <Cat size={13} />
+                  Perfil social
+                </button>
+                <button
+                  type="button"
+                  onClick={shareSocialProfile}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#22C55E] px-3 py-3 text-[10px] font-black uppercase tracking-wide text-white"
+                >
+                  <Send size={13} />
+                  Compartilhar
+                </button>
+              </div>
+            }
             ageLabel={ageLabel}
             weight={formData.weight ? `${formData.weight} kg` : '—'}
           />
 
+          <div className="space-y-1 text-white">
+            <h2 className="text-xl font-black">Bem-vindo à Família!</h2>
+            <p className="text-sm font-bold text-white/75">
+              {formData.name} agora pertence ao mundo <span className="text-[#EBFC46]">GATEDO</span>.
+            </p>
+          </div>
+
           <div className="space-y-3">
             <button
-              onClick={() => generatedPetPayload && downloadFichaTecnicaHTML(generatedPetPayload)}
-              className="w-full py-4 rounded-[22px] font-black uppercase tracking-widest text-sm border border-[#8B4AFF]/20 text-[#8B4AFF] bg-white shadow-sm flex items-center justify-center gap-2"
+              onClick={() => {
+                setShowSuccess(false);
+                setStep(1);
+                setGeneratedPetPayload(null);
+                setCreatedPetId('');
+                setFormData((current) => ({
+                  ...current,
+                  name: '',
+                  nicknames: '',
+                  avatarFile: null,
+                  avatarPreview: null,
+                }));
+              }}
+              className="w-full py-4 rounded-[24px] font-black text-sm border border-white/25 text-white bg-white/12 shadow-sm flex items-center justify-center gap-2"
             >
-              <Download size={16} />
-              Baixar ficha técnica
+              <Plus size={16} className="text-white" />
+              Adicionar outro membro
             </button>
 
             <button
               onClick={() => navigate('/home')}
-              className="w-full py-5 rounded-[24px] font-black uppercase tracking-widest text-white text-sm shadow-xl"
-              style={{ background: `linear-gradient(135deg, ${activeGradient.from}, ${activeGradient.to})` }}
+              className="w-full py-5 rounded-[24px] font-black uppercase tracking-widest text-sm shadow-xl"
+              style={{ background: '#EBFC46', color: '#6C35D8' }}
             >
-              Ir para Home 🏠
+              Ir para o App
             </button>
           </div>
         </motion.div>
@@ -1423,8 +1576,11 @@ export default function AddCat() {
         {step === 4 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
             <div>
-              <label className={lc}>Cor do cartão RG</label>
-              <div className="grid grid-cols-5 gap-2 bg-white p-3 rounded-[24px] shadow-sm border border-gray-100">
+              <label className={lc}>Ficha oficial Gatedo</label>
+              <p className="rounded-[22px] bg-white p-4 text-center text-xs font-bold text-gray-500 shadow-sm">
+                A ficha oficial usa a identidade principal do Gatedo. A cor personalizada fica disponivel depois, dentro do perfil.
+              </p>
+              <div className="hidden">
                 {CARD_GRADIENTS.map((g) => (
                   <button key={g.id} onClick={() => set('themeColor', g.id)} className="flex flex-col items-center gap-1.5">
                     <div
@@ -1447,15 +1603,12 @@ export default function AddCat() {
             </div>
 
             <div>
-              <label className={lc}>Prévia da ficha principal</label>
-              <VerticalCardPreview
-                gradient={activeGradient}
+              <label className={lc}>Prévia da identidade</label>
+              <OfficialRgCardPreview
                 name={formData.name}
                 breed={displayBreed}
-                gender={formData.gender}
                 avatarPreview={formData.avatarPreview}
                 generatedId={generatedId}
-                city={formData.city}
                 ageLabel={ageLabel}
                 weight={formData.weight ? `${formData.weight} kg` : '—'}
               />

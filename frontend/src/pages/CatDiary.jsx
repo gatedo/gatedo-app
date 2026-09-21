@@ -39,6 +39,7 @@ import {
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
+import OfferCard from '../components/offers/OfferCard';
 
 // ─── tenta importar gamification — silencioso se não disponível ───────────────
 let useGamification = () => ({ earnXP: () => {}, incrementStat: () => {} });
@@ -112,6 +113,12 @@ const HABITS = [
   { id: 'Brincou', label: 'Brincadeira', emoji: '🧶', icon: Zap, sub: 'estímulo e movimento' },
   { id: 'Carinho', label: 'Afeto', emoji: '🤍', icon: Heart, sub: 'contato e vínculo' },
   { id: 'Observado', label: 'Observação', emoji: '👀', icon: ShieldCheck, sub: 'rotina monitorada' },
+];
+
+// Ocorrências — diferente do checklist de rotina (HABITS): são sinais
+// pontuais que o motor de decisão de oferta usa como contexto de dor.
+const OCCURRENCES = [
+  { id: 'URINARY_ACCIDENT', label: 'Xixi fora da caixa', emoji: '🚽' },
 ];
 
 // XP baixo — mantém o mesmo valor de backend/src/gamification/xp.config.ts (XP_TIERS.BAIXO).
@@ -437,6 +444,7 @@ function isSameDay(dateA, dateB) {
 function NewEntryView({ catId, catName, catColor, catPhoto, draftRef }) {
   const [mood, setMood] = useState('happy');
   const [habits, setHabits] = useState([]);
+  const [occurrences, setOccurrences] = useState([]);
   const [note, setNote] = useState('');
   const [sharedChecklist, setSharedChecklist] = useState(false);
   const touch = useSensory();
@@ -444,6 +452,11 @@ function NewEntryView({ catId, catName, catColor, catPhoto, draftRef }) {
   const toggle = (id) => {
     touch('tap');
     setHabits((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleOccurrence = (id) => {
+    touch('tap');
+    setOccurrences((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const progress = (habits.length / HABITS.length) * 100;
@@ -464,13 +477,14 @@ function NewEntryView({ catId, catName, catColor, catPhoto, draftRef }) {
       content: fullContent || 'Sem anotações.',
       type: mood,
       date: new Date(),
+      occurrences,
       meta: {
         sharedChecklist,
         habits,
         reward: { xpg: CAT_XPG, xpt: TUTOR_XPT },
       },
     };
-  }, [mood, habits, note, catId, sharedChecklist, currentMood, draftRef]);
+  }, [mood, habits, occurrences, note, catId, sharedChecklist, currentMood, draftRef]);
 
   return (
     <div className="flex-1 overflow-y-auto px-5 pt-4 pb-[200px] space-y-5">
@@ -625,6 +639,35 @@ function NewEntryView({ catId, catName, catColor, catPhoto, draftRef }) {
       </section>
 
       <section className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm">
+        <p className="text-[10px] font-black text-gray-600 uppercase tracking-wide mb-3">
+          Notou alguma ocorrência hoje?
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          {OCCURRENCES.map((o) => {
+            const active = occurrences.includes(o.id);
+            return (
+              <motion.button
+                key={o.id}
+                type="button"
+                whileTap={{ scale: 0.96 }}
+                onClick={() => toggleOccurrence(o.id)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-full border-2 transition-all"
+                style={
+                  active
+                    ? { background: '#FEF2F2', borderColor: '#FECACA', color: '#DC2626' }
+                    : { background: '#F9FAFB', borderColor: 'transparent', color: '#6B7280' }
+                }
+              >
+                <span className="text-sm">{o.emoji}</span>
+                <span className="text-[11px] font-black">{o.label}</span>
+                {active && <Check size={12} className="text-red-500" />}
+              </motion.button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm">
         <p className="text-[10px] font-black text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
           <PenTool size={13} style={{ color: catColor }} />
           Observações
@@ -681,6 +724,7 @@ export default function CatDiary() {
   const [saved, setSaved] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [entries, setEntries] = useState([]);
+  const [postSaveOffer, setPostSaveOffer] = useState(null);
   const draftRef = useRef(null);
 
   useEffect(() => {
@@ -724,6 +768,15 @@ export default function CatDiary() {
       incrementStat?.('diaryCount');
     } catch {}
 
+    // Contexto de dor — xixi fora da caixa registrado agora: pergunta ao
+    // módulo único de decisão se cabe o card do Protocolo (card leve, nunca
+    // modal, some com um toque).
+    if (Array.isArray(draft.occurrences) && draft.occurrences.includes('URINARY_ACCIDENT')) {
+      api.get('/offers/decide', { params: { surface: 'PAIN_DIARY', petId: id } })
+        .then((r) => { if (r.data?.offer) setPostSaveOffer(r.data.offer); })
+        .catch(() => {});
+    }
+
     draftRef.current = null;
     setSaved(true);
 
@@ -745,6 +798,19 @@ export default function CatDiary() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans" style={{ background: '#F8F9FE' }}>
+      <AnimatePresence>
+        {postSaveOffer && (
+          <div className="px-5 pt-3">
+            <OfferCard
+              offer={postSaveOffer}
+              surface="PAIN_DIARY"
+              petId={id}
+              onDismiss={() => setPostSaveOffer(null)}
+            />
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="bg-white pt-10 pb-4 px-5 rounded-b-[32px] shadow-sm flex-shrink-0">
         <div className="flex items-center justify-between mb-4 gap-3">
           <button

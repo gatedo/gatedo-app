@@ -292,28 +292,39 @@ export default function Wiki() {
 
                 {/* Hero Cards */}
                 <div className="grid grid-cols-2 gap-3 mb-8">
-                    <HeroCard 
-                        title="Almanaque" subtitle="Descubra raças." icon={Dna} colorFrom="#8B4AFF" colorTo="#8a84e2" 
-                        onClick={() => { touch(); navigate('/wiki-breeds'); }} bgIcon={Dna} 
+                    <HeroCard
+                        title="Almanaque" subtitle="Da origem ao temperamento." kicker="Racas oficiais" icon={Dna}
+                        image="https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=900&q=80"
+                        accent="from-[#8B4AFF]/95 via-[#6b4fe8]/70 to-black/35"
+                        onClick={() => { touch(); navigate('/wiki-breeds'); }} bgIcon={Dna}
                     />
-                    <HeroCard 
-                        title="Gatos SRD" subtitle="Especiais e únicos." icon={Cat} colorFrom="#FF9F43" colorTo="#ffb673" 
-                        onClick={() => { touch(); navigate('/wiki-srd'); }} bgIcon={Heart} 
+                    <HeroCard
+                        title="Gatos SRD" subtitle="Pelagens, perfis e historias." kicker="Sem raca definida" icon={Cat}
+                        image="https://images.unsplash.com/photo-1513245543132-31f507417b26?auto=format&fit=crop&w=900&q=80"
+                        accent="from-[#FF9F43]/95 via-[#f97316]/70 to-black/35"
+                        onClick={() => { touch(); navigate('/wiki-srd'); }} bgIcon={Heart}
                     />
                 </div>
 
-                <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => { touch(); navigate('/wiki-vaccines'); }} 
-                    className="w-full bg-[#E0F8E8] border border-green-200 p-4 rounded-[24px] mb-8 flex items-center justify-between relative overflow-hidden group shadow-sm"
-                >
-                    <div className="flex items-center gap-4 relative z-10">
-                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-green-600 shadow-sm"><Syringe size={24} /></div>
-                        <div className="text-left"><h3 className="font-black text-gray-800 text-sm uppercase tracking-wide">Protocolo de Vacinação</h3><p className="text-xs text-green-700 font-medium">Quando e quais vacinas dar?</p></div>
-                    </div>
-                    <div className="bg-white/50 p-2 rounded-full"><ChevronRight size={20} className="text-green-600"/></div>
-                    <div className="absolute -right-6 -bottom-8 opacity-10"><Shield size={100} className="text-green-600"/></div>
-                </motion.button>
+                <WideFeatureCard
+                    title="Felinos Selvagens"
+                    subtitle="Especies, habitat e conservacao"
+                    kicker="Panthera, Leopardus e outros"
+                    icon={Cat}
+                    image="https://images.unsplash.com/photo-1602491453631-e2a5ad90a131?auto=format&fit=crop&w=1200&q=80"
+                    accent="from-emerald-950/90 via-emerald-800/55 to-black/20"
+                    onClick={() => { touch(); navigate('/wiki-wild-felines'); }}
+                />
+
+                <WideFeatureCard
+                    title="Protocolo de Vacinacao"
+                    subtitle="Vacinas, vermifugos e prevencao"
+                    kicker="Saude preventiva"
+                    icon={Syringe}
+                    image="https://images.unsplash.com/photo-1578496479939-722d9dd1cc5b?auto=format&fit=crop&w=1200&q=80"
+                    accent="from-green-900/90 via-emerald-700/55 to-black/25"
+                    onClick={() => { touch(); navigate('/wiki-vaccines'); }}
+                />
 
                 <h3 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2"><BookOpen size={20} className="text-[#8B4AFF]" /> Biblioteca</h3>
 
@@ -359,16 +370,59 @@ function SearchBar({ search, setSearch }) {
     )
 }
 
-function HeroCard({ title, subtitle, icon: Icon, colorFrom, colorTo, onClick, bgIcon: BgIcon }) {
+function HeroCard({ title, subtitle, kicker, icon: Icon, image, accent, onClick, bgIcon: BgIcon }) {
     return (
-        <motion.button 
-            whileTap={{ scale: 0.96 }} onClick={onClick} 
-            className="col-span-1 p-4 rounded-[24px] text-white relative overflow-hidden h-40 flex flex-col justify-between shadow-lg"
-            style={{ background: `linear-gradient(to bottom right, ${colorFrom}, ${colorTo})` }}
+        <motion.button
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ y: -3 }}
+            onClick={onClick}
+            className="col-span-1 rounded-[24px] text-white relative overflow-hidden h-40 flex flex-col justify-between shadow-lg shadow-black/10 group text-left border border-white/30"
         >
-            <div className="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm"><Icon size={20} /></div>
-            <div className="relative z-10 text-left"><h3 className="font-black text-lg leading-tight">{title}</h3><p className="text-[10px] opacity-80 mt-1">{subtitle}</p></div>
-            <BgIcon size={80} className="absolute -right-4 -bottom-4 opacity-20 rotate-[-12deg]" />
+            <img src={image} alt="" className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-110" />
+            <div className={`absolute inset-0 bg-gradient-to-br ${accent}`} />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_20%,rgba(255,255,255,0.22),transparent_34%)] opacity-80" />
+            <div className="relative z-10 p-4 flex flex-col h-full justify-between">
+                <div className="flex items-center justify-between">
+                    <div className="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md ring-1 ring-white/25"><Icon size={20} /></div>
+                    <div className="w-8 h-8 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center translate-x-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all">
+                        <ChevronRight size={16} />
+                    </div>
+                </div>
+                <div>
+                    <span className="text-[9px] uppercase tracking-[0.18em] font-black text-white/70">{kicker}</span>
+                    <h3 className="font-black text-lg leading-tight mt-1">{title}</h3>
+                    <p className="text-[10px] text-white/85 mt-1 leading-tight">{subtitle}</p>
+                </div>
+            </div>
+            <BgIcon size={88} className="absolute -right-5 -bottom-5 opacity-15 rotate-[-12deg] transition-transform duration-700 group-hover:scale-110" />
+        </motion.button>
+    )
+}
+
+function WideFeatureCard({ title, subtitle, kicker, icon: Icon, image, accent, onClick }) {
+    return (
+        <motion.button
+            whileTap={{ scale: 0.98 }}
+            whileHover={{ y: -2 }}
+            onClick={onClick}
+            className="w-full h-24 rounded-[26px] mb-5 flex items-center justify-between relative overflow-hidden group shadow-lg shadow-black/10 border border-white/50 text-left"
+        >
+            <img src={image} alt="" className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105" />
+            <div className={`absolute inset-0 bg-gradient-to-r ${accent}`} />
+            <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.18),transparent_36%,rgba(255,255,255,0.1)_72%,transparent)] opacity-70" />
+            <div className="flex items-center gap-4 relative z-10 px-4">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-white shadow-sm backdrop-blur-md ring-1 ring-white/25">
+                    <Icon size={24} />
+                </div>
+                <div>
+                    <span className="text-[9px] uppercase tracking-[0.18em] text-white/70 font-black">{kicker}</span>
+                    <h3 className="font-black text-white text-sm uppercase tracking-wide leading-tight mt-0.5">{title}</h3>
+                    <p className="text-xs text-white/85 font-medium">{subtitle}</p>
+                </div>
+            </div>
+            <div className="relative z-10 mr-4 bg-white/20 p-2 rounded-full backdrop-blur-md text-white translate-x-1 group-hover:translate-x-0 transition-transform">
+                <ChevronRight size={20} />
+            </div>
         </motion.button>
     )
 }

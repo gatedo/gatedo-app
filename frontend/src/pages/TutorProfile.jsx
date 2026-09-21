@@ -30,6 +30,7 @@ import {
   formatPlanType,
   getCatLifeBadge,
   getMembershipMeta,
+  getPrimaryTutorBadge,
 } from '../utils/membershipMeta';
 
 function MenuButton({
@@ -68,7 +69,46 @@ function MenuButton({
   );
 }
 
-function CatMiniCard({ cat }) {
+function BadgeAsset({ badge, className = 'h-5 w-5' }) {
+  const [failed, setFailed] = useState(false);
+  if (!badge?.launchBadge || failed) {
+    return <Crown size={13} style={{ color: badge?.color || '#8B4AFF' }} />;
+  }
+  return (
+    <img
+      src={badge.asset || `/assets/badges/${badge.key}.png`}
+      alt={badge.label}
+      className={`${className} object-contain`}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function TutorBadgePill({ badge, compact = false, petMode = false }) {
+  if (!badge) return null;
+  return (
+    <span
+      className={`relative inline-flex items-center justify-center overflow-visible rounded-full border font-black uppercase shadow-sm ${
+        compact ? 'ml-2 px-2 py-0.5 pl-4 text-[7px] tracking-[1px]' : 'ml-3 px-3 py-1.5 pl-7 text-[9px] tracking-[2px]'
+      }`}
+      style={{
+        background: badge.gradient || badge.pillBg || badge.color || '#8B4AFF',
+        color: badge.pillText || '#ebfc66',
+        borderColor: `${badge.color || badge.pillBg || '#8B4AFF'}55`,
+      }}
+      title={badge.title || badge.label}
+    >
+      <span className="absolute left-0 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+        <BadgeAsset badge={badge} className={compact ? 'h-6 w-6' : 'h-9 w-9'} />
+      </span>
+      <span className="relative z-10">{petMode ? badge.petLabel || badge.label : badge.label}</span>
+    </span>
+  );
+}
+
+function CatMiniCard({ cat, tutorBadge }) {
+  const lifeBadge = getCatLifeBadge(cat);
+
   return (
     <div className="min-w-[126px] bg-white rounded-[24px] p-3 border border-gray-100 shadow-sm">
       <div className="w-16 h-16 rounded-[22px] overflow-hidden bg-[#ede9ff] mx-auto mb-3 border border-[#8B4AFF]/10">
@@ -83,9 +123,12 @@ function CatMiniCard({ cat }) {
       <p className="text-[11px] font-black text-gray-800 text-center truncate">
         {cat?.name || 'Meu gato'}
       </p>
-      <p className="text-[9px] font-bold text-gray-400 text-center uppercase tracking-[2px] mt-1">
-        {getCatLifeBadge(cat)}
-      </p>
+      <div className="mt-2 flex flex-col items-center gap-1">
+        <TutorBadgePill badge={tutorBadge} compact petMode />
+        <span className="text-[8px] font-black text-gray-400 text-center uppercase tracking-[2px]">
+          {lifeBadge}
+        </span>
+      </div>
     </div>
   );
 }
@@ -146,6 +189,10 @@ export default function TutorProfile() {
     () => getMembershipMeta(profile || user || {}),
     [profile, user],
   );
+  const tutorBadge = useMemo(
+    () => getPrimaryTutorBadge(profile || user || {}),
+    [profile, user],
+  );
 
   const pets = profile?.pets || [];
   const activeCats = pets.filter((pet) => !pet.isMemorial && !pet.isArchived);
@@ -191,15 +238,17 @@ export default function TutorProfile() {
 
   return (
     <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-32">
-      <div className="relative overflow-hidden bg-[#8B4AFF] rounded-b-[56px] px-6 pt-10 pb-28">
-        <img
-          src="/assets/logo-fundo1.svg"
-          alt=""
-          className="absolute -top-16 -right-16 w-[300px] opacity-25 pointer-events-none"
-        />
+      <div className="relative overflow-hidden bg-[#8B4AFF] rounded-b-[56px] px-6 pt-10 pb-32">
+        {tutorBadge?.launchBadge && (
+          <img
+            src={tutorBadge.asset}
+            alt=""
+            className="absolute -right-16 -top-10 w-96 opacity-[0.18] pointer-events-none"
+          />
+        )}
 
-        <div className="relative z-10 flex items-start gap-4">
-          <div className="w-24 h-24 rounded-[32px] overflow-hidden border-[5px] border-white/70 bg-white/30 shadow-xl">
+        <div className="relative z-10 grid grid-cols-[112px_minmax(0,1fr)] items-start gap-5">
+          <div className="relative z-20 w-24 h-24 rounded-[32px] overflow-hidden border-[5px] border-white/70 bg-white/30 shadow-xl">
             {profile?.photoUrl ? (
               <img src={profile.photoUrl} alt={profile?.name} className="w-full h-full object-cover" />
             ) : (
@@ -209,11 +258,11 @@ export default function TutorProfile() {
             )}
           </div>
 
-          <div className="flex-1 pt-1">
+          <div className="relative z-10 min-w-0 pt-1">
             <p className="text-[10px] font-black uppercase tracking-[4px] text-white/60">
               Perfil do Tutor
             </p>
-            <h1 className="text-[28px] leading-none font-black text-white mt-2">
+            <h1 className="max-w-[220px] text-[28px] leading-none font-black text-white mt-2">
               {profile?.name || user?.name || 'Tutor'}
             </h1>
             {profile?.city && (
@@ -222,17 +271,42 @@ export default function TutorProfile() {
                 <span className="text-[11px] font-bold">{profile.city}</span>
               </div>
             )}
-            <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full bg-white/14 border border-white/20 backdrop-blur-md">
-              <Crown size={14} className="text-[#edff61]" />
-              <span className="text-[10px] font-black uppercase tracking-[2px] text-white">
-                {membership.label}
-              </span>
-              {profile?.membership?.renewalDiscountPercent > 0 && (
-                <span className="text-[10px] font-black text-[#edff61]">
-                  {profile.membership.renewalDiscountPercent}% off vitalício
+            {tutorBadge?.launchBadge ? (
+              <div className="relative -ml-3 mt-5 inline-flex flex-col items-center">
+                <div
+                  className="relative inline-flex min-w-[210px] max-w-[260px] items-center overflow-visible rounded-full border py-2 pl-16 pr-5 backdrop-blur-md shadow-xl"
+                  style={{
+                    background: tutorBadge?.gradient || tutorBadge?.pillBg || 'rgba(255,255,255,0.14)',
+                    borderColor: `${tutorBadge?.color || tutorBadge?.pillBg || '#ffffff'}66`,
+                  }}
+                >
+                  <span className="absolute left-0 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+                    <BadgeAsset badge={tutorBadge} className="h-16 w-16 drop-shadow-xl" />
+                  </span>
+                  <span className="relative z-10 w-full text-center text-[15px] font-black uppercase leading-none tracking-[3px]" style={{ color: tutorBadge?.pillText || '#fff' }}>
+                    {tutorBadge?.label || membership.label}
+                  </span>
+                </div>
+                {profile?.membership?.renewalDiscountPercent > 0 && (
+                  <span className="-mt-0.5 rounded-full bg-[#6815d9] px-5 py-1 text-center text-[8px] font-black uppercase tracking-[2px] text-white shadow-lg">
+                    {profile.membership.renewalDiscountPercent}% off vitalício
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div
+                className="relative mt-4 inline-flex items-center gap-2 overflow-hidden px-4 py-2 rounded-full border backdrop-blur-md shadow-lg"
+                style={{
+                  background: tutorBadge?.pillBg || 'rgba(255,255,255,0.14)',
+                  borderColor: tutorBadge?.pillBg || 'rgba(255,255,255,0.2)',
+                }}
+              >
+                <Crown size={14} className="text-[#edff61]" />
+                <span className="text-[10px] font-black uppercase tracking-[2px]" style={{ color: tutorBadge?.pillText || '#fff' }}>
+                  {tutorBadge?.label || membership.label}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -273,12 +347,10 @@ export default function TutorProfile() {
                 Meu plano
               </p>
               <h2 className="text-xl font-black text-gray-800 mt-2">
-                {membership.label}
+                {tutorBadge?.label || membership.label}
               </h2>
               <p className="text-sm font-medium text-gray-500 mt-2 leading-relaxed">
-                {membership.unlimitedCats
-                  ? 'Gatos ilimitados com benefícios ativos na sua assinatura.'
-                  : `Até ${membership.maxActiveCats || 0} gatos ativos no plano atual. Gatos em memorial não ocupam vaga.`}
+                Cadastre gatos sem limite. Gatos em memorial não ocupam vaga.
               </p>
             </div>
 
@@ -286,7 +358,7 @@ export default function TutorProfile() {
               onClick={() => navigate('/clube')}
               className="shrink-0 px-4 py-3 rounded-2xl bg-[#8B4AFF] text-white text-[10px] font-black uppercase tracking-[2px]"
             >
-              Ver planos
+              Ver clube
             </button>
           </div>
 
@@ -294,7 +366,7 @@ export default function TutorProfile() {
             <InfoRow
               icon={WalletCards}
               label="Plano atual"
-              value={formatPlanType(profile?.subscription?.planType) || membership.label}
+              value={tutorBadge?.label || formatPlanType(profile?.subscription?.planType) || membership.label}
             />
             <InfoRow
               icon={CalendarDays}
@@ -389,7 +461,7 @@ export default function TutorProfile() {
           {pets.length > 0 ? (
             <div className="flex gap-3 overflow-x-auto pb-1">
               {pets.map((cat) => (
-                <CatMiniCard key={cat.id} cat={cat} />
+                <CatMiniCard key={cat.id} cat={cat} tutorBadge={tutorBadge} />
               ))}
             </div>
           ) : (

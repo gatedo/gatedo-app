@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { brandAssets } from '../brand/assets';
 
 export default function Splash() {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ export default function Splash() {
         }}
       >
         <motion.img
-          src="/assets/App_gatedo_logo.svg"
+          src={brandAssets.appLogo}
           alt="Gatedo"
           style={{ width: '150px' }}
         />

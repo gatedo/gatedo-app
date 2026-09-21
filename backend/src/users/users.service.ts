@@ -38,6 +38,7 @@ export class UsersService {
         email: true,
         phone: true,
         city: true,
+        tutorTitle: true,
         role: true,
         status: true,
         createdAt: true,

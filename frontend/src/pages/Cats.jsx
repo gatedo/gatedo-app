@@ -9,6 +9,8 @@ import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion
 import { AuthContext } from '../context/AuthContext';
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
+import { getPrimaryTutorBadge } from '../utils/membershipMeta';
+import { resolveCatThemeHex } from '../config/catThemes';
 
 const C = { purple: '#8B4AFF', accent: '#ebfc66' };
 
@@ -36,11 +38,31 @@ function ageLabel(pet) {
 
 
 
-function GridCard({ pet, onClick }) {
+function PetHierarchyPill({ badge, floating = false }) {
+  if (!badge) return null;
+
+  return (
+    <span
+      className={`${floating ? 'absolute left-6 top-12 z-10' : 'ml-3'} relative inline-flex items-center overflow-visible rounded-full px-2 py-1 pl-6 text-[8px] font-black uppercase tracking-[1.4px] shadow-sm`}
+      style={{
+        background: badge.gradient || badge.pillBg || badge.color || C.purple,
+        color: badge.pillText || C.accent,
+      }}
+      title={badge.label}
+    >
+      {badge.launchBadge && (
+        <img src={badge.asset} alt="" className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 object-contain" />
+      )}
+      <span className="relative z-10">{badge.petLabel || badge.label}</span>
+    </span>
+  );
+}
+
+function GridCard({ pet, onClick, tutorBadge }) {
   const [hovered, setHovered] = useState(false);
   const hasMedicine = pet.healthRecords?.some(r => r.type === 'MEDICINE' || r.type === 'MEDICATION');
   const hasVaccine  = pet.healthRecords?.some(r => r.type === 'VACCINE');
-  const theme = pet.themeColor || C.purple;
+  const theme = resolveCatThemeHex(pet.themeColor);
 
   return (
     <motion.div
@@ -74,15 +96,6 @@ function GridCard({ pet, onClick }) {
           style={{ background: `radial-gradient(ellipse at 70% 10%, ${theme}40 0%, transparent 60%)` }} />
       </div>
 
-      {hasMedicine && (
-        <div className="absolute top-3 right-3 z-10">
-          <motion.div animate={{ scale: [1, 1.18, 1] }} transition={{ repeat: Infinity, duration: 1.8 }}
-            className="w-7 h-7 rounded-full bg-red-500 flex items-center justify-center shadow-lg border-2 border-white">
-            <Pill size={11} className="text-white" strokeWidth={3} />
-          </motion.div>
-        </div>
-      )}
-
       <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
         <div className="flex items-center gap-1 bg-black/30 backdrop-blur-sm rounded-full px-2 py-1">
           <div className={`w-1.5 h-1.5 rounded-full ${pet.gender === 'MALE' ? 'bg-blue-300' : 'bg-pink-300'}`} />
@@ -90,10 +103,9 @@ function GridCard({ pet, onClick }) {
             {pet.gender === 'MALE' ? 'Macho' : 'Fêmea'}
           </span>
         </div>
-        {/* Cor do tema */}
-        <div className="w-5 h-5 rounded-full border-2 border-white/60 shadow-md flex-shrink-0"
-          style={{ background: theme }} />
       </div>
+
+      <PetHierarchyPill badge={tutorBadge} floating />
 
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
         <motion.div animate={{ y: hovered ? -5 : 0 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
@@ -127,15 +139,18 @@ function GridCard({ pet, onClick }) {
       <motion.div className="absolute inset-0 pointer-events-none"
         animate={{ opacity: hovered ? 1 : 0 }}
         style={{ borderRadius: 28, boxShadow: `inset 0 0 0 2.5px ${theme}70` }} />
+
+      {/* Barrinha com a cor da skin do gato, escolhida no cadastro/edição */}
+      <div className="absolute bottom-0 left-0 right-0 h-[5px] z-20" style={{ background: theme }} />
     </motion.div>
   );
 }
 
-function ListCard({ pet, onClick, dragControls }) {
+function ListCard({ pet, onClick, dragControls, tutorBadge }) {
   const [hovered, setHovered] = useState(false);
   const hasMedicine = pet.healthRecords?.some(r => r.type === 'MEDICINE' || r.type === 'MEDICATION');
   const hasVaccine  = pet.healthRecords?.some(r => r.type === 'VACCINE');
-  const theme = pet.themeColor || C.purple;
+  const theme = resolveCatThemeHex(pet.themeColor);
 
   return (
     <motion.div
@@ -177,6 +192,9 @@ function ListCard({ pet, onClick, dragControls }) {
             </motion.div>
           )}
         </div>
+        <div className="mb-1.5">
+          <PetHierarchyPill badge={tutorBadge} />
+        </div>
         <p className="text-[10px] font-black uppercase tracking-wider truncate mb-1.5" style={{ color: theme }}>
           {pet.breed || 'SRD'}
         </p>
@@ -210,14 +228,14 @@ function ListCard({ pet, onClick, dragControls }) {
   );
 }
 
-function DraggableCard({ pet, viewMode, onClick }) {
+function DraggableCard({ pet, viewMode, onClick, tutorBadge }) {
   const dragControls = useDragControls();
   return (
     <Reorder.Item value={pet} id={pet.id} dragListener={false}
       dragControls={dragControls} style={{ listStyle: 'none', outline: 'none' }}>
       {viewMode === 'grid'
-        ? <GridCard pet={pet} onClick={onClick} />
-        : <ListCard pet={pet} onClick={onClick} dragControls={dragControls} />}
+        ? <GridCard pet={pet} onClick={onClick} tutorBadge={tutorBadge} />
+        : <ListCard pet={pet} onClick={onClick} dragControls={dragControls} tutorBadge={tutorBadge} />}
     </Reorder.Item>
   );
 }
@@ -271,12 +289,12 @@ function FollowedCatsStrip({ navigate }) {
               className="flex flex-col items-center gap-1.5">
               <div className="relative">
                 <div className="w-14 h-14 rounded-[20px] overflow-hidden border-2"
-                  style={{ borderColor: cat.themeColor || '#8B4AFF' }}>
+                  style={{ borderColor: resolveCatThemeHex(cat.themeColor) }}>
                   <img src={cat.photoUrl || 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=70'}
                     alt={cat.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center"
-                  style={{ background: cat.themeColor || '#8B4AFF' }}>
+                  style={{ background: resolveCatThemeHex(cat.themeColor) }}>
                   <Cat size={8} color="white" />
                 </div>
               </div>
@@ -295,6 +313,7 @@ export default function Cats() {
   const navigate = useNavigate();
   const touch    = useSensory();
   const { user } = useContext(AuthContext);
+  const tutorBadge = getPrimaryTutorBadge(user || {});
 
   const [cats,       setCats]       = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -370,7 +389,7 @@ export default function Cats() {
         </div>
       </div>
 
-      <div className="px-5 -mt-10 relative z-20 space-y-4 max-w-[800px] mx-auto">
+      <div className="px-5 -mt-10 relative z-20 space-y-4 max-w-[920px] mx-auto">
         <div className="bg-white rounded-[30px] mb-2 p-2 shadow-xl shadow-indigo-900/5 flex items-center border border-gray-50">
           <div className="flex-1 flex items-center gap-3 px-5 py-3.5 bg-gray-50/50 rounded-[25px]">
             <Search size={20} className="text-gray-300" />
@@ -420,6 +439,7 @@ export default function Cats() {
               style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {filtered.map(cat => (
                 <DraggableCard key={cat.id} pet={cat} viewMode={viewMode}
+                  tutorBadge={tutorBadge}
                   onClick={() => { touch(); navigate(`/cat/${cat.id}`); }} />
               ))}
             </Reorder.Group>

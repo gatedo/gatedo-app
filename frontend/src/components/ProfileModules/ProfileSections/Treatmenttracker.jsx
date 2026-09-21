@@ -181,11 +181,11 @@ function NewTreatmentModal({ cat, userId, onCreated, onClose, onXpEarned, treatm
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="w-full max-w-[800px] bg-white rounded-t-[32px] p-6 pb-10"
+        initial={{ y: 24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 18, opacity: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="w-full max-w-[920px] bg-white rounded-t-[32px] p-6 pb-10"
         style={{ maxHeight: '90vh', overflowY: 'auto' }}
       >
         <div className="flex justify-center mb-4">

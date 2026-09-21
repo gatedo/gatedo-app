@@ -8,7 +8,7 @@ export default function ProfileCardSection({ cat, tutor }) {
   if (!cat) return null;
 
   return (
-    <div className="w-full max-w-lg mx-auto px-4 mb-4" style={{ height: '220px' }}>
+    <div className="w-full max-w-[720px] mx-auto px-4 mb-4" style={{ height: '220px' }}>
       <CatIdentityCard
         cat={cat}
         tutor={tutor || cat.owner}

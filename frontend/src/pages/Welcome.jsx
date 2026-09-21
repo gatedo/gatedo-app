@@ -11,6 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Sparkles, Crown, Heart, User, Zap } from 'lucide-react';
+import { brandAssets } from '../brand/assets';
 
 const SLIDES = [
   {
@@ -86,8 +87,8 @@ export default function Welcome() {
       </AnimatePresence>
 
       {/* ── Header ── */}
-      <div className="relative z-20 flex items-center justify-between px-6 pt-14">
-        <img src="/assets/logo_gatedo_amarelo.webp" alt="Gatedo"
+      <div className="relative z-20 flex items-center justify-between px-6 pt-14 w-full max-w-[920px] mx-auto">
+        <img src={brandAssets.gatedoYellow} alt="Gatedo"
           className="h-10 opacity-90"
           onError={e => e.currentTarget.style.display = 'none'} />
 
@@ -104,7 +105,7 @@ export default function Welcome() {
       </div>
 
       {/* ── Progress bars ── */}
-      <div className="relative z-20 flex gap-1.5 px-6 mt-4">
+      <div className="relative z-20 flex gap-1.5 px-6 mt-4 w-full max-w-[920px] mx-auto">
         {SLIDES.map((s, i) => (
           <button key={i} onClick={() => { setCurrent(i); setPaused(true); }}
             className="relative flex-1 h-[3px] rounded-full overflow-hidden"
@@ -125,7 +126,7 @@ export default function Welcome() {
       </div>
 
       {/* ── Conteúdo ── */}
-      <div className="relative z-20 flex-1 flex flex-col justify-end px-6 pb-12">
+      <div className="relative z-20 flex-1 flex flex-col justify-end px-6 pb-12 w-full max-w-[920px] mx-auto">
         <AnimatePresence mode="wait">
           <motion.div key={current}
             initial={{ opacity: 0, y: 28 }}

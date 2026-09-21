@@ -134,10 +134,10 @@ export default function GalleryUploadModal({
         }}
       >
         <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+          initial={{ y: 24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 18, opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
           onClick={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',

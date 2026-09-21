@@ -24,6 +24,8 @@ import { EmailModule } from './email/email.module';
 import { ContentModule } from './content/content.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { OffersModule } from './offers/offers.module';
+import { AdminContentModule } from './admin-content/admin-content.module';
 
 // Controllers
 import { HealthController } from './health.controller';
@@ -69,6 +71,8 @@ import { ProspectsModule } from './prospects/prospects.module';
     ContentModule,
     EntitlementsModule,
     AnalyticsModule,
+    OffersModule,
+    AdminContentModule,
   ],
   controllers: [
     HealthController,
