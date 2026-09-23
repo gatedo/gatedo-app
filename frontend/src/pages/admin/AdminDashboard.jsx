@@ -8,6 +8,7 @@ import AdminCats from './AdminCats';
 import AdminContent from './AdminContent';
 import AdminGuideEditor from './AdminGuideEditor';
 import AdminProtocolEditor from './AdminProtocolEditor';
+import AdminOng from './AdminOng';
 import AdminPartners from './AdminPartners';
 import AdminStore from './AdminStore';
 import AdminFinancial from './AdminFinancial';
@@ -42,6 +43,7 @@ const ADMIN_TABS = new Set([
   'content',
   'guides',
   'protocols',
+  'ong',
   'igent-almanac',
   'partners',
   'notices',
@@ -121,6 +123,9 @@ export default function AdminDashboard() {
 
       case 'protocols':
         return <AdminProtocolEditor />;
+
+      case 'ong':
+        return <AdminOng />;
 
       case 'igent-almanac':
         return <AdminIgentAlmanac />;

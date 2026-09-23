@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,6 +6,7 @@ import {
   Download, HeartPulse,
 } from 'lucide-react';
 import api from '../services/api';
+import { AuthContext } from '../context/AuthContext';
 import useSensory from '../hooks/useSensory';
 import useEmergencyCheck from '../hooks/useEmergencyCheck';
 import EmergencyCheckModal from '../components/ProfileModules/EmergencyCheckModal';
@@ -252,6 +253,7 @@ async function generateVetPdf({ cat, status, weightSeries, marcos, alerts, cover
 export default function Health() {
   const navigate = useNavigate();
   const touch = useSensory();
+  const { user } = useContext(AuthContext);
 
   const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -306,6 +308,10 @@ export default function Health() {
     touch();
     const status = getCatHealthStatus(selectedCat);
     generateVetPdf({ cat: selectedCat, status, weightSeries, marcos, alerts, coverageRows });
+
+    // Nada aparece aqui (regra dura: nunca oferta/doação na aba Saúde) — só
+    // arma uma notificação chamando pro Perfil, onde o bloco de apoio mora.
+    if (user?.id) api.post(`/users/${user.id}/donation/pdf-generated`).catch(() => {});
   };
 
   if (!loading && cats.length === 0) {
@@ -324,7 +330,21 @@ export default function Health() {
     <div className="min-h-screen pb-32" style={{ background: 'var(--gatedo-light-bg)' }}>
       <div className="px-4 pt-6 space-y-4 max-w-[560px] mx-auto">
 
-        <h1 className="text-xl font-black text-gray-800 tracking-tighter">Saúde</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-black text-gray-800 tracking-tighter">Saúde</h1>
+
+          {/* 8 — PDF pro veterinário, no topo */}
+          {selectedCat && !loadingDetail && (
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={handlePdf}
+              className="w-1/2 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[11px] uppercase tracking-wide shadow-lg shrink-0"
+              style={{ background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)', color: '#fff', boxShadow: '0 8px 22px rgba(22,163,74,0.4)' }}
+            >
+              <Download size={14} /> PDF pro vet
+            </motion.button>
+          )}
+        </div>
 
         {/* 1 — Emergência, fixo no topo */}
         <motion.button
@@ -403,22 +423,6 @@ export default function Health() {
           </>
         )}
       </div>
-
-      {/* 8 — PDF, fixo no rodapé, acima do ícone central da bottom nav */}
-      {selectedCat && !loadingDetail && (
-        <div className="fixed bottom-[122px] left-0 right-0 px-4 z-40 pointer-events-none">
-          <div className="max-w-[560px] mx-auto pointer-events-auto">
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              onClick={handlePdf}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-[12px] uppercase tracking-wide shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)', color: '#fff', boxShadow: '0 8px 22px rgba(22,163,74,0.4)' }}
-            >
-              <Download size={16} /> Gerar PDF para o veterinário
-            </motion.button>
-          </div>
-        </div>
-      )}
 
       <AnimatePresence>
         {quickWeightOpen && selectedCat && (

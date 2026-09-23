@@ -1,7 +1,12 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
+import pdfParse from 'pdf-parse';
 import { buildFelineClinicalAlmanacPrompt } from './feline-clinical-almanac';
+
+// Teto de caracteres do texto extraído do PDF de exame que entra no prompt —
+// protege contra laudos gigantes estourando o limite de contexto/custo.
+const EXAM_PDF_TEXT_CHAR_LIMIT = 12000;
 
 // Retorno normalizado de qualquer provider
 interface AITextResult {
@@ -922,6 +927,11 @@ Responda APENAS com este JSON valido:
       imageMimeType?: string;
       imageContext?: string;
       referenceImages?: Array<{ url?: string; label?: string; notes?: string; patternTitle?: string; mimeType?: string }>;
+      // Leitura de exame/laudo (Clube GATEDO) — a checagem de entitlement já
+      // aconteceu no controller antes de chegar aqui.
+      examMode?: boolean;
+      examPdfBase64?: string;
+      examPdfFilename?: string;
     },
     conversationContext: Array<{ sender?: string; text?: string; type?: string }> = [],
   ) {
@@ -989,9 +999,33 @@ REGRAS DE OURO:
 14. Se o tema for comportamento, ofereca caminhos como agressividade, miado excessivo, tentativa de fuga, marcacao territorial e urina fora da caixa; relacione com idade, castracao, ambiente e possivel dor sem fechar diagnostico.`.trim();
 
     const hasImage = Boolean(visualInput?.imageBase64);
+    const examMode = Boolean(visualInput?.examMode);
+
+    // Exame/laudo em PDF (Clube GATEDO) — extrai o texto e injeta como
+    // contexto, nunca como base para diagnostico.
+    let examPdfText = '';
+    if (visualInput?.examPdfBase64) {
+      try {
+        const cleanBase64 = visualInput.examPdfBase64.includes(',')
+          ? visualInput.examPdfBase64.split(',').pop() || ''
+          : visualInput.examPdfBase64;
+        const parsed = await pdfParse(Buffer.from(cleanBase64, 'base64'));
+        examPdfText = String(parsed.text || '').trim().slice(0, EXAM_PDF_TEXT_CHAR_LIMIT);
+      } catch (err) {
+        this.logger.warn(`Falha ao extrair texto do PDF de exame (${visualInput.examPdfFilename || 'sem nome'}): ${err}`);
+      }
+    }
+    const hasExamPdfText = Boolean(examPdfText);
+
     const fullPrompt = `${systemPrompt}
 
-${hasImage ? `
+${hasImage && examMode ? `
+LEITURA DE EXAME/LAUDO EM FOTO SOLICITADA (recurso Clube GATEDO):
+- O tutor anexou uma FOTO de um exame ou laudo veterinario: ${visualInput?.imageContext || 'exame/laudo do gato'}.
+- Sua tarefa e ORGANIZAR E EXPLICAR em linguagem simples o que esta escrito/os valores visiveis na imagem — nunca diagnosticar a partir disso.
+- Se conseguir ler valores/resultados, liste-os organizados e diga em 1 frase o que cada um costuma significar em termos gerais, sem interpretar o caso clinico do gato.
+- Sempre termine reforcando que a interpretacao clinica final e do veterinario responsavel, e que esse resumo e so para ajudar o tutor a entender o documento.
+` : hasImage ? `
 ANALISE VISUAL SOLICITADA:
 - O tutor anexou uma foto para avaliacao visual: ${visualInput?.imageContext || 'imagem clinica do gato'}.
 - Use o ATLAS VISUAL FELINO ADMIN como checklist de regioes, achados, diferenciais, red flags e perguntas de afunilamento.
@@ -1002,8 +1036,18 @@ ANALISE VISUAL SOLICITADA:
 - Explique o limite: foto ajuda triagem, mas nao substitui exame fisico, fluoresceina, pressao ocular, citologia, cultura, raspado ou outros testes quando indicados.
 - Depois de orientar, faca uma unica pergunta objetiva para afunilar o achado visual; nao repita perguntas ja respondidas no historico recente.
 ` : ''}
+${hasExamPdfText ? `
+LEITURA DE EXAME/LAUDO EM PDF SOLICITADA (recurso Clube GATEDO):
+- O tutor anexou um PDF de exame/laudo (${visualInput?.examPdfFilename || 'arquivo enviado'}). Texto extraido abaixo:
+"""
+${examPdfText}
+"""
+- Sua tarefa e ORGANIZAR E EXPLICAR em linguagem simples o conteudo acima — nunca diagnosticar a partir dele.
+- Liste os principais resultados/valores encontrados e explique em 1 frase o que cada um costuma significar em termos gerais.
+- Sempre termine reforcando que a interpretacao clinica final e do veterinario responsavel, e que esse resumo e so para ajudar o tutor a entender o documento.
+` : ''}
 ---
-TUTOR: ${message || 'Avalie a imagem enviada pelo tutor.'}`;
+TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' : 'Avalie a imagem enviada pelo tutor.')}`;
 
     try {
       const { text, provider, tokensUsed } = hasImage

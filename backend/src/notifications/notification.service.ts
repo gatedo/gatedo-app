@@ -6,6 +6,7 @@ export type NotifType =
   | 'MED_REMINDER'
   | 'VACCINE_DUE'
   | 'VACCINE_OVERDUE'
+  | 'PROTOCOL_DAY'
   | 'IGENT_ALERT'
   | 'IGENT_PREDICTIVE'
   | 'COMMUNITY_REPLY'
@@ -172,6 +173,46 @@ export class NotificationService {
     }
 
     return { dueSoon: dueSoon.length, overdue: overdue.length };
+  }
+
+  // ─── PROTOCOLOS — lembrete diário com a tarefa do dia (campo "notificacao") ──
+  // Chamado por cron externo (mesmo padrão do vaccine-check), 1x de manhã.
+  async generateProtocolReminders() {
+    const enrollments = await this.prisma.protocolEnrollment.findMany({
+      where: { status: 'EM_ANDAMENTO', currentDay: { gte: 1 } },
+      include: {
+        protocol: { select: { slug: true, title: true, spec: true } },
+        pet: { select: { name: true, photoUrl: true, breed: true } },
+      },
+    });
+
+    let created = 0;
+    for (const enr of enrollments) {
+      const spec: any = enr.protocol.spec;
+      const dia = (spec?.dias || []).find((d: any) => d.numero === enr.currentDay);
+      if (!dia?.notificacao) continue;
+
+      // Evita duplicar se o cron rodar mais de uma vez no mesmo dia.
+      const existing = await this.prisma.notification.findFirst({
+        where: { userId: enr.userId, type: 'PROTOCOL_DAY', petId: enr.petId, read: false, metadata: { path: ['dayNumber'], equals: enr.currentDay } as any },
+      });
+      if (existing) continue;
+
+      await this.create({
+        userId: enr.userId,
+        type: 'PROTOCOL_DAY',
+        petId: enr.petId,
+        catName: enr.pet.name,
+        catBreed: enr.pet.breed,
+        catPhotoUrl: enr.pet.photoUrl,
+        message: dia.notificacao,
+        cta: 'Abrir protocolo',
+        metadata: { slug: enr.protocol.slug, dayNumber: enr.currentDay },
+      });
+      created++;
+    }
+
+    return { checked: enrollments.length, created };
   }
 
   // ─── GAMIFICAÇÃO — adiciona pontos + gera notif de conquista ──────────────

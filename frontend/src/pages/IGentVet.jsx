@@ -5,12 +5,13 @@ import {
   Activity, Droplets, Utensils, AlertCircle, MapPin, Search,
   Mic, MicOff, HelpCircle, FileText, Phone, Download, Clock, Share2,
   CheckCircle, X, Heart, Stethoscope, History, ChevronDown,
-  TrendingUp, ShieldCheck, Zap, Camera, ImagePlus, StopCircle
+  TrendingUp, ShieldCheck, Zap, Camera, ImagePlus, StopCircle, Crown
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
 import OfferCard from '../components/offers/OfferCard';
+import ClubeGate from '../components/ClubeGate';
 import { brandAssets } from '../brand/assets';
 import {
   buildIgentAlmanacContext,
@@ -715,10 +716,12 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory, skipAutoSta
   const [saved, setSaved]               = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [reportData, setReportData]     = useState(null);
-  const [mediaFile, setMediaFile]       = useState(null);   // { type:'image'|'audio', url, file }
+  const [mediaFile, setMediaFile]       = useState(null);   // { type:'image'|'audio'|'exam_pdf', url, file }
   const [recording, setRecording]       = useState(false);
   const mediaRecRef                     = useRef(null);
   const fileInputRef                    = useRef(null);
+  const examFileInputRef                = useRef(null);
+  const [clubeGateOpen, setClubeGateOpen] = useState(false);
   const [medAlertModal, setMedAlertModal] = useState(null);
   const [notifGranted, setNotifGranted] = useState(
     typeof Notification !== 'undefined' && Notification?.permission === 'granted'
@@ -1358,6 +1361,7 @@ useEffect(() => {
     setIsTyping(true);
     try {
       const hasVisualMedia = userMsg.media?.type === 'image' && userMsg.media?.url;
+      const hasExamPdf = userMsg.media?.type === 'exam_pdf' && userMsg.media?.url;
       await syncIgentAlmanacFromApi(IGENT_ALMANAC_SCOPE);
       if (hasVisualMedia) await syncIgentAlmanacFromApi(IGENT_VISUAL_ATLAS_SCOPE);
       const visualAtlasContext = hasVisualMedia
@@ -1397,7 +1401,16 @@ useEffect(() => {
         payload.imageBase64 = match?.[2] || userMsg.media.url.split(',')[1];
         payload.imageMimeType = match?.[1] || userMsg.media.mimeType || 'image/jpeg';
         payload.referenceImages = visualReferenceImages;
-        payload.imageContext = 'Imagem enviada pelo tutor para análise visual';
+        payload.imageContext = userMsg.media?.isExam
+          ? 'Foto de exame/laudo veterinário enviada pelo tutor'
+          : 'Imagem enviada pelo tutor para análise visual';
+        if (userMsg.media?.isExam) payload.examMode = true;
+      }
+      if (hasExamPdf) {
+        const match = userMsg.media.url.match(/^data:([^;]+);base64,(.+)$/);
+        payload.examMode = true;
+        payload.examPdfBase64 = match?.[2] || userMsg.media.url.split(',')[1];
+        payload.examPdfFilename = userMsg.media?.name || 'exame.pdf';
       }
       if (userMsg.media?.type === 'audio') {
         payload.hasAudio = true;
@@ -1408,7 +1421,11 @@ useEffect(() => {
       setIsTyping(false);
 
       if (res.data.blocked) {
-        setCredits(res.data);
+        if (res.data.reason === 'CLUBE_REQUIRED') {
+          setClubeGateOpen(true);
+        } else {
+          setCredits(res.data);
+        }
         return;
       }
       if (res.data.credits) setCredits(res.data.credits);
@@ -1474,6 +1491,39 @@ useEffect(() => {
       SFX.select();
     } catch (err) {
       console.warn('[iGentVet] falha ao preparar imagem:', err);
+      SFX.error();
+    }
+    e.target.value = '';
+  };
+
+  // ── Anexar exame/laudo (PDF ou foto) — recurso Clube GATEDO ────────────────
+  const handleExamAttachClick = () => {
+    if (credits?.tier !== 'pro') {
+      setClubeGateOpen(true);
+      return;
+    }
+    examFileInputRef.current?.click();
+  };
+
+  const handleExamFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.type === 'application/pdf') {
+        const url = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = (ev) => resolve(ev.target.result);
+          reader.readAsDataURL(file);
+        });
+        setMediaFile({ type: 'exam_pdf', url, mimeType: 'application/pdf', file, name: file.name });
+      } else {
+        const prepared = await prepareImageForVision(file);
+        setMediaFile({ type: 'image', url: prepared.url, mimeType: prepared.mimeType, file, name: file.name, isExam: true });
+      }
+      SFX.select();
+    } catch (err) {
+      console.warn('[iGentVet] falha ao preparar exame/laudo:', err);
       SFX.error();
     }
     e.target.value = '';
@@ -2095,6 +2145,10 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
                 className="mb-2 flex items-center gap-2 bg-white rounded-2xl px-3 py-2 shadow border border-gray-100">
                 {mediaFile.type === 'image'
                   ? <img src={mediaFile.url} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                  : mediaFile.type === 'exam_pdf'
+                  ? <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                      <FileText size={18} className="text-purple-500" />
+                    </div>
                   : <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
                       <Mic size={18} className="text-purple-500" />
                     </div>
@@ -2123,8 +2177,22 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
               className="hidden" onChange={handleImageSelect} />
             <button onClick={() => fileInputRef.current?.click()}
               className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 border border-gray-100 bg-white shadow-sm"
-              style={{ color: mediaFile?.type === 'image' ? C.purple : '#D1D5DB' }}>
+              style={{ color: mediaFile?.type === 'image' && !mediaFile?.isExam ? C.purple : '#D1D5DB' }}>
               <ImagePlus size={18} />
+            </button>
+
+            {/* Botão exame/laudo — Clube GATEDO */}
+            <input ref={examFileInputRef} type="file" accept="image/*,application/pdf"
+              className="hidden" onChange={handleExamFileSelect} />
+            <button onClick={handleExamAttachClick}
+              className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 border border-gray-100 bg-white shadow-sm relative"
+              style={{ color: mediaFile?.type === 'exam_pdf' || mediaFile?.isExam ? C.purple : '#D1D5DB' }}>
+              <FileText size={18} />
+              {credits?.tier !== 'pro' && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#181120] flex items-center justify-center">
+                  <Crown size={9} className="text-[#ebfc66]" />
+                </span>
+              )}
             </button>
 
             {/* Campo de texto */}
@@ -2177,6 +2245,15 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             </button>
           </motion.div>
         </div>
+      )}
+
+      {clubeGateOpen && (
+        <ClubeGate
+          featureKey="IGENT_EXAM_READING"
+          title="Leitura de exame/laudo"
+          description="Envie o PDF ou a foto do exame e o iGentVet organiza e explica em linguagem simples — recurso exclusivo do Clube GATEDO."
+          onClose={() => setClubeGateOpen(false)}
+        />
       )}
     </motion.div>
   );

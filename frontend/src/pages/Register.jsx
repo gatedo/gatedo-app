@@ -304,9 +304,12 @@ export default function Register() {
   const queryType = (query.get('type') || 'free').toLowerCase();
   const queryPhase = Number(query.get('phase') || 1);
   const signupSource = query.get('src') || query.get('utm_source') || (ambassadorToken ? 'ambassador' : 'organic');
+  // Cadastro vindo de um convite de transferência de tutoria (ONG → adotante).
+  const inviteToken = query.get('inviteToken') || '';
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [validating, setValidating] = useState(false);
   const [inviteInfo, setInviteInfo] = useState(null);
   const [inviteError, setInviteError] = useState('');
@@ -456,6 +459,22 @@ export default function Register() {
         await new Promise((r) => setTimeout(r, 300));
       }
 
+      setSuccess(true);
+      await new Promise((r) => setTimeout(r, 800));
+
+      // Cadastro veio de um convite de transferência — pula o onboarding
+      // normal, aceita o convite e cai direto na carteira já preenchida.
+      if (inviteToken) {
+        try {
+          const res = await api.post(`/transfer-invites/${inviteToken}/accept`);
+          navigate(`/adocao/boas-vindas/${res.data.id}`);
+          return;
+        } catch {
+          navigate('/home');
+          return;
+        }
+      }
+
       if (isFounder) {
         navigate(
           `/welcome-founder?name=${encodeURIComponent(formData.name)}&phase=${actualPhase}`,
@@ -465,7 +484,7 @@ export default function Register() {
       } else if (actualKind === 'purchase') {
         navigate(`/welcome-prime?name=${encodeURIComponent(formData.name)}`);
       } else {
-        navigate('/home');
+        navigate('/onboarding');
       }
     } catch (err) {
       setFormError(
@@ -677,11 +696,10 @@ export default function Register() {
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-[2px] mb-2 px-1">
               Como quer aparecer no Gatedo?
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
                 { value: 'TUTOR', label: 'Tutor' },
                 { value: 'TUTORA', label: 'Tutora' },
-                { value: 'PESSOA_TUTORA', label: 'Pessoa tutora' },
               ].map((option) => {
                 const active = formData.tutorTitle === option.value;
                 return (
@@ -711,37 +729,52 @@ export default function Register() {
 
           <motion.button
             whileTap={{ scale: 0.98 }}
+            animate={success ? { scale: [1, 1.04, 1] } : { scale: 1 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
             type="submit"
             disabled={loading || blocked}
-            className={`w-full h-12 rounded-[40px] font-bold shadow-lg flex items-center justify-center gap-2 uppercase text-sm tracking-wide transition-all ${
-              loading || blocked ? 'opacity-70 cursor-not-allowed' : ''
+            className={`w-full h-12 rounded-[40px] font-bold shadow-lg flex items-center justify-center gap-2 uppercase text-sm tracking-wide transition-all duration-500 ${
+              (loading && !success) || blocked ? 'opacity-70 cursor-not-allowed' : ''
             }`}
             style={{
-              background:
-                loading || blocked
+              background: success
+                ? 'linear-gradient(135deg,#34d399,#10b981,#059669)'
+                : loading || blocked
                   ? '#dbcffb'
                   : isFounder
                     ? 'linear-gradient(135deg,#f59e0b,#d97706)'
                     : 'linear-gradient(135deg,#936cff,#8b4dff,#682adb)',
-              color: loading || blocked ? '#7b6ca8' : '#fff',
-              boxShadow:
-                loading || blocked
+              color: loading && !success || blocked ? '#7b6ca8' : '#fff',
+              boxShadow: success
+                ? '0 8px 24px rgba(16,185,129,0.4)'
+                : loading || blocked
                   ? 'none'
                   : isFounder
                     ? '0 8px 24px rgba(245,158,11,0.35)'
                     : '0 8px 24px rgba(97,88,202,0.35)',
             }}
           >
-            {loading ? (
-              <>
-                <Loader size={16} className="animate-spin" />
-                Processando...
-              </>
-            ) : (
-              <>
-                Finalizar Cadastro <ArrowRight size={18} />
-              </>
-            )}
+            <AnimatePresence mode="wait" initial={false}>
+              {success ? (
+                <motion.span key="success" className="flex items-center gap-2"
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.25 }}>
+                  <CheckCircle size={18} /> Conta criada!
+                </motion.span>
+              ) : loading ? (
+                <motion.span key="loading" className="flex items-center gap-2"
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.25 }}>
+                  <Loader size={16} className="animate-spin" /> Processando...
+                </motion.span>
+              ) : (
+                <motion.span key="idle" className="flex items-center gap-2"
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.25 }}>
+                  Finalizar Cadastro <ArrowRight size={18} />
+                </motion.span>
+              )}
+            </AnimatePresence>
           </motion.button>
         </form>
 

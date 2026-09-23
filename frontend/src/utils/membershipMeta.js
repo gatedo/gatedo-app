@@ -6,6 +6,7 @@ export const PLAN_KEYS = {
   TESTER_FRIENDLY: 'TESTER_FRIENDLY',
   TUTOR_PLUS: 'TUTOR_PLUS',
   TUTOR_MASTER: 'TUTOR_MASTER',
+  CLUBE_GATEDO: 'CLUBE_GATEDO',
 };
 
 export const PLAN_TYPE_LABELS = {
@@ -15,6 +16,8 @@ export const PLAN_TYPE_LABELS = {
   TUTOR_PLUS_ANNUAL: 'Tutor Plus Anual',
   TUTOR_MASTER_SEMESTRAL: 'Tutor Master Semestral',
   TUTOR_MASTER_ANNUAL: 'Tutor Master Anual',
+  CLUBE_GATEDO_MENSAL: 'Clube GATEDO Mensal',
+  CLUBE_GATEDO_ANUAL: 'Clube GATEDO Anual',
   GATEDO_POINTS_PACK: 'Gatedo Points',
 };
 
@@ -55,6 +58,14 @@ export const MEMBERSHIP_META = {
     label: 'Tutor Master',
     badge: 'Tutor Master',
     tone: 'emerald',
+    renewalDiscountPercent: 0,
+    maxActiveCats: null,
+    unlimitedCats: true,
+  },
+  [PLAN_KEYS.CLUBE_GATEDO]: {
+    label: 'Clube GATEDO',
+    badge: 'Clube GATEDO',
+    tone: 'violet',
     renewalDiscountPercent: 0,
     maxActiveCats: null,
     unlimitedCats: true,
@@ -122,6 +133,13 @@ export function normalizePlan(plan, badges = []) {
   }
 
   if (
+    normalizedPlan === PLAN_KEYS.CLUBE_GATEDO ||
+    normalizedBadges.includes(PLAN_KEYS.CLUBE_GATEDO)
+  ) {
+    return PLAN_KEYS.CLUBE_GATEDO;
+  }
+
+  if (
     normalizedPlan === PLAN_KEYS.TUTOR_MASTER ||
     normalizedBadges.includes(PLAN_KEYS.TUTOR_MASTER)
   ) {
@@ -150,21 +168,40 @@ export function getMembershipMeta(userOrPlan, maybeBadges = []) {
   };
 }
 
+// Fundador (qualquer fase) ganha o Clube GATEDO vitalício automaticamente —
+// mesma regra de hasClubeAccess do backend (membership.constants.ts).
+export function isFounderTierUser(user = {}) {
+  return normalizePlan(user?.plan, user?.badges) === PLAN_KEYS.FOUNDER_EARLY;
+}
+
+export function hasClubeAccess(user = {}) {
+  const role = String(user?.role || '').toUpperCase();
+  if (role === 'ADMIN' || role === 'TESTER_VIP') return true;
+  if (isFounderTierUser(user)) return true;
+
+  if (normalizePlan(user?.plan, user?.badges) !== PLAN_KEYS.CLUBE_GATEDO) return false;
+  if (!user?.planExpires) return false;
+
+  return new Date(user.planExpires).getTime() > Date.now();
+}
+
 /**
  * Fonte única de decisão de acesso no frontend — espelha
  * `getUserEntitlements` do backend. "free" (padrão) e "founder" (quem já
- * pagou) têm hoje o mesmo acesso; "pro" é reservado para o futuro e nenhum
- * fluxo atual atribui esse tier. Nenhuma tela deve checar `user.plan`
- * diretamente para decidir o que mostrar/permitir — use esta função.
+ * pagou) têm hoje o mesmo acesso; "pro" é o Clube GATEDO (assinatura ativa
+ * ou fundador, que ganha o Clube de brinde). Nenhuma tela deve checar
+ * `user.plan` diretamente para decidir o que mostrar/permitir — use esta
+ * função.
  */
 export function getUserEntitlements(userOrPlan, maybeBadges = []) {
-  const normalizedPlan =
-    typeof userOrPlan === 'string'
-      ? normalizePlan(userOrPlan, maybeBadges)
-      : normalizePlan(userOrPlan?.plan, userOrPlan?.badges);
+  const user = typeof userOrPlan === 'string' ? { plan: userOrPlan, badges: maybeBadges } : (userOrPlan || {});
+  const normalizedPlan = normalizePlan(user?.plan, user?.badges);
+  const hasClube = hasClubeAccess(user);
+  const tier = hasClube ? 'pro' : normalizedPlan === PLAN_KEYS.FREE ? 'free' : 'founder';
 
   return {
-    tier: normalizedPlan === PLAN_KEYS.FREE ? 'free' : 'founder',
+    tier,
+    hasClube,
     isUnlimitedCats: true,
     maxActiveCats: null,
   };
@@ -276,6 +313,40 @@ export const TUTOR_BADGE_META = {
     asset: '/assets/badges/TUTOR_VIP.png',
     launchBadge: false,
   },
+  PRIMEIRA_JORNADA: {
+    key: 'PRIMEIRA_JORNADA',
+    label: 'Primeira Jornada',
+    petLabel: 'JORNADA',
+    pillBg: '#8B4AFF',
+    pillText: '#ebfc66',
+    title: 'Você completou o tour de boas-vindas do GATEDO',
+    emoji: '🐾',
+    tone: 'jornada',
+    bg: 'bg-[#8B4AFF]',
+    text: 'text-[#ebfc66]',
+    ring: 'ring-violet-200',
+    color: '#8B4AFF',
+    gradient: 'linear-gradient(135deg, #4B2AAF 0%, #8B4AFF 60%, #ebfc66 160%)',
+    asset: '/assets/badges/PRIMEIRA_JORNADA.png',
+    launchBadge: false,
+  },
+  CLUBE_GATEDO: {
+    key: 'CLUBE_GATEDO',
+    label: 'Clube GATEDO',
+    petLabel: 'CLUBE',
+    pillBg: '#181120',
+    pillText: '#ebfc66',
+    title: 'Você é assinante do Clube GATEDO',
+    emoji: '♛',
+    tone: 'clube',
+    bg: 'bg-[#181120]',
+    text: 'text-[#ebfc66]',
+    ring: 'ring-[#ebfc66]',
+    color: '#8B4AFF',
+    gradient: 'linear-gradient(135deg, #181120 0%, #4B2AAF 55%, #8B4AFF 150%)',
+    asset: '/assets/badges/CLUBE_GATEDO.png',
+    launchBadge: false,
+  },
 };
 
 const TUTOR_TITLE_LABELS = {
@@ -319,6 +390,7 @@ export function getPrimaryTutorBadge(user = {}) {
     'TUTOR_CERNE',
     'TUTOR_PRIME',
     'TUTOR_VIP',
+    'CLUBE_GATEDO',
     'TUTOR_MASTER',
     'TUTOR_PLUS',
     'TESTER_FRIENDLY',

@@ -15,6 +15,7 @@ import { GamificationService } from './gamification.service';
 import { AddXpDto } from './dto/add-xp.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { calcTutorLevelMeta } from './gamification.constants';
+import { hasClubeAccess } from '../membership/membership.constants';
 
 @UseGuards(JwtAuthGuard)
 @Controller('gamification')
@@ -63,6 +64,57 @@ export class GamificationController {
       gpts: user.gatedoPoints ?? 0,
       level: calcTutorLevelMeta(user.xpt ?? 0).rank,
     };
+  }
+
+  // Ranking de tutores — aberto a qualquer usuário logado. O selo de
+  // destaque (isClube) é exclusivo Clube GATEDO, mas a lista em si não é.
+  @Get('ranking')
+  async getRanking(@Req() req: any) {
+    const userId = req.user?.id || req.user?.sub;
+    const RANKING_SIZE = 50;
+    const selectFields = {
+      id: true,
+      name: true,
+      photoUrl: true,
+      xpt: true,
+      plan: true,
+      badges: true,
+      planExpires: true,
+      role: true,
+    } as const;
+
+    const top = await this.prisma.user.findMany({
+      where: { role: { not: 'ADMIN' as any } },
+      orderBy: { xpt: 'desc' },
+      take: RANKING_SIZE,
+      select: selectFields,
+    });
+
+    const toRankingEntry = (u: (typeof top)[number], position: number) => ({
+      position,
+      userId: u.id,
+      name: u.name || 'Tutor Gatedo',
+      photoUrl: u.photoUrl || null,
+      xpt: u.xpt || 0,
+      level: calcTutorLevelMeta(u.xpt ?? 0).rank,
+      isClube: hasClubeAccess(u),
+    });
+
+    const ranking = top.map((u, index) => toRankingEntry(u, index + 1));
+
+    let me = userId ? ranking.find((r) => r.userId === userId) || null : null;
+
+    if (userId && !me) {
+      const myUser = await this.prisma.user.findUnique({ where: { id: userId }, select: selectFields });
+      if (myUser) {
+        const higherCount = await this.prisma.user.count({
+          where: { role: { not: 'ADMIN' as any }, xpt: { gt: myUser.xpt || 0 } },
+        });
+        me = toRankingEntry(myUser, higherCount + 1);
+      }
+    }
+
+    return { top: ranking, me };
   }
 
   @Get('stats/:userId')

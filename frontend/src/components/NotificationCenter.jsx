@@ -267,6 +267,10 @@ export default function NotificationCenter({
         window.dispatchEvent(new CustomEvent('open-gamif-drawer'));
         return;
 
+      case 'SUPPORT_GATEDO':
+        navigate('/tutor-profile');
+        break;
+
       default:
         if (petId) navigate(`/cat/${petId}`);
         break;

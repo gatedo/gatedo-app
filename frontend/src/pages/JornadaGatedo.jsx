@@ -621,7 +621,7 @@ function LevelRow({ item, unlocked, active, xp }) {
         borderColor: active
           ? `${item.color}55`
           : hovered && unlocked ? `${item.color}45` : C.border,
-        opacity: unlocked ? 1 : 0.42,
+        opacity: unlocked ? 1 : 0.62,
         boxShadow: active
           ? `0 4px 20px ${item.color}22`
           : hovered && unlocked ? `0 4px 16px ${item.color}15` : 'none',
@@ -651,8 +651,8 @@ function LevelRow({ item, unlocked, active, xp }) {
               <div
                 className="w-11 h-11 rounded-2xl flex items-center justify-center text-lg shrink-0"
                 style={{
-                  background: active ? `${item.color}18` : '#f3f4f6',
-                  border: `1px solid ${active ? `${item.color}45` : C.border}`,
+                  background: `${item.color}20`,
+                  border: `1px solid ${item.color}50`,
                 }}
               >
                 {item.emoji}

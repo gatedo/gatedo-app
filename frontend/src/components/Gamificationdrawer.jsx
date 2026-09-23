@@ -229,7 +229,48 @@ const EVENT_META = {
     color: '#738d1d',
     bg: '#F7FEE7',
   },
+  VERMIFUGE_REGISTERED: {
+    title: 'Vermífugo registrado',
+    icon: ShieldCheck,
+    color: '#F59E0B',
+    bg: '#FFFBEB',
+  },
+  PARASITE_REGISTERED: {
+    title: 'Antipulgas registrado',
+    icon: ShieldCheck,
+    color: '#F59E0B',
+    bg: '#FFFBEB',
+  },
+  MEDICATION_REGISTERED: {
+    title: 'Medicação registrada',
+    icon: Heart,
+    color: '#EF4444',
+    bg: '#FEF2F2',
+  },
+  CONSULTATION_REGISTERED: {
+    title: 'Consulta registrada',
+    icon: Activity,
+    color: '#0EA5E9',
+    bg: '#F0F9FF',
+  },
+  SURGERY_REGISTERED: {
+    title: 'Cirurgia registrada',
+    icon: Activity,
+    color: '#DC2626',
+    bg: '#FEF2F2',
+  },
+  EXAM_REGISTERED: {
+    title: 'Exame registrado',
+    icon: Activity,
+    color: '#8B4AFF',
+    bg: '#F4F3FF',
+  },
 };
+
+function humanizeEventAction(action) {
+  if (!action) return 'Evento';
+  return action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function timeAgo(iso) {
   if (!iso) return 'agora';
@@ -410,7 +451,7 @@ function PetJourneyCard({ pet }) {
 
 function EventCard({ event, petMap }) {
   const meta = EVENT_META[event?.action] || {
-    title: event?.action || 'Evento',
+    title: humanizeEventAction(event?.action),
     icon: Trophy,
     color: '#8B4AFF',
     bg: '#F4F3FF',
@@ -585,6 +626,10 @@ export default function GamificationDrawer({ isOpen, onClose }) {
                   className="absolute inset-0 w-full h-full object-cover opacity-[0.16]"
                 />
               )}
+
+              {/* Contraste garantido pro texto branco, mesmo em níveis com cor
+                  bem clara (ex.: nível 1, #8bbcf3) — sem isso o banner lava. */}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0.16) 0%, rgba(0,0,0,0.34) 100%)' }} />
 
               <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full opacity-20 bg-white" />
               <div className="absolute -left-4 -bottom-4 w-24 h-24 rounded-full opacity-10 bg-white" />

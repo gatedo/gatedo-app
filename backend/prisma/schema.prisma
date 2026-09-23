@@ -35,6 +35,13 @@ model User {
   gatedoPoints           Int                    @default(0)
   xpt                    Int                    @default(0)
   signupSource           String?
+  // Bloco "Apoie o GATEDO" (Perfil + pós-PDF) — nunca contrapartida, só timing.
+  donationPromptSeenAt   DateTime?
+  donationDismissedAt    DateTime?
+  // Tour de boas-vindas: 0 nunca começou, 1 boas-vindas vista, 2 gato
+  // cadastrado, 3 peso registrado, 4 Saúde mostrada, 5 concluído (selo dado).
+  onboardingStep         Int       @default(0)
+  onboardingCompletedAt  DateTime?
   lastLoginAt            DateTime?
   balanceActionsMade     BalanceAdjustmentLog[] @relation("BalanceActor")
   balanceLogs            BalanceAdjustmentLog[] @relation("BalanceTarget")
@@ -66,6 +73,10 @@ model User {
   protocolEnrollments    ProtocolEnrollment[]
   productEntitlements    ProductEntitlement[]
   offerEvents            OfferEvent[]
+  ongProfile             OngProfile?
+  transferInvitesSent    PetTransferInvite[]    @relation("OngTransferInvites")
+  transferInvitesAccepted PetTransferInvite[]   @relation("AcceptedTransferInvites")
+  ongSuggestions         OngSuggestion[]
 }
 
 model Pet {
@@ -105,6 +116,12 @@ model Pet {
   isArchived            Boolean             @default(false)
   isMemorial            Boolean             @default(false)
   showInHome            Boolean             @default(true)
+  // Transferência de tutoria (ONGs) — status só é significativo quando o
+  // dono atual é uma ONG; adoptionStatus: DISPONIVEL | EM_PROCESSO | ADOTADO.
+  adoptionStatus        String?
+  // Anotações internas da ONG sobre o gato — NUNCA acompanha a transferência.
+  // Zerado no aceite (o conteúdo vai pro snapshot da ONG antes disso).
+  ongInternalNotes      String?
   level                 Int                 @default(1)
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
@@ -148,6 +165,68 @@ model Pet {
   studioCreations       StudioCreation[]
   treatments            TreatmentSchedule[]
   offerEvents           OfferEvent[]
+  transferInvites       PetTransferInvite[]
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ONGs DE ADOÇÃO — conta gratuita, painel multi-gato, transferência de tutoria
+// ═══════════════════════════════════════════════════════════════════════
+
+model OngProfile {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  name              String
+  cnpjOuResponsavel String
+  city              String?
+  instagram         String?
+  // PENDING (aguardando aprovação) | APPROVED | REJECTED
+  status            String    @default("PENDING")
+  requestedAt       DateTime  @default(now())
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  rejectionReason   String?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// Convite de transferência de tutoria — por gato, com validade de 7 dias.
+// O aceite é o próprio consentimento: acceptedAt marca as duas coisas.
+model PetTransferInvite {
+  id               String    @id @default(uuid())
+  petId            String
+  ongUserId        String
+  token            String    @unique
+  // PENDING | ACCEPTED | EXPIRED | CANCELLED
+  status           String    @default("PENDING")
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  // Registro congelado no instante do aceite — inclui o que a ONG NÃO pode
+  // mais acessar depois (ex.: ongInternalNotes), pra ela manter memória do
+  // que ficou pra trás sem manter acesso ao histórico novo do gato.
+  ongSnapshot      Json?
+  pet              Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  ongUser          User      @relation("OngTransferInvites", fields: [ongUserId], references: [id])
+  acceptedByUser   User?     @relation("AcceptedTransferInvites", fields: [acceptedByUserId], references: [id])
+
+  @@index([petId])
+  @@index([ongUserId])
+  @@index([status])
+}
+
+// Sugestões/pedidos de melhoria enviados pelas ONGs parceiras — lidas no admin.
+model OngSuggestion {
+  id        String   @id @default(uuid())
+  userId    String
+  message   String
+  status    String   @default("NEW") // NEW | SEEN
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
 }
 
 model HealthRecord {
@@ -349,6 +428,9 @@ model ProtocolEnrollment {
   resolved       Boolean?
   // Respostas da triagem (blocos "emergencia"/"veterinario" e quaisquer outros do spec).
   triageAnswers  Json?
+  // Tela "Como funciona" (bloco "apresentacao" do spec) — só aparece uma vez,
+  // antes da triagem. Null = ainda não viu.
+  presentationSeenAt DateTime?
   // tarefa_fixa do bloco veterinário ("nao" → agendar consulta) — visível em
   // todos os dias até ser marcada como concluída.
   fixedTaskDone  Boolean                  @default(false)
@@ -721,6 +803,10 @@ model Product {
   // Tags de perfil do gato pra recomendação da Loja (ex.: "urinary",
   // "kitten", "senior", "longhair") — marcadas manualmente pelo admin.
   tags          String[]       @default([])
+  // Produto digital próprio (ebook etc.) liberado por ProductEntitlement,
+  // mesmo mecanismo que os protocolos pagos já usam — dá "Você tem" no bloco
+  // "Do GATEDO" da Loja sem precisar de um sistema de posse novo.
+  entitlementProductId String?
   orderItems    OrderItem[]
   category      Category       @relation(fields: [categoryId], references: [id])
   productShares ProductShare[]
@@ -1228,6 +1314,7 @@ enum Role {
   VET
   FOUNDER
   TESTER_VIP
+  ONG
 }
 
 enum Gender {
@@ -1246,6 +1333,7 @@ enum HealthType {
   CONSULTATION
   IACONSULT
   MEDICINE
+  ADOPTION
 }
 
 enum PostVisibility {

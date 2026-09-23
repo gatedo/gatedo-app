@@ -2,22 +2,28 @@ import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Crown,
   Flame,
+  Lock,
+  MessageCircle,
   PawPrint,
   Sparkles,
   Trophy,
+  Users,
   Zap,
 } from 'lucide-react';
 import api from '../services/api';
 import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
+import ClubeGate from '../components/ClubeGate';
 import {
   countActivePets,
   formatDateBR,
   formatTutorBadgeLabel,
   getMembershipMeta,
   getPrimaryTutorBadge,
+  getUserEntitlements,
   normalizeBadges,
   TUTOR_BADGE_META,
 } from '../utils/membershipMeta';
@@ -72,6 +78,66 @@ function SeloChip({ code, user }) {
   );
 }
 
+// ── RankingSection ───────────────────────────────────────────────────────
+
+function RankingRow({ entry, isMe }) {
+  return (
+    <div className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl ${isMe ? 'bg-[#F5F1FF] border border-[#8B4AFF]/20' : ''}`}>
+      <span className="w-6 text-center text-[12px] font-black text-gray-400 shrink-0">{entry.position}º</span>
+      <div className="w-9 h-9 rounded-full bg-gray-100 overflow-hidden shrink-0">
+        {entry.photoUrl ? (
+          <img src={entry.photoUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-300"><Users size={14} /></div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-black text-gray-800 truncate flex items-center gap-1">
+          {entry.name}
+          {entry.isClube && <Crown size={11} className="text-[#8B4AFF] shrink-0" />}
+        </p>
+      </div>
+      <span className="text-[12px] font-black text-[#8B4AFF] shrink-0">{Number(entry.xpt || 0).toLocaleString('pt-BR')} XPT</span>
+    </div>
+  );
+}
+
+function RankingSection() {
+  const [ranking, setRanking] = useState(null);
+
+  useEffect(() => {
+    api.get('/gamification/ranking').then((r) => setRanking(r.data || null)).catch(() => setRanking({ top: [], me: null }));
+  }, []);
+
+  if (!ranking) {
+    return (
+      <div className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm">
+        <div className="h-24 rounded-2xl bg-gray-50 animate-pulse" />
+      </div>
+    );
+  }
+
+  const meInTop = ranking.me && ranking.top.some((r) => r.userId === ranking.me.userId);
+
+  return (
+    <div className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm">
+      <p className="text-[10px] font-black uppercase tracking-[4px] text-[#8B4AFF] mb-1">Ranking</p>
+      <h2 className="text-[18px] leading-none font-black text-gray-900 mb-4">Tutores em destaque</h2>
+      <div className="space-y-1">
+        {ranking.top.slice(0, 10).map((entry) => (
+          <RankingRow key={entry.userId} entry={entry} isMe={entry.userId === ranking.me?.userId} />
+        ))}
+      </div>
+      {ranking.me && !meInTop && (
+        <>
+          <div className="h-px bg-gray-100 my-2" />
+          <RankingRow entry={ranking.me} isMe />
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────
 
 export default function Clube() {
@@ -83,6 +149,8 @@ export default function Clube() {
   const highlightPoints = searchParams.get('reason') === 'points';
 
   const [profile, setProfile] = useState(null);
+  const [communityLink, setCommunityLink] = useState(null);
+  const [gateFeature, setGateFeature] = useState(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -91,7 +159,13 @@ export default function Clube() {
       .catch(() => {});
   }, [user?.id]);
 
+  useEffect(() => {
+    api.get('/settings/public').then((r) => setCommunityLink(r.data?.CLUBE_COMMUNITY_LINK || null)).catch(() => {});
+  }, []);
+
   const effectiveUser = profile || user || {};
+  const entitlements = useMemo(() => getUserEntitlements(effectiveUser), [effectiveUser]);
+  const hasClube = entitlements.hasClube;
 
   const membership = useMemo(
     () => getMembershipMeta(effectiveUser),
@@ -235,6 +309,18 @@ export default function Clube() {
               ))}
             </div>
           )}
+
+          {!hasClube && (
+            <button
+              onClick={() => { touch(); setGateFeature('CLUBE_SELO'); }}
+              className="mt-2 flex items-center gap-2 pl-2 pr-3.5 py-2 rounded-full border border-dashed border-gray-200 bg-gray-50"
+            >
+              <span className="w-7 h-7 rounded-full flex items-center justify-center bg-white shrink-0">
+                <Lock size={12} className="text-gray-300" />
+              </span>
+              <span className="text-[11px] font-black uppercase tracking-[1px] text-gray-400">Selo do Clube GATEDO</span>
+            </button>
+          )}
         </div>
 
         {/* ── Gatedo Points ── */}
@@ -263,6 +349,68 @@ export default function Clube() {
           </p>
         </div>
 
+        {/* ── Clube GATEDO: status/CTA ── */}
+        {hasClube ? (
+          <div className="rounded-[32px] p-5 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #181120 0%, #4B2AAF 55%, #8B4AFF 150%)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Crown size={16} className="text-[#ebfc66]" />
+              <p className="text-[10px] font-black uppercase tracking-[3px] text-[#ebfc66]">Você é Clube GATEDO</p>
+            </div>
+            <p className="text-[12px] font-medium text-white/70 leading-relaxed">
+              iGentVet ampliado com leitura de exames, destaque no Comunigato, ranking, grupo exclusivo e selo do Clube — tudo liberado.
+            </p>
+          </div>
+        ) : (
+          <button
+            onClick={() => { touch(); setGateFeature('CLUBE_PAGE_CTA'); }}
+            className="w-full text-left rounded-[32px] p-5 text-white relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #181120 0%, #4B2AAF 55%, #8B4AFF 150%)' }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Crown size={16} className="text-[#ebfc66]" />
+              <p className="text-[10px] font-black uppercase tracking-[3px] text-[#ebfc66]">Clube GATEDO</p>
+            </div>
+            <p className="text-[13px] font-black leading-relaxed mb-1">iGentVet ampliado, destaque, ranking e grupo exclusivo</p>
+            <p className="text-[12px] font-medium text-white/60">Toque para ver os planos e assinar</p>
+          </button>
+        )}
+
+        {/* ── Ranking de tutores ── */}
+        <RankingSection />
+
+        {/* ── Grupo exclusivo do Clube ── */}
+        {hasClube ? (
+          communityLink && (
+            <a
+              href={communityLink}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 rounded-[32px] p-5 border border-gray-100 shadow-sm bg-white"
+            >
+              <div className="w-11 h-11 rounded-2xl bg-[#ECFDF5] flex items-center justify-center shrink-0">
+                <MessageCircle size={18} className="text-[#10B981]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-black text-gray-800">Grupo exclusivo do Clube</p>
+                <p className="text-[11px] font-medium text-gray-400">Comunidade fechada dos assinantes</p>
+              </div>
+            </a>
+          )
+        ) : (
+          <button
+            onClick={() => { touch(); setGateFeature('CLUBE_COMMUNITY'); }}
+            className="w-full flex items-center gap-3 rounded-[32px] p-5 border border-gray-100 shadow-sm bg-white text-left"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-gray-50 flex items-center justify-center shrink-0">
+              <Lock size={16} className="text-gray-300" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-black text-gray-800">Grupo exclusivo do Clube</p>
+              <p className="text-[11px] font-medium text-gray-400">Exclusivo pra assinantes do Clube GATEDO</p>
+            </div>
+          </button>
+        )}
+
         {/* ── Selo fundador (apenas quem já pagou) ── */}
         {membership.plan !== 'FREE' && (
           <div className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm">
@@ -279,6 +427,15 @@ export default function Clube() {
           </div>
         )}
       </div>
+
+      {gateFeature && (
+        <ClubeGate
+          featureKey={gateFeature}
+          title="Assine o Clube GATEDO"
+          description="iGentVet ampliado com leitura de exames, destaque no Comunigato, ranking, grupo exclusivo e selo do Clube."
+          onClose={() => setGateFeature(null)}
+        />
+      )}
     </div>
   );
 }

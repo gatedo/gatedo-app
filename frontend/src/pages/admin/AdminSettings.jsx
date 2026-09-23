@@ -237,7 +237,94 @@ export default function AdminSettings() {
               ))}
             </div>
           </div>
+
+          <SettingsFieldsCard
+            icon={ShieldCheck}
+            title="Apoio & Achadinhos"
+            hint="Enquanto estiver vazio, o bloco correspondente simplesmente não aparece pro usuário — nada quebra."
+            fields={SUPPORT_FIELDS}
+          />
+
+          <SettingsFieldsCard
+            icon={ShieldCheck}
+            title="Assinaturas · Clube GATEDO"
+            hint="Preço em centavos (ex.: 1990 = R$ 19,90). Enquanto o link de checkout estiver vazio, o botão de assinar fica desabilitado na tela do Clube."
+            fields={CLUBE_FIELDS}
+          />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Apoie o GATEDO / Achadinhos WhatsApp — chave Pix e link do grupo ────────
+const SUPPORT_FIELDS = [
+  { key: 'DONATION_PIX_KEY', label: 'Chave Pix (ou "Pix Copia e Cola")', placeholder: 'CPF, e-mail, telefone ou o código completo copia-e-cola',
+    help: 'Colando o código completo "Pix Copia e Cola" (não só a chave), o QR Code no app fica escaneável direto pelo app do banco.' },
+  { key: 'WHATSAPP_ACHADINHOS_LINK', label: 'Link do grupo de achadinhos (WhatsApp)', placeholder: 'https://chat.whatsapp.com/...' },
+  { key: 'WHATSAPP_ACHADINHOS_TEXT', label: 'Texto do convite (o que a pessoa recebe / frequência)', placeholder: 'Ex.: achadinhos e promoções pros seus gatos, 2-3x por semana' },
+];
+
+// ─── Clube GATEDO — preço mensal/anual e links de checkout Kiwify ───────────
+const CLUBE_FIELDS = [
+  { key: 'CLUBE_MONTHLY_PRICE_CENTAVOS', label: 'Preço mensal (centavos)', placeholder: 'Ex.: 1990' },
+  { key: 'CLUBE_MONTHLY_KIWIFY_URL', label: 'Link de checkout Kiwify — mensal', placeholder: 'https://pay.kiwify.com.br/...' },
+  { key: 'CLUBE_ANNUAL_PRICE_CENTAVOS', label: 'Preço anual (centavos)', placeholder: 'Ex.: 19900' },
+  { key: 'CLUBE_ANNUAL_KIWIFY_URL', label: 'Link de checkout Kiwify — anual', placeholder: 'https://pay.kiwify.com.br/...' },
+  { key: 'CLUBE_COMMUNITY_LINK', label: 'Link do grupo/comunidade exclusiva do Clube', placeholder: 'https://chat.whatsapp.com/... ou https://t.me/...' },
+];
+
+function SettingsFieldsCard({ icon: Icon, title, hint, fields }) {
+  const [values, setValues] = useState({});
+  const [saving, setSaving] = useState(null);
+  const [saved, setSaved] = useState(null);
+
+  useEffect(() => {
+    api.get('/settings/public').then((r) => setValues((prev) => ({ ...(r.data || {}), ...prev }))).catch(() => {});
+  }, []);
+
+  const save = async (key) => {
+    setSaving(key);
+    try {
+      await api.post('/admin/settings', { key, value: values[key] || '' });
+      setSaved(key);
+      setTimeout(() => setSaved((s) => (s === key ? null : s)), 1800);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center gap-3 mb-1">
+        <Icon size={20} style={{ color: P }} />
+        <h2 className="text-lg font-black text-gray-900">{title}</h2>
+      </div>
+      {hint && <p className="text-xs font-medium text-gray-400 mb-4">{hint}</p>}
+      <div className="space-y-4">
+        {fields.map((f) => (
+          <div key={f.key}>
+            <p className="text-xs font-black text-gray-700 mb-1">{f.label}</p>
+            {f.help && <p className="text-[10px] font-medium text-gray-400 mb-1.5">{f.help}</p>}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={values[f.key] || ''}
+                placeholder={f.placeholder}
+                onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                className="flex-1 text-xs font-medium bg-gray-50 rounded-xl px-3 py-2.5 outline-none"
+              />
+              <button
+                onClick={() => save(f.key)}
+                disabled={saving === f.key}
+                className="px-4 py-2.5 rounded-xl font-black text-[11px] text-white shrink-0"
+                style={{ background: saved === f.key ? '#10B981' : saving === f.key ? '#9ca3af' : P }}
+              >
+                {saved === f.key ? 'Salvo!' : saving === f.key ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

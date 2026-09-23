@@ -8,6 +8,7 @@ import {
   Crown,
   Edit2,
   Gem,
+  HeartHandshake,
   LifeBuoy,
   LogOut,
   MapPin,
@@ -24,6 +25,7 @@ import { useGamification } from '../context/GamificationContext';
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
 import GamificationDrawer from '../components/GamificationDrawer';
+import SupportGatedoBlock from '../components/SupportGatedoBlock';
 import {
   countActivePets,
   formatDateBR,
@@ -265,6 +267,12 @@ export default function TutorProfile() {
             <h1 className="max-w-[220px] text-[28px] leading-none font-black text-white mt-2">
               {profile?.name || user?.name || 'Tutor'}
             </h1>
+            {user?.role === 'ONG' && (
+              <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.16)' }}>
+                <HeartHandshake size={11} className="text-white" />
+                <span className="text-[10px] font-black uppercase tracking-wide text-white">ONG parceira</span>
+              </div>
+            )}
             {profile?.city && (
               <div className="flex items-center gap-1 text-white/80 mt-2">
                 <MapPin size={12} />
@@ -519,6 +527,8 @@ export default function TutorProfile() {
             onClick={() => navigate('/support')}
           />
         </div>
+
+        <SupportGatedoBlock />
 
         <button
           onClick={() => {

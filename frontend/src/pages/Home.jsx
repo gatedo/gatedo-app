@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, BookOpen, ShoppingBag, ChevronUp, X,
   LayoutDashboard, Users, PawPrint, FileText, DollarSign,
   Eye, Handshake, Store, Pill, Syringe, Scale, PenTool,
-  Sparkles, MessagesSquare, Stethoscope, ClipboardList,
+  Sparkles, MessagesSquare, Stethoscope, PlusCircle,
   TrendingDown, TrendingUp, Activity,
 } from 'lucide-react';
 import Header from '../components/Header';
@@ -17,6 +17,8 @@ import { resolveCatThemeHex } from '../config/catThemes';
 import useOfferDecision from '../hooks/useOfferDecision';
 import OfferCard from '../components/offers/OfferCard';
 import HealthAlertCard from '../components/offers/HealthAlertCard';
+import RegistroAvulsoModal from '../components/protocol/RegistroAvulsoModal';
+import SpotlightTour from '../components/SpotlightTour';
 import ProfileHealthBar from '../components/ProfileModules/ProfileHealthBar';
 import { extractWeightSeries, computeWeightAlerts, daysSinceLastWeight } from '../utils/weightAlerts';
 import imgShortcutBiblioteca from '../assets/cards-home/gatedo-img10.webp';
@@ -25,6 +27,73 @@ import imgShortcutGatedoland from '../assets/cards-home/gatedo-img8.webp';
 import imgShortcutLoja       from '../assets/cards-home/gatedo-img11.webp';
 
 const C = { purple: '#8B4AFF', accent: '#e7ff60', accentDim: '#ebfc66', bg: 'var(--gatedo-light-bg)' };
+
+// Tour spotlight dos "principais recursos" — roda em cima da Home de
+// verdade, destacando os elementos reais da UI (nada de tela/mockup).
+const FEATURE_TOUR_STEPS = [
+  {
+    selector: '[data-tour="profile-avatar"]',
+    title: 'Seu perfil',
+    text: 'Aqui ficam seus dados, selos e conquistas.',
+  },
+  {
+    selector: '[data-tour="trophy-gamification"]',
+    title: 'Gamificação',
+    text: 'Toque no troféu pra ver seu nível, XPT e GPTS.',
+  },
+  {
+    selector: '[data-tour="notif-bell"]',
+    title: 'Notificações',
+    text: 'Alertas de vacina, peso e novidades chegam aqui — o sininho avisa quando tem algo pendente.',
+  },
+  {
+    selector: '[data-tour="cats-rail"]',
+    title: 'Meus Gatos',
+    text: 'Seus gatos ficam aqui na Home — toque em um pra ver o resumo de saúde na hora.',
+  },
+  {
+    selector: '[data-tour="needs-today"]',
+    title: 'O que precisa de você hoje',
+    text: 'Alertas de cuidado — vacina vencendo, pesagem atrasada — aparecem aqui como cards, com o que fazer.',
+  },
+  {
+    selector: '[data-tour="highlight-slot"]',
+    title: 'Pra você',
+    text: 'Um banner com o que faz mais sentido pro seu gato agora.',
+  },
+  {
+    selector: '[data-tour="fab-center"]',
+    title: 'Atalhos rápidos',
+    text: 'Toque aqui pra abrir os atalhos — é por eles que você adiciona seu primeiro gato e os demais, se tiver mais de um.',
+    onEnter: () => window.dispatchEvent(new CustomEvent('gatedo-tour-fab', { detail: true })),
+  },
+  {
+    selector: '[data-tour="fab-cats"]',
+    title: 'Meus Gatos',
+    text: 'Aqui ficam todos os seus gatos — pode adicionar quantos precisar.',
+  },
+  {
+    selector: '[data-tour="fab-igentvet"]',
+    title: 'iGentVet',
+    text: 'Nosso assistente de IA veterinária, disponível a qualquer hora.',
+    onExit: () => window.dispatchEvent(new CustomEvent('gatedo-tour-fab', { detail: false })),
+  },
+  {
+    selector: '[data-tour="nav-home"]',
+    title: 'Início',
+    text: 'Sua Home — tudo que precisa da sua atenção hoje aparece por aqui.',
+  },
+  {
+    selector: '[data-tour="nav-health"]',
+    title: 'Saúde',
+    text: 'Histórico de saúde, peso e a curva do seu gato ao longo do tempo.',
+  },
+  {
+    selector: '[data-tour="nav-comunigato"]',
+    title: 'ComuniGato',
+    text: 'Compartilhe fotos e histórias com outros tutores de gatos.',
+  },
+];
 
 const stagger = { visible: { transition: { staggerChildren: 0.06 } } };
 const fadeUp  = {
@@ -164,10 +233,27 @@ function CatsRail({ cats, loading, onAdd, tutorBadge, selectedCatId, onSelect })
 const PREVENTIVE_TYPE_PARAM = { VACCINE: 'vaccine', VERMIFUGE: 'vermifuge', PARASITE: 'parasite' };
 const PREVENTIVE_LABEL = { VACCINE: 'Vacina', VERMIFUGE: 'Vermífugo', PARASITE: 'Antipulgas' };
 
-function buildTodayItems(cats, enrollments) {
+function buildTodayItems(cats, enrollments, onboardingDone) {
   const items = [];
   const now = Date.now();
   const active = cats.filter((c) => !c.isMemorial && !c.isArchived);
+
+  // Tour de boas-vindas pulado — os dois passos reais (cadastrar gato,
+  // primeira pesagem) continuam pendentes aqui até serem concluídos, com ou
+  // sem o assistente do tour.
+  if (!onboardingDone && active.length === 0) {
+    items.push({
+      key: 'onboarding-cat',
+      urgency: 3, catId: null, catName: 'Novo gato', catPhoto: null,
+      icon: PawPrint,
+      label: 'Cadastre seu gato',
+      deadline: 'menos de 2 min',
+      ctaLabel: 'Cadastrar',
+      kind: 'onboarding-cat',
+    });
+  }
+
+  let anyNeverWeighed = false;
 
   for (const cat of active) {
     const records = cat.healthRecords || [];
@@ -203,6 +289,7 @@ function buildTodayItems(cats, enrollments) {
 
     // 2 — pesagem atrasada (>45 dias) ou nunca registrada
     const lastWeightDays = daysSinceLastWeight(records);
+    if (lastWeightDays === null) anyNeverWeighed = true;
     if (lastWeightDays === null || lastWeightDays > 45) {
       items.push({
         key: `weight-${cat.id}`,
@@ -233,35 +320,114 @@ function buildTodayItems(cats, enrollments) {
     }
   }
 
-  // 4 — dia de protocolo disponível
-  for (const enr of enrollments || []) {
-    if (enr.status !== 'EM_ANDAMENTO') continue;
-    const log = (enr.logs || []).find((l) => l.dayNumber === enr.currentDay);
-    if (!log || log.completedAt) continue;
-    if (new Date(log.unlockedAt).getTime() > now) continue;
-
-    const cat = active.find((c) => c.id === enr.petId);
+  // Já fez os dois passos reais (tem gato, já pesou) mas nunca voltou pro
+  // tour pra fechar — oferece o selo direto, sem repetir os passos 2 e 3.
+  if (!onboardingDone && active.length > 0 && !anyNeverWeighed) {
     items.push({
-      key: `protocol-${enr.id}`,
-      urgency: 2, catId: enr.petId, catName: cat?.name || 'Gato', catPhoto: cat?.photoUrl,
-      icon: ClipboardList,
-      label: `Dia ${enr.currentDay} de ${enr.protocol?.title || 'Protocolo'} disponível`,
-      deadline: 'disponível agora',
-      ctaLabel: 'Abrir dia',
-      kind: 'protocol',
-      slug: enr.protocol?.slug,
+      key: 'onboarding-finish',
+      urgency: 1, catId: active[0].id, catName: active[0].name, catPhoto: active[0].photoUrl,
+      icon: Sparkles,
+      label: 'Pegue seu selo da Primeira Jornada',
+      deadline: 'menos de 1 min',
+      ctaLabel: 'Ver selo',
+      kind: 'onboarding-finish',
     });
   }
 
   return items.sort((a, b) => b.urgency - a.urgency).slice(0, 3);
 }
 
+// Cards de protocolo — separados da lista genérica porque precisam de mais
+// espaço (titulo_curto, acao_do_dia inteira, "Aconteceu de novo"), sem o
+// limite/truncamento dos itens de "O que precisa de você hoje".
+function buildProtocolCards(cats, enrollments) {
+  const now = Date.now();
+  const active = cats.filter((c) => !c.isMemorial && !c.isArchived);
+  const cards = [];
+
+  for (const enr of enrollments || []) {
+    if (enr.status !== 'EM_ANDAMENTO' || enr.currentDay < 1) continue;
+    const log = (enr.logs || []).find((l) => l.dayNumber === enr.currentDay);
+    if (!log || log.completedAt) continue;
+    if (new Date(log.unlockedAt).getTime() > now) continue;
+
+    const cat = active.find((c) => c.id === enr.petId);
+    if (!cat) continue;
+    const spec = enr.protocol?.spec;
+    const dia = (spec?.dias || []).find((d) => d.numero === enr.currentDay);
+
+    cards.push({
+      key: `protocol-${enr.id}`,
+      enrollmentId: enr.id,
+      catId: enr.petId,
+      catName: cat.name,
+      catPhoto: cat.photoUrl,
+      slug: enr.protocol?.slug,
+      spec,
+      tituloCurto: spec?.titulo_curto || enr.protocol?.title || 'Protocolo',
+      dayNumber: enr.currentDay,
+      totalDays: enr.protocol?.totalDays,
+      acaoDoDia: dia?.acao_do_dia || dia?.tarefa || '',
+    });
+  }
+
+  return cards;
+}
+
+// Card dedicado de protocolo — titulo_curto, progresso, a ação do dia
+// inteira (sem truncar) e o atalho pra "Aconteceu de novo" sem sair da home.
+function ProtocolTodayCard({ card, onOpen, onAvulso }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-[22px] p-4 border border-gray-50 shadow-sm">
+      <div className="flex items-center gap-2.5 mb-2.5">
+        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0" style={{ border: `2px solid ${C.purple}25` }}>
+          {card.catPhoto
+            ? <img src={card.catPhoto} className="w-full h-full object-cover" alt="" />
+            : <div className="w-full h-full flex items-center justify-center text-xs" style={{ background: `${C.purple}10` }}>🐱</div>}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-wide truncate" style={{ color: C.purple }}>
+            {card.catName} · {card.tituloCurto}
+          </p>
+          <p className="text-[10px] font-bold text-gray-400">Dia {card.dayNumber} de {card.totalDays}</p>
+        </div>
+      </div>
+      <p className="text-[13px] font-bold text-gray-800 mb-3 leading-snug">{card.acaoDoDia}</p>
+      <div className="flex gap-2">
+        <button onClick={onOpen}
+          className="flex-1 py-2.5 rounded-xl font-black text-[11px] text-white"
+          style={{ background: `linear-gradient(135deg, ${C.purple} 0%, #4B40C6 100%)` }}>
+          Abrir dia
+        </button>
+        <button onClick={onAvulso}
+          className="px-3.5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-1"
+          style={{ background: '#FEF2F2', color: '#DC2626' }}>
+          <PlusCircle size={13} /> Aconteceu de novo
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 function NeedsTodaySection({ cats, enrollments, onOpenWeight }) {
   const navigate = useNavigate();
   const touch    = useSensory();
-  const items = useMemo(() => buildTodayItems(cats, enrollments), [cats, enrollments]);
+  const { user } = useContext(AuthContext);
+  const [onboardingDone, setOnboardingDone] = useState(true); // otimista até saber
 
-  if (items.length === 0) return null;
+  useEffect(() => {
+    if (!user?.id) return;
+    api.get(`/users/${user.id}/onboarding`)
+      .then((r) => setOnboardingDone(Boolean(r.data?.completedAt)))
+      .catch(() => {});
+  }, [user?.id]);
+
+  const items = useMemo(() => buildTodayItems(cats, enrollments, onboardingDone), [cats, enrollments, onboardingDone]);
+  const protocolCards = useMemo(() => buildProtocolCards(cats, enrollments), [cats, enrollments]);
+  const [avulsoCard, setAvulsoCard] = useState(null);
+
+  if (items.length === 0 && protocolCards.length === 0) return null;
 
   const resolve = (item) => {
     touch();
@@ -278,17 +444,30 @@ function NeedsTodaySection({ cats, enrollments, onOpenWeight }) {
       navigate(`/cat/${item.catId}`, { state: { restoreTab: item.targetTab } });
       return;
     }
-    if (item.kind === 'protocol' && item.slug) {
-      navigate(`/protocolos/${item.slug}`);
+    if (item.kind === 'onboarding-cat') {
+      navigate('/onboarding?step=2');
+      return;
+    }
+    if (item.kind === 'onboarding-finish') {
+      navigate(`/onboarding?step=5&catId=${item.catId}`);
     }
   };
 
   return (
-    <motion.section variants={fadeUp}>
+    <motion.section variants={fadeUp} data-tour="needs-today">
       <div className="flex items-center gap-2 mb-3">
         <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[3px]">O que precisa de você hoje</h2>
       </div>
       <div className="space-y-2">
+        {protocolCards.map((card) => (
+          <ProtocolTodayCard
+            key={card.key}
+            card={card}
+            onOpen={() => { touch(); navigate(`/protocolos/${card.slug}`, { state: { catId: card.catId } }); }}
+            onAvulso={() => { touch(); setAvulsoCard(card); }}
+          />
+        ))}
+
         {items.map((item) => (
           <motion.div key={item.key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-3 bg-white rounded-[20px] px-3.5 py-3 border border-gray-50 shadow-sm">
@@ -315,6 +494,18 @@ function NeedsTodaySection({ cats, enrollments, onOpenWeight }) {
           </motion.div>
         ))}
       </div>
+
+      <AnimatePresence>
+        {avulsoCard && (
+          <RegistroAvulsoModal
+            spec={avulsoCard.spec}
+            slug={avulsoCard.slug}
+            enrollmentId={avulsoCard.enrollmentId}
+            catName={avulsoCard.catName}
+            onClose={() => setAvulsoCard(null)}
+          />
+        )}
+      </AnimatePresence>
     </motion.section>
   );
 }
@@ -553,7 +744,13 @@ function HighlightSlot() {
   if (!offer && !alert) return null;
 
   return (
-    <motion.section variants={fadeUp}>
+    <motion.section variants={fadeUp} data-tour="highlight-slot">
+      {!alert && (
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles size={13} style={{ color: C.purple }} />
+          <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[3px]">Pra você</h2>
+        </div>
+      )}
       {alert ? <HealthAlertCard alert={alert} /> : <OfferCard offer={offer} surface="HOME_SLOT" onDismiss={dismiss} />}
     </motion.section>
   );
@@ -678,8 +875,16 @@ function TutorBadgeWelcomeModal({ badge, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const touch    = useSensory();
   const { user } = useContext(AuthContext);
+  const [featureTourOn, setFeatureTourOn] = useState(() => Boolean(location.state?.startFeatureTour));
+
+  const finishFeatureTour = () => {
+    setFeatureTourOn(false);
+    window.dispatchEvent(new CustomEvent('gatedo-tour-fab', { detail: false }));
+    navigate(location.pathname, { replace: true, state: {} });
+  };
 
   const [cats, setCats]               = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -747,6 +952,10 @@ export default function Home() {
 
       <Header />
 
+      {featureTourOn && (
+        <SpotlightTour steps={FEATURE_TOUR_STEPS} onFinish={finishFeatureTour} />
+      )}
+
       <AnimatePresence>
         {showBadgeWelcome && tutorBadge && (
           <TutorBadgeWelcomeModal badge={tutorBadge} onClose={closeBadgeWelcome} />
@@ -757,7 +966,7 @@ export default function Home() {
         variants={stagger} initial="hidden" animate="visible">
 
         {/* 1 ─ Meus Gatos */}
-        <motion.section variants={fadeUp}>
+        <motion.section variants={fadeUp} data-tour="cats-rail">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-xl font-black text-gray-800 tracking-tighter leading-none">Meus Gatos</h2>

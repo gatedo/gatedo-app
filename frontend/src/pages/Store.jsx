@@ -27,6 +27,9 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import api from '../services/api';
 import StoreRecommendations from '../components/offers/StoreRecommendations';
+import StoreGatedoBlock from '../components/offers/StoreGatedoBlock';
+import StoreWhatsAppBlock from '../components/offers/StoreWhatsAppBlock';
+import StoreSectionBanners from '../components/offers/StoreSectionBanners';
 import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -381,17 +384,6 @@ export default function Store() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          <div className="bg-white/16 border border-white/18 backdrop-blur-sm px-3 py-2 rounded-2xl text-white font-black text-xs flex items-center gap-1.5">
-            <PawPrint size={13} fill="currentColor" />
-            {formatNumber(wallet.gpts)} GPTS
-          </div>
-          <div className="bg-[#ebfc66] px-3 py-2 rounded-2xl text-[#5730c2] font-black text-xs flex items-center gap-1.5 shadow-[0_8px_24px_rgba(235,252,102,0.28)]">
-            <Zap size={13} fill="currentColor" />
-            {formatNumber(wallet.xpt)} XPT
-          </div>
-        </div>
-
         <div className="bg-white/16 backdrop-blur-sm p-3 rounded-2xl flex items-center gap-2 border border-white/15 focus-within:border-white/40 transition-colors">
           <Search size={18} className="text-white/70 shrink-0" />
           <input
@@ -403,8 +395,14 @@ export default function Store() {
         </div>
       </div>
 
-      <div className="p-4 space-y-7 max-w-5xl mx-auto">
-        <StoreRecommendations />
+      <div className="p-4 space-y-5 max-w-5xl mx-auto">
+        <StoreSectionBanners />
+
+        <StoreGatedoBlock />
+
+        <div id="store-section-recomendados">
+          <StoreRecommendations />
+        </div>
 
         {ambassador?.token && (
           <div className="rounded-[26px] p-4 text-white shadow-[0_18px_40px_rgba(20,11,46,0.16)]"
@@ -422,63 +420,6 @@ export default function Store() {
                 </p>
               </div>
             </div>
-          </div>
-        )}
-
-        {!searchTerm && (
-          <div
-            className="rounded-[26px] p-4 text-white shadow-[0_18px_40px_rgba(255,126,51,0.18)]"
-            style={{ background: STORE_COUPON_GRADIENT }}
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-white/18 rounded-xl flex items-center justify-center shrink-0 backdrop-blur-sm">
-                <Gift size={15} color="white" />
-              </div>
-              <div>
-                <p className="font-black text-sm">Tem um cupom? Resgate aqui</p>
-                <p className="text-[10px] text-white/75 font-bold">Ganhe GPTS e descontos instantaneamente</p>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                value={couponCode}
-                onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
-                onKeyDown={(event) => event.key === 'Enter' && handleRedeemCoupon()}
-                placeholder="Ex: GATEDO10"
-                className="flex-1 bg-white/92 border border-white/35 rounded-xl px-4 py-2.5 text-sm font-black text-[#5e3a17] outline-none focus:border-white uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:font-normal placeholder:text-[#9f6b48]"
-              />
-              <button
-                onClick={handleRedeemCoupon}
-                disabled={couponLoading || !couponCode.trim()}
-                className="bg-[#ff6a1a] text-white px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-1.5 disabled:opacity-50 hover:brightness-105 active:scale-95 transition-all shrink-0 shadow-[0_8px_18px_rgba(255,106,26,0.28)]"
-              >
-                {couponLoading ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Tag size={13} /> Resgatar
-                  </>
-                )}
-              </button>
-            </div>
-
-            <AnimatePresence>
-              {couponResult && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`mt-3 flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-xl ${
-                    couponResult.success ? 'bg-white/18 text-white' : 'bg-[#7d1f12]/25 text-white'
-                  }`}
-                >
-                  {couponResult.success ? <Check size={12} /> : <X size={12} />}
-                  {couponResult.message}
-                  {couponResult.points > 0 && ` (+${couponResult.points} GPTS)`}
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         )}
 
@@ -654,26 +595,80 @@ export default function Store() {
           )}
         </div>
 
-        <div
-          className="rounded-[24px] p-6 text-white relative overflow-hidden shadow-[0_18px_42px_rgba(109,66,224,0.2)]"
-          style={{ background: STORE_HEADER_GRADIENT }}
-        >
-          <div className="relative z-10">
-            <span className="bg-white/20 text-white text-[9px] font-black px-2 py-1 rounded-lg mb-2 inline-block uppercase tracking-widest">
-              Parceiros
-            </span>
-            <h3 className="font-black text-lg mb-1">Descontos Exclusivos</h3>
-            <p className="text-xs text-purple-100 mb-4 max-w-[220px]">
-              Assinantes Founder ganham até 15% OFF nas marcas parceiras.
-            </p>
-            <button
-              onClick={() => setShowCoupons(true)}
-              className="bg-[#ebfc66] text-[#8B4AFF] px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 hover:brightness-110"
-            >
-              <Tag size={13} /> Ver Meus Cupons
-            </button>
+        {!searchTerm && (
+          <div
+            className="rounded-2xl p-3 text-white shadow-[0_10px_24px_rgba(255,126,51,0.16)]"
+            style={{ background: STORE_COUPON_GRADIENT }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 bg-white/18 rounded-lg flex items-center justify-center shrink-0 backdrop-blur-sm">
+                <Gift size={13} color="white" />
+              </div>
+              <div>
+                <p className="font-black text-xs">Tem um cupom? Resgate aqui</p>
+                <p className="text-[9px] text-white/75 font-bold">Ganhe GPTS e descontos instantaneamente</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                value={couponCode}
+                onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                onKeyDown={(event) => event.key === 'Enter' && handleRedeemCoupon()}
+                placeholder="Ex: GATEDO10"
+                className="flex-1 bg-white/92 border border-white/35 rounded-lg px-3 py-2 text-xs font-black text-[#5e3a17] outline-none focus:border-white uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:font-normal placeholder:text-[#9f6b48]"
+              />
+              <button
+                onClick={handleRedeemCoupon}
+                disabled={couponLoading || !couponCode.trim()}
+                className="bg-[#ff6a1a] text-white px-3.5 py-2 rounded-lg font-black text-xs flex items-center gap-1.5 disabled:opacity-50 hover:brightness-105 active:scale-95 transition-all shrink-0 shadow-[0_6px_14px_rgba(255,106,26,0.26)]"
+              >
+                {couponLoading ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Tag size={11} /> Resgatar
+                  </>
+                )}
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {couponResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={`mt-2 flex items-center gap-2 text-[11px] font-bold px-2.5 py-1.5 rounded-lg ${
+                    couponResult.success ? 'bg-white/18 text-white' : 'bg-[#7d1f12]/25 text-white'
+                  }`}
+                >
+                  {couponResult.success ? <Check size={11} /> : <X size={11} />}
+                  {couponResult.message}
+                  {couponResult.points > 0 && ` (+${couponResult.points} GPTS)`}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <Award size={110} className="absolute -right-6 -bottom-6 text-white opacity-10 rotate-12" />
+        )}
+
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowCoupons(true)}
+            className="w-full text-left rounded-2xl p-3.5 text-white flex items-center gap-3"
+            style={{ background: STORE_HEADER_GRADIENT }}
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white/18">
+              <Award size={17} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black leading-tight">Descontos Exclusivos</p>
+              <p className="text-[10px] text-purple-100 font-bold leading-tight mt-0.5">Até 15% OFF Founder nas marcas parceiras</p>
+            </div>
+            <span className="text-[10px] font-black bg-[#ebfc66] text-[#8B4AFF] px-2.5 py-1.5 rounded-lg shrink-0">Ver</span>
+          </button>
+
+          <StoreWhatsAppBlock />
         </div>
       </div>
 

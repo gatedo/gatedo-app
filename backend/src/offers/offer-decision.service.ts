@@ -204,23 +204,31 @@ export class OfferDecisionService {
   }
 
   // ─── Cascata única — usada pelo slot da home e pelos cards pós-sucesso ──────
-  async decideGeneralOffer(userId: string): Promise<DecideResult> {
+  // `skipContinueProtocol`: a home já tem a seção "O que precisa de você
+  // hoje" cobrindo "continuar protocolo em andamento" com o gato certo
+  // pré-selecionado (matrícula já sabe qual gato é). Sem isso o slot único
+  // ("Pra você") ficava redundante, mostrando o mesmo card duas vezes na
+  // mesma tela. Pós-sucesso não tem essa seção, então lá a cascata segue
+  // considerando continuar protocolo normalmente.
+  async decideGeneralOffer(userId: string, opts: { skipContinueProtocol?: boolean } = {}): Promise<DecideResult> {
     const alert = await this.hasActiveHealthAlert(userId);
     if (alert) return { offer: null, alert };
 
-    const protocolDay = await this.getAvailableProtocolDay(userId);
-    if (protocolDay) {
-      return {
-        offer: {
-          offerKey: 'continue-protocol',
-          type: 'CONTINUE_PROTOCOL',
-          title: `Dia ${protocolDay.dayNumber} disponível`,
-          description: `Continue o ${protocolDay.title} — o dia de hoje já está liberado.`,
-          ctaLabel: 'Continuar protocolo',
-          ctaPath: `/protocolos/${protocolDay.slug}`,
-        },
-        alert: null,
-      };
+    if (!opts.skipContinueProtocol) {
+      const protocolDay = await this.getAvailableProtocolDay(userId);
+      if (protocolDay) {
+        return {
+          offer: {
+            offerKey: 'continue-protocol',
+            type: 'CONTINUE_PROTOCOL',
+            title: `Dia ${protocolDay.dayNumber} disponível`,
+            description: `Continue o ${protocolDay.title} — o dia de hoje já está liberado.`,
+            ctaLabel: 'Continuar protocolo',
+            ctaPath: `/protocolos/${protocolDay.slug}`,
+          },
+          alert: null,
+        };
+      }
     }
 
     const hasEntitlement = await this.hasProtocolXixiEntitlement(userId);
@@ -293,7 +301,7 @@ export class OfferDecisionService {
 
     switch (surface) {
       case 'HOME_SLOT':
-        return this.decideGeneralOffer(userId);
+        return this.decideGeneralOffer(userId, { skipContinueProtocol: true });
 
       case 'POST_SUCCESS': {
         if (trigger === 'vaccine') {

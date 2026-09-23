@@ -23,6 +23,7 @@ import VerifyEmail from '../pages/VerifyEmail';
 import Welcome from '../pages/Welcome';
 import WelcomeFounder from '../pages/WelcomeFounder';
 import WelcomeMembership from '../pages/WelcomeMembership';
+import Onboarding from '../pages/Onboarding';
 import GatedoEmbaixadoras from '../pages/GatedoEmbaixadoras';
 import ThankYou from '../pages/Thankyou';
 import TermsOfUse from '../pages/legal/TermsOfUse';
@@ -59,6 +60,10 @@ import TutorProfile from '../pages/TutorProfile';
 import ProfileEdit from '../pages/ProfileEdit';
 import Clube from '../pages/Clube';
 import Ongs from '../pages/Ongs';
+import OngApply from '../pages/OngApply';
+import OngDashboard from '../pages/OngDashboard';
+import AdoptInvite from '../pages/AdoptInvite';
+import AdocaoBoasVindas from '../pages/AdocaoBoasVindas';
 import Store from '../pages/Store';
 import Studio from '../pages/Studio';
 import Wiki from '../pages/Wiki';
@@ -122,6 +127,7 @@ const NO_LOADING_ROUTES = [
   '/clube',
   '/planos',
   '/cat-game',
+  '/onboarding',
 ];
 
 // ─── Rotas que exibem a BottomNav ─────────────────────────────────────────────
@@ -190,6 +196,7 @@ const PUBLIC_ROUTES_WITHOUT_NAV = [
   '/auth/login',
   '/cat-new',
   '/profile/edit',
+  '/onboarding',
 ];
 
 const APP_BG = '#e6e6ff';
@@ -383,6 +390,7 @@ const AppShell = () => {
               <Route path="/termos" element={<TermsOfUse />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/privacidade" element={<PrivacyPolicy />} />
+              <Route path="/adotar/:token" element={<AdoptInvite />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/home" element={<Home />} />
@@ -390,6 +398,7 @@ const AppShell = () => {
                 <Route path="/more" element={<More />} />
                 <Route path="/gatedoland" element={<Gatedoland />} />
 
+                <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/cats" element={<Cats />} />
                 <Route path="/cat-new" element={<AddCat />} />
                 <Route path="/cat/:id" element={<CatProfile />} />
@@ -429,6 +438,9 @@ const AppShell = () => {
                 <Route path="/comunigato" element={<Comunigato />} />
                 <Route path="/gato/:catId" element={<CatSocialProfile />} />
                 <Route path="/ongs" element={<Ongs />} />
+                <Route path="/ong/apply" element={<OngApply />} />
+                <Route path="/ong/dashboard" element={<OngDashboard />} />
+                <Route path="/adocao/boas-vindas/:petId" element={<AdocaoBoasVindas />} />
                 <Route path="/store" element={<Store />} />
 
                 <Route path="/studio" element={<Studio />} />

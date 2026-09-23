@@ -38,6 +38,13 @@ export class NotificationController {
     return this.notifService.generateVaccineReminders();
   }
 
+  // POST /notifications/protocol-check
+  // Chamado pelo cron (1x de manhã) para gerar o lembrete diário do protocolo
+  @Post('notifications/protocol-check')
+  async protocolCheck() {
+    return this.notifService.generateProtocolReminders();
+  }
+
   // ─── GAMIFICAÇÃO ──────────────────────────────────────────────────────────
 
   // GET /gamification/points/:userId

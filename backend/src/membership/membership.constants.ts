@@ -4,6 +4,7 @@ export const PLAN_KEYS = {
   TESTER_FRIENDLY: 'TESTER_FRIENDLY',
   TUTOR_PLUS: 'TUTOR_PLUS',
   TUTOR_MASTER: 'TUTOR_MASTER',
+  CLUBE_GATEDO: 'CLUBE_GATEDO',
 } as const;
 
 export const PLAN_TYPES = {
@@ -13,6 +14,8 @@ export const PLAN_TYPES = {
   TUTOR_PLUS_ANNUAL: 'TUTOR_PLUS_ANNUAL',
   TUTOR_MASTER_SEMESTRAL: 'TUTOR_MASTER_SEMESTRAL',
   TUTOR_MASTER_ANNUAL: 'TUTOR_MASTER_ANNUAL',
+  CLUBE_GATEDO_MENSAL: 'CLUBE_GATEDO_MENSAL',
+  CLUBE_GATEDO_ANUAL: 'CLUBE_GATEDO_ANUAL',
 } as const;
 
 export const MEMBERSHIP_BADGES = {
@@ -26,6 +29,7 @@ export const MEMBERSHIP_BADGES = {
   TUTOR_CERNE: 'TUTOR_CERNE',
   TUTOR_PRIME: 'TUTOR_PRIME',
   TUTOR_VIP: 'TUTOR_VIP',
+  CLUBE_GATEDO: 'CLUBE_GATEDO',
 } as const;
 
 export const LEGACY_BADGE_MAP: Record<string, string> = {
@@ -243,6 +247,40 @@ export function getMembershipGrantFromPlanType(
     };
   }
 
+  if (type === PLAN_TYPES.CLUBE_GATEDO_MENSAL) {
+    return {
+      source: 'KIWIFY_PLAN',
+      plan: PLAN_KEYS.CLUBE_GATEDO,
+      planType: PLAN_TYPES.CLUBE_GATEDO_MENSAL,
+      badge: MEMBERSHIP_BADGES.CLUBE_GATEDO,
+      badgeLabel: 'Clube GATEDO',
+      cycleMonths: 1,
+      pointsGranted: 0,
+      renewalDiscountPercent: 0,
+      autoRenew: false,
+      isUnlimitedCats: true,
+      maxActiveCats: null,
+      ...overrides,
+    };
+  }
+
+  if (type === PLAN_TYPES.CLUBE_GATEDO_ANUAL) {
+    return {
+      source: 'KIWIFY_PLAN',
+      plan: PLAN_KEYS.CLUBE_GATEDO,
+      planType: PLAN_TYPES.CLUBE_GATEDO_ANUAL,
+      badge: MEMBERSHIP_BADGES.CLUBE_GATEDO,
+      badgeLabel: 'Clube GATEDO',
+      cycleMonths: 12,
+      pointsGranted: 0,
+      renewalDiscountPercent: 0,
+      autoRenew: false,
+      isUnlimitedCats: true,
+      maxActiveCats: null,
+      ...overrides,
+    };
+  }
+
   return null;
 }
 
@@ -256,6 +294,10 @@ export function getPlanFromUser(user: any): MembershipPlanKey {
 
   if (plan === PLAN_KEYS.TESTER_FRIENDLY || badges.includes(MEMBERSHIP_BADGES.TESTER_FRIENDLY) || plan === 'PREMIUM') {
     return PLAN_KEYS.TESTER_FRIENDLY;
+  }
+
+  if (plan === PLAN_KEYS.CLUBE_GATEDO || badges.includes(MEMBERSHIP_BADGES.CLUBE_GATEDO)) {
+    return PLAN_KEYS.CLUBE_GATEDO;
   }
 
   if (plan === PLAN_KEYS.TUTOR_MASTER || badges.includes(MEMBERSHIP_BADGES.TUTOR_MASTER)) {
@@ -298,6 +340,17 @@ export function getMembershipRulesForUser(user: any) {
       isUnlimitedCats,
       maxActiveCats,
       badge: MEMBERSHIP_BADGES.TESTER_FRIENDLY,
+    };
+  }
+
+  if (plan === PLAN_KEYS.CLUBE_GATEDO) {
+    return {
+      plan,
+      label: 'Clube GATEDO',
+      renewalDiscountPercent: 0,
+      isUnlimitedCats,
+      maxActiveCats,
+      badge: MEMBERSHIP_BADGES.CLUBE_GATEDO,
     };
   }
 
@@ -364,19 +417,43 @@ export function getRenewalDiscountPercent(user: any) {
  * - "founder": quem já pagou (qualquer plano pago existente). Mantém selo,
  *   pontos e tudo que já tinha — hoje não ganha nenhum privilégio extra
  *   de acesso porque o free também é ilimitado.
- * - "pro": reservado para o futuro. Nenhum fluxo concede esse tier ainda.
+ * - "pro": Clube GATEDO (assinatura mensal/anual paga) OU fundador (que
+ *   ganha o Clube vitalício de brinde — ver hasClubeAccess).
  */
 export type EntitlementsTier = 'free' | 'founder' | 'pro';
 
 export type UserEntitlements = {
   tier: EntitlementsTier;
+  hasClube: boolean;
   isUnlimitedCats: boolean;
   maxActiveCats: number | null;
   igentMonthlyQuestions: number | null;
   canAccessProtocols: boolean;
+  canReadExamFiles: boolean;
 };
 
+// Fundador (qualquer fase — Gênese/Raiz/Cerne/Prime) ganha o Clube GATEDO
+// vitalício automaticamente, como camada acima do selo de fundador.
+export function isFounderTierUser(user: any): boolean {
+  return getPlanFromUser(user) === PLAN_KEYS.FOUNDER_EARLY;
+}
+
+// Assinatura ativa do Clube GATEDO: plano CLUBE_GATEDO com planExpires ainda
+// no futuro. Cancelamento não derruba na hora — só não renova, e o acesso
+// cai sozinho quando o ciclo já pago vence. Reembolso zera planExpires na
+// hora (ver tratamento de evento de reembolso no webhook da Kiwify).
+export function hasClubeAccess(user: any): boolean {
+  if (canBypassPlanCosts(user)) return true;
+  if (isFounderTierUser(user)) return true;
+
+  if (getPlanFromUser(user) !== PLAN_KEYS.CLUBE_GATEDO) return false;
+  if (!user?.planExpires) return false;
+
+  return new Date(user.planExpires).getTime() > Date.now();
+}
+
 export function getEntitlementsTier(user: any): EntitlementsTier {
+  if (hasClubeAccess(user)) return 'pro';
   return getPlanFromUser(user) === PLAN_KEYS.FREE ? 'free' : 'founder';
 }
 
@@ -388,19 +465,25 @@ export function getEntitlementsTier(user: any): EntitlementsTier {
 export const IGENT_MONTHLY_QUESTION_LIMITS: Record<EntitlementsTier, number | null> = {
   free: 10,
   founder: 60,
-  pro: null,
+  pro: 200,
 };
 
 export function getUserEntitlements(user: any): UserEntitlements {
   const tier = getEntitlementsTier(user);
+  // ADMIN/TESTER_VIP (canBypassPlanCosts) nunca deve esbarrar em trava de
+  // plano ao testar o app — mesma convenção já usada em gamification.service.
+  const staffOverride = canBypassPlanCosts(user);
   return {
     tier,
+    hasClube: tier === 'pro',
     isUnlimitedCats: true,
     maxActiveCats: null,
-    igentMonthlyQuestions: IGENT_MONTHLY_QUESTION_LIMITS[tier],
+    igentMonthlyQuestions: staffOverride ? null : IGENT_MONTHLY_QUESTION_LIMITS[tier],
     // Protocolos (conteúdo estruturado multi-dia) exigem founder ou pro.
     // Guias (almanaque) continuam livres para todo mundo, sem checar isso.
-    canAccessProtocols: tier !== 'free',
+    canAccessProtocols: staffOverride || tier !== 'free',
+    // Leitura de exame/laudo (PDF ou foto) pelo iGentVet — exclusivo Clube.
+    canReadExamFiles: staffOverride || tier === 'pro',
   };
 }
 
@@ -435,6 +518,14 @@ export function resolveKiwifyOffer(input: {
       offerLabel: `Founder Early · Fase ${phase}`,
       source: 'FOUNDER_CAMPAIGN',
     });
+  }
+
+  if (joined.includes('clube gatedo') || joined.includes('clube do gatedo') || (joined.includes('clube') && joined.includes('gatedo'))) {
+    const isMonthly = joined.includes('mensal');
+    return getMembershipGrantFromPlanType(
+      isMonthly ? PLAN_TYPES.CLUBE_GATEDO_MENSAL : PLAN_TYPES.CLUBE_GATEDO_ANUAL,
+      { offerLabel: isMonthly ? 'Clube GATEDO Mensal' : 'Clube GATEDO Anual' },
+    );
   }
 
   if (joined.includes('tutor plus')) {

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ChevronLeft, MessageCircle, HelpCircle, 
-  ChevronDown, Mail, Instagram, ChevronRight 
+import {
+  ChevronLeft, MessageCircle, HelpCircle,
+  ChevronDown, Mail, Instagram, ChevronRight, Compass
 } from 'lucide-react';
 import useSensory from '../hooks/useSensory';
 
@@ -40,6 +40,11 @@ export default function Support() {
     window.open("https://instagram.com/gatedoapp", "_blank"); // Altere o final se o @ for diferente
   };
 
+  const startTour = () => {
+    touch();
+    navigate('/home', { state: { startFeatureTour: true } });
+  };
+
   return (
     <div className="min-h-screen bg-[var(--gatedo-light-bg)] px-6 pt-12 pb-32 font-sans">
       <div className="flex items-center gap-4 mb-8">
@@ -60,6 +65,23 @@ export default function Support() {
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">E-mail</p>
         </button>
       </div>
+
+      {/* REFAZER TOUR */}
+      <button
+        onClick={startTour}
+        className="w-full mb-4 p-5 bg-white rounded-[28px] shadow-sm border border-gray-50 flex items-center justify-between active:scale-[0.98] transition-all"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-purple-50 text-[#8B4AFF] rounded-2xl flex items-center justify-center shrink-0">
+            <Compass size={22} />
+          </div>
+          <div className="text-left">
+            <p className="font-black text-sm text-gray-800 leading-none">Fazer tour pelo app</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1.5">Reveja as principais funções</p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="text-gray-300" />
+      </button>
 
       {/* INSTAGRAM DESTAQUE */}
       <button 

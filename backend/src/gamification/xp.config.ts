@@ -35,7 +35,7 @@ export const HEALTH_RECORD_XP_TIER: Record<string, keyof typeof XP_TIERS> = {
   EXAM: 'MEDIO',
 };
 
-const WEIGHT_CHECKIN_TITLE_RE = /check-in de peso/i;
+export const WEIGHT_CHECKIN_TITLE_RE = /check-in de peso/i;
 
 export const XP_ACTIONS = {
   WEIGHT_LOG: XP_TIERS.ALTO,

@@ -78,6 +78,38 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
+  // ── Bloco "Apoie o GATEDO" — Perfil + pós-PDF ────────────────────────────
+  @Get(':id/donation-state')
+  getDonationState(@Param('id') id: string) {
+    return this.usersService.getDonationState(id);
+  }
+
+  @Post(':id/donation/pdf-generated')
+  notifyDonationAfterPdf(@Param('id') id: string) {
+    return this.usersService.notifyDonationAfterPdf(id);
+  }
+
+  @Post(':id/donation/dismiss')
+  dismissDonation(@Param('id') id: string) {
+    return this.usersService.dismissDonationPrompt(id);
+  }
+
+  // ── Tour de boas-vindas ──────────────────────────────────────────────────
+  @Get(':id/onboarding')
+  getOnboarding(@Param('id') id: string) {
+    return this.usersService.getOnboardingState(id);
+  }
+
+  @Patch(':id/onboarding')
+  advanceOnboarding(@Param('id') id: string, @Body() body: { step: number }) {
+    return this.usersService.advanceOnboarding(id, body.step);
+  }
+
+  @Post(':id/onboarding/complete')
+  completeOnboarding(@Param('id') id: string) {
+    return this.usersService.completeOnboarding(id);
+  }
+
   // Endpoint usado pelo Store.jsx para buscar pontos
  @Get(':id/points')
 async getPoints(@Param('id') id: string) {

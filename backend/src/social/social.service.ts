@@ -7,6 +7,7 @@ import {
 import { PostVisibility, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { XP_TIERS } from '../gamification/xp.config';
+import { hasClubeAccess } from '../membership/membership.constants';
 
 const XP_TO_PUBLISH = 100;
 const COST_PUBLISH_NORMAL = 5;
@@ -110,7 +111,9 @@ export class SocialService {
       where: {
         ...(visibility ? { visibility } : {}),
       },
-      orderBy: { createdAt: 'desc' },
+      // Destaque Clube GATEDO sobe no feed, sem sumir com a ordem cronológica
+      // dentro de cada grupo (destacados primeiro, depois os mais recentes).
+      orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }],
       include: {
         user: true,
         pet: true,
@@ -582,6 +585,13 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
     const cost = this.publishCostBySource(source);
     const isAdmin = this.isAdmin(currentUser);
     const wallet = await this.getWalletState(currentUser.id);
+    // Destaque no Comunigato/galeria é perk do Clube GATEDO — busca os campos
+    // de plano frescos do banco (o JWT não carrega badges/planExpires).
+    const membershipFields = await this.prisma.user.findUnique({
+      where: { id: currentUser.id },
+      select: { plan: true, badges: true, planExpires: true, role: true },
+    });
+    const isFeatured = hasClubeAccess(membershipFields);
 
     if (!isAdmin && wallet.xp < XP_TO_PUBLISH) {
       throw new BadRequestException(
@@ -619,6 +629,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
           allowComments: body.allowComments ?? true,
           allowShare: body.allowShare ?? true,
           studioCreationId: resolvedStudioCreationId,
+          featured: isFeatured,
         },
         include: {
           user: true,

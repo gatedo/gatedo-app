@@ -36,6 +36,29 @@ export class ProtocolSpecController {
     return this.service.submitRegistro(slug, body);
   }
 
+  @Post(':slug/day-answer')
+  dayAnswer(
+    @Param('slug') slug: string,
+    @Body() body: { enrollmentId: string; dayNumber: number; fieldId: string; value: any },
+  ) {
+    return this.service.submitDayAnswer(body);
+  }
+
+  @Post(':slug/registro-avulso')
+  registroAvulso(@Param('slug') slug: string, @Body() body: { enrollmentId: string; onde: string; como: string }) {
+    return this.service.submitRegistroAvulso(slug, body);
+  }
+
+  @Post(':slug/presentation-seen')
+  presentationSeen(@Body() body: { enrollmentId: string }) {
+    return this.service.markPresentationSeen(body.enrollmentId);
+  }
+
+  @Get(':slug/comparativo')
+  comparativo(@Query('enrollmentId') enrollmentId: string) {
+    return this.service.getComparativoPreview(enrollmentId);
+  }
+
   @Post(':slug/fixed-task/complete')
   completeFixedTask(@Body() body: { enrollmentId: string }) {
     return this.service.completeFixedTask(body.enrollmentId);
@@ -49,6 +72,11 @@ export class ProtocolSpecController {
   @Post(':slug/interrupt')
   interrupt(@Param('slug') slug: string, @Body() body: { enrollmentId: string }) {
     return this.service.interruptForEmergency(slug, body.enrollmentId);
+  }
+
+  @Post(':slug/reconsider')
+  reconsider(@Body() body: { enrollmentId: string }) {
+    return this.service.reconsiderEmergency(body.enrollmentId);
   }
 
   @Post(':slug/advance')

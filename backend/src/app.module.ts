@@ -26,6 +26,8 @@ import { EntitlementsModule } from './entitlements/entitlements.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { OffersModule } from './offers/offers.module';
 import { AdminContentModule } from './admin-content/admin-content.module';
+import { OngModule } from './ong/ong.module';
+import { SettingsModule } from './settings/settings.module';
 
 // Controllers
 import { HealthController } from './health.controller';
@@ -73,6 +75,8 @@ import { ProspectsModule } from './prospects/prospects.module';
     AnalyticsModule,
     OffersModule,
     AdminContentModule,
+    OngModule,
+    SettingsModule,
   ],
   controllers: [
     HealthController,

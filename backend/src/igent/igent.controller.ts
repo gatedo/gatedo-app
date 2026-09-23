@@ -4,6 +4,7 @@ import { IgentCreditsService } from './igent-credits.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationIntegration } from '../gamification/gamification.integration';
 import { NotificationService } from '../notifications/notification.service';
+import { hasClubeAccess } from '../membership/membership.constants';
 
 @Controller('igent')
 export class IgentController {
@@ -103,6 +104,9 @@ export class IgentController {
       imageContext?: string;
       referenceImages?: Array<{ url?: string; label?: string; notes?: string; patternTitle?: string; mimeType?: string }>;
       conversationContext?: Array<{ sender?: string; text?: string; type?: string }>;
+      examMode?: boolean;
+      examPdfBase64?: string;
+      examPdfFilename?: string;
     },
   ) {
     const ownerId = await this.getPetOwnerId(body.petId);
@@ -110,6 +114,17 @@ export class IgentController {
       const status = await this.igentCredits.getStatus(ownerId);
       if (status.blocked) {
         return { blocked: true, reason: 'MONTHLY_LIMIT', ...status };
+      }
+    }
+
+    // Leitura de exame/laudo (PDF ou foto) é exclusiva Clube GATEDO.
+    if ((body.examMode || body.examPdfBase64) && ownerId) {
+      const membershipUser = await this.prisma.user.findUnique({
+        where: { id: ownerId },
+        select: { plan: true, badges: true, planExpires: true, role: true },
+      });
+      if (!hasClubeAccess(membershipUser)) {
+        return { blocked: true, reason: 'CLUBE_REQUIRED', feature: 'IGENT_EXAM_READING' };
       }
     }
 
@@ -125,6 +140,9 @@ export class IgentController {
         imageMimeType: body.imageMimeType,
         imageContext: body.imageContext,
         referenceImages: body.referenceImages,
+        examMode: body.examMode,
+        examPdfBase64: body.examPdfBase64,
+        examPdfFilename: body.examPdfFilename,
       },
       body.conversationContext,
     );

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Scale,
@@ -383,9 +383,12 @@ function WeightBlock({ cat, weightSeries, onOpenQuickWeight }) {
 }
 
 // ─── Bloco 2 — Marcos ────────────────────────────────────────────────────────
+const MARCOS_PAGE_SIZE = 6;
+
 export function MarcosBlock({ marcos, onOpenTab }) {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [period, setPeriod] = useState('all');
+  const [visibleCount, setVisibleCount] = useState(MARCOS_PAGE_SIZE);
 
   const availableTypes = useMemo(
     () => [...new Set(marcos.map((m) => m.type))].filter((t) => MARCO_TYPES[t]),
@@ -404,6 +407,15 @@ export function MarcosBlock({ marcos, onOpenTab }) {
     }
     return list;
   }, [marcos, typeFilter, period]);
+
+  // Reseta a paginação sempre que o filtro muda, senão a lista ficaria
+  // "grudada" no visibleCount de um filtro anterior.
+  useEffect(() => {
+    setVisibleCount(MARCOS_PAGE_SIZE);
+  }, [typeFilter, period]);
+
+  const visible = filtered.slice(0, visibleCount);
+  const remaining = filtered.length - visible.length;
 
   return (
     <div className="bg-white rounded-[28px] p-5 border border-gray-100 shadow-sm">
@@ -461,7 +473,7 @@ export function MarcosBlock({ marcos, onOpenTab }) {
         </p>
       ) : (
         <div className="space-y-1">
-          {filtered.map((m) => {
+          {visible.map((m) => {
             const meta = MARCO_TYPES[m.type] || { label: m.type, icon: PawPrint, color: '#9CA3AF', openTab: 'SAUDE' };
             const Icon = meta.icon;
             return (
@@ -485,6 +497,15 @@ export function MarcosBlock({ marcos, onOpenTab }) {
               </button>
             );
           })}
+          {remaining > 0 && (
+            <button
+              onClick={() => setVisibleCount((c) => c + MARCOS_PAGE_SIZE)}
+              className="w-full mt-2 py-2.5 rounded-xl text-[11px] font-black text-center"
+              style={{ background: '#F4F3FF', color: C.purple }}
+            >
+              Ver mais {Math.min(remaining, MARCOS_PAGE_SIZE)} ({remaining} restantes)
+            </button>
+          )}
         </div>
       )}
     </div>

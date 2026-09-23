@@ -1,15 +1,16 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Sparkles, ShoppingBag, Stethoscope, LifeBuoy,
-  UserRound, Settings, ChevronRight,
+  UserRound, Settings, ChevronRight, HeartHandshake,
 } from 'lucide-react';
 import useSensory from '../hooks/useSensory';
+import { AuthContext } from '../context/AuthContext';
 
 const C = { purple: '#8B4AFF' };
 
-const ITEMS = [
+const BASE_ITEMS = [
   { label: 'Biblioteca',      subtitle: 'Guia e protocolos',      icon: BookOpen,     path: '/guia',          color: '#0EA5E9', bg: '#E0F2FE' },
   { label: 'GATEDOLAND',      subtitle: 'Studio, jogos e wiki',   icon: Sparkles,     path: '/gatedoland',    color: '#8B4AFF', bg: '#F1E9FF' },
   { label: 'Loja',            subtitle: 'Produtos para o gato',   icon: ShoppingBag,  path: '/store',         color: '#F59E0B', bg: '#FFFBEB' },
@@ -22,6 +23,13 @@ const ITEMS = [
 export default function More() {
   const navigate = useNavigate();
   const touch    = useSensory();
+  const { user } = useContext(AuthContext);
+
+  const isOng = user?.role === 'ONG';
+  const ongItem = isOng
+    ? { label: 'Painel da ONG', subtitle: 'Seus gatos e adoções', icon: HeartHandshake, path: '/ong/dashboard', color: '#DC2626', bg: '#FEF2F2' }
+    : { label: 'Sou uma ONG',   subtitle: 'Conta gratuita para adoção', icon: HeartHandshake, path: '/ong/apply', color: '#DC2626', bg: '#FEF2F2' };
+  const ITEMS = [...BASE_ITEMS.slice(0, 4), ongItem, ...BASE_ITEMS.slice(4)];
 
   return (
     <div className="min-h-screen pb-28 px-4 pt-6" style={{ background: 'var(--gatedo-light-bg)' }}>

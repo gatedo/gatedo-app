@@ -376,6 +376,7 @@ export default function Header() {
                 }}
                 className="p-2 rounded-full bg-white/40 text-[#8b4dff] hover:bg-white/70 backdrop-blur-sm transition-colors relative"
                 title={`${Number(gpts || 0).toLocaleString('pt-BR')} GPTS · ${Number(xpt || 0).toLocaleString('pt-BR')} XPT`}
+                data-tour="trophy-gamification"
               >
                 <motion.div
                   className="absolute inset-0 opacity-30"
@@ -422,6 +423,7 @@ export default function Header() {
                   className={`p-2 rounded-full backdrop-blur-sm transition-colors relative ${
                     isNotifOpen ? 'bg-white text-[#8b4dff]' : 'bg-white/70 text-[#8b4dff] hover:bg-white/60'
                   }`}
+                  data-tour="notif-bell"
                 >
                   <Bell size={20} className={isNotifOpen ? 'fill-current' : ''} />
 
@@ -467,6 +469,7 @@ export default function Header() {
                     touch();
                     setIsMenuOpen((v) => !v);
                   }}
+                  data-tour="profile-avatar"
                   className={`rounded-full shadow-sm transition-all border-2 relative overflow-hidden flex items-center justify-center ${
                     photoUrl
                       ? `w-10 h-10 p-0 border-[#8B4AFF] ${badge ? `ring-2 ring-offset-1 ${badge.ring}` : ''}`

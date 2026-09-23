@@ -54,6 +54,7 @@ const MENU_SECTIONS = [
       { id: 'content', label: 'Wiki & Studio', icon: BookOpen },
       { id: 'guides', label: 'Almanaque', icon: BookOpen },
       { id: 'protocols', label: 'Protocolos', icon: ClipboardList },
+      { id: 'ong', label: 'ONGs parceiras', icon: HeartHandshake },
       { id: 'igent-almanac', label: 'Almanaque iGent', icon: BookOpen, isIntelligence: true },
       { id: 'notices', label: 'Comunicados', icon: Megaphone },
       { id: 'store', label: 'Loja & Afiliados', icon: ShoppingBag },

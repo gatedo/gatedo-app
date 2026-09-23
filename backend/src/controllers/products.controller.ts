@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Body,
-  Req, NotFoundException, HttpCode, BadRequestException, 
+  Controller, Get, Post, Patch, Delete, Param, Body, Query,
+  Req, NotFoundException, HttpCode, BadRequestException,
   UnauthorizedException, UseGuards
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -23,6 +23,65 @@ export class ProductsController {
       include: { category: true },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  // ── GET /products/gatedo ─────────────────────────────────────────────────
+  // Bloco "Do GATEDO" da Loja — protocolos + produtos digitais próprios,
+  // cada um com "owned" pra tela trocar o botão de comprar por "Você tem".
+  @Get('gatedo')
+  async gatedoProducts(@Query('userId') userId?: string) {
+    const [protocols, products] = await Promise.all([
+      this.prisma.protocol.findMany({
+        where: { status: 'PUBLISHED' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, slug: true, title: true, summary: true, totalDays: true, spec: true, entitlementProductId: true },
+      }),
+      this.prisma.product.findMany({ where: { platform: 'Gatedo' } }),
+    ]);
+
+    const entitlementIds = [
+      ...protocols.map((p) => p.entitlementProductId),
+      ...products.map((p) => (p as any).entitlementProductId),
+    ].filter(Boolean) as string[];
+
+    const owned = userId && entitlementIds.length
+      ? await this.prisma.productEntitlement.findMany({
+          where: { userId, productId: { in: entitlementIds } },
+          select: { productId: true },
+        })
+      : [];
+    const ownedSet = new Set(owned.map((o) => o.productId));
+
+    const protocolItems = protocols.map((p) => {
+      const spec: any = p.spec || {};
+      return {
+        kind: 'PROTOCOL',
+        id: p.id,
+        title: spec.titulo_curto || p.title,
+        summary: spec.subtitulo || p.summary || null,
+        promessa: spec.promessa || null,
+        duracaoDias: p.totalDays,
+        precoCentavos: spec.preco_centavos ?? null,
+        owned: p.entitlementProductId ? ownedSet.has(p.entitlementProductId) : false,
+        ctaPath: `/protocolos/${p.slug}`,
+        image: null,
+      };
+    });
+
+    const productItems = products.map((pr: any) => ({
+      kind: 'PRODUCT',
+      id: pr.id,
+      title: pr.name,
+      summary: pr.description,
+      promessa: null,
+      duracaoDias: null,
+      precoCentavos: Math.round(Number(pr.price) * 100),
+      owned: pr.entitlementProductId ? ownedSet.has(pr.entitlementProductId) : false,
+      image: Array.isArray(pr.images) ? pr.images[0] || null : null,
+      ctaPath: pr.externalLink || null,
+    }));
+
+    return [...protocolItems, ...productItems];
   }
  
   // ── GET /products/share-stats ─────────────────────────────────────────────

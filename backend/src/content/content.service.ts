@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getUserEntitlements } from '../membership/membership.constants';
+import { getUserEntitlements, canBypassPlanCosts } from '../membership/membership.constants';
 
 const DAY_GAP_MS = 24 * 60 * 60 * 1000; // "o próximo abre no dia seguinte"
 
@@ -92,12 +92,16 @@ export class ContentService {
 
   // ─── PROTOCOLO (requer entitlement) ─────────────────────────────────────
 
-  private async getEntitlements(userId?: string) {
-    if (!userId) return getUserEntitlements(null);
-    const user = await this.prisma.user.findUnique({
+  private async getUser(userId?: string) {
+    if (!userId) return null;
+    return this.prisma.user.findUnique({
       where: { id: userId },
       select: { plan: true, badges: true, role: true },
     });
+  }
+
+  private async getEntitlements(userId?: string) {
+    const user = await this.getUser(userId);
     return getUserEntitlements(user || {});
   }
 
@@ -105,6 +109,12 @@ export class ContentService {
     protocol: { entitlementProductId: string | null; requiresFounder: boolean },
     userId?: string,
   ) {
+    const user = await this.getUser(userId);
+    // ADMIN/TESTER_VIP testando o app não deve esbarrar em trava alguma —
+    // nem nas pagas via produto Kiwify (entitlementProductId), nem nas de
+    // selo (requiresFounder). Trava é só pra usuário free de verdade.
+    if (canBypassPlanCosts(user)) return false;
+
     if (protocol.entitlementProductId) {
       if (!userId) return true;
       const found = await this.prisma.productEntitlement.findUnique({
@@ -112,7 +122,7 @@ export class ContentService {
       });
       return !found;
     }
-    const entitlements = await this.getEntitlements(userId);
+    const entitlements = getUserEntitlements(user || {});
     return protocol.requiresFounder && !entitlements.canAccessProtocols;
   }
 
@@ -256,7 +266,9 @@ export class ContentService {
     return this.prisma.protocolEnrollment.findMany({
       where: { userId, ...(petId ? { petId } : {}) },
       include: {
-        protocol: { select: { title: true, slug: true, totalDays: true } },
+        // spec vem junto pra home poder montar o card com titulo_curto/
+        // acao_do_dia/tempo_estimado do dia atual sem outra chamada.
+        protocol: { select: { title: true, slug: true, totalDays: true, spec: true } },
         // Seleção enxuta — só o suficiente pra saber se o dia atual já abriu
         // (usado pelo "O que precisa de você hoje" da Home).
         logs: { select: { dayNumber: true, unlockedAt: true, completedAt: true } },

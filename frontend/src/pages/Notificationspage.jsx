@@ -181,6 +181,7 @@ export default function NotificationsPage() {
       case 'COMMUNITY_LIKE':
         navigate('/comunigato'); break;
       case 'GAMIFICATION':
+      case 'SUPPORT_GATEDO':
         navigate('/tutor-profile'); break;
       default:
         if (petId) navigate(`/cat/${petId}`);

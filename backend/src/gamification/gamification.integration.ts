@@ -1,7 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notifications/notification.service';
-import { XP_ACTIONS, getHealthRecordXp } from './xp.config';
+import { XP_ACTIONS, getHealthRecordXp, WEIGHT_CHECKIN_TITLE_RE } from './xp.config';
+
+// Nome de evento amigável por tipo de HealthRecord — sem isso, o RewardEvent
+// gravava `HEALTH_RECORD_${type}` cru, e a tela de gamificação (sem esse
+// código no mapa de labels) mostrava o texto interno direto pro usuário
+// (ex.: "HEALTH_RECORD_EXAM"). Cada chave aqui precisa ter par em
+// EVENT_META no frontend (Gamificationdrawer.jsx).
+const HEALTH_RECORD_ACTION_MAP: Record<string, string> = {
+  VACCINE: 'VACCINE_REGISTERED',
+  VERMIFUGE: 'VERMIFUGE_REGISTERED',
+  PARASITE: 'PARASITE_REGISTERED',
+  MEDICATION: 'MEDICATION_REGISTERED',
+  MEDICINE: 'MEDICATION_REGISTERED',
+  CONSULTATION: 'CONSULTATION_REGISTERED',
+  IACONSULT: 'CONSULTATION_REGISTERED',
+  SURGERY: 'SURGERY_REGISTERED',
+  EXAM: 'EXAM_REGISTERED',
+};
 
 @Injectable()
 export class GamificationIntegration {
@@ -135,11 +152,13 @@ title?: string,
 ) {
 
 const xp = getHealthRecordXp(type, title)
+const isWeightCheckin = type === 'EXAM' && WEIGHT_CHECKIN_TITLE_RE.test(title || '')
+const action = isWeightCheckin ? 'WEIGHT_LOG' : (HEALTH_RECORD_ACTION_MAP[type] || `HEALTH_RECORD_${type}`)
 
 await this.credit({
 userId,
 petId,
-action: `HEALTH_RECORD_${type}`,
+action,
 tutorXp: xp.tutorXp,
 catXp: xp.catXp,
 })

@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import {
   FOUNDER_PHASES,
+  PLAN_KEYS,
   addMonths,
   getFounderTierByPhase,
   getFounderTierByPosition,
@@ -70,6 +71,26 @@ function isApprovedOrderEvent(value: any) {
     'pedido_aprovado',
     'approved',
     'paid',
+  ].includes(event);
+}
+
+// Reembolso/chargeback corta o acesso ao Clube GATEDO na hora. Cancelamento
+// (o assinante só não renova) fica de fora de propósito — nesse caso o
+// acesso já cai sozinho quando "planExpires" vencer, sem precisar de
+// nenhum tratamento aqui (mesma lógica de qualquer assinatura recorrente).
+function isRefundOrderEvent(value: any) {
+  const event = normalizeEventName(value);
+  return [
+    'order_refunded',
+    'purchase_refunded',
+    'refunded',
+    'reembolsado',
+    'compra_reembolsada',
+    'pedido_reembolsado',
+    'chargeback',
+    'chargedback',
+    'order_chargeback',
+    'purchase_chargeback',
   ].includes(event);
 }
 
@@ -334,14 +355,42 @@ export class KiwifyController {
       data.order?.status,
     );
 
+    const customer = data.Customer ?? data.customer ?? data.Client ?? data.client ?? data.buyer ?? {};
+    const order = data.Order ?? data.order ?? data.Sale ?? data.sale ?? data;
+    const product = data.Product ?? data.product ?? data.Offer ?? data.offer ?? {};
+
+    if (isRefundOrderEvent(detectedEvent)) {
+      const refundEmail = String(firstValue(
+        customer.email,
+        customer.email_address,
+        order.customer_email,
+        order.email,
+        data.customer_email,
+        data.email,
+      )).trim().toLowerCase();
+      const refundOfferName = String(
+        firstValue(order.offer_name, order.offerName, product.offer_name, product.offerName, order.product_name, ''),
+      ).trim();
+      const refundProductName = String(firstValue(product.name, product.product_name, order.product_name, data.product_name, '')).trim();
+      const refundGrant = resolveKiwifyOffer({ offerName: refundOfferName, productName: refundProductName, price: null });
+
+      if (refundEmail && refundGrant?.plan === PLAN_KEYS.CLUBE_GATEDO) {
+        const refundUser = await this.prisma.user.findUnique({ where: { email: refundEmail }, select: { id: true, plan: true } });
+        if (refundUser?.plan === PLAN_KEYS.CLUBE_GATEDO) {
+          await this.prisma.user.update({ where: { id: refundUser.id }, data: { planExpires: new Date() } });
+          this.logger.log(`Reembolso Clube GATEDO processado — acesso encerrado para ${refundEmail}`);
+          return { ok: true, refunded: true, userId: refundUser.id };
+        }
+      }
+
+      this.logger.log(`Webhook de reembolso Kiwify ignorado (nao e Clube GATEDO ou usuario nao encontrado): ${refundEmail || 'sem-email'}`);
+      return { ok: true, ignored: true, event: detectedEvent || null };
+    }
+
     if (!isApprovedOrderEvent(detectedEvent)) {
       this.logger.log(`Webhook Kiwify ignorado por evento/status: ${detectedEvent || 'sem-evento'}`);
       return { ok: true, ignored: true, event: detectedEvent || null };
     }
-
-    const customer = data.Customer ?? data.customer ?? data.Client ?? data.client ?? data.buyer ?? {};
-    const order = data.Order ?? data.order ?? data.Sale ?? data.sale ?? data;
-    const product = data.Product ?? data.product ?? data.Offer ?? data.offer ?? {};
 
     const email = String(firstValue(
       customer.email,
@@ -506,6 +555,22 @@ export class KiwifyController {
     if (existingUser?.id) {
       await this.authService.applyMembershipGrantToUser(existingUser.id, baseGrant);
       await this.markPurchaseInviteUsedByToken(purchaseInvite.token);
+
+      if (grant.plan === PLAN_KEYS.CLUBE_GATEDO) {
+        // Atribuição por recurso é "melhor esforço": só existe se a Kiwify
+        // ecoar o parâmetro de rastreio que a tela de paywall manda na URL
+        // de checkout. Sem isso, ainda registra a conversão agregada.
+        const offerKey = String(firstValue(
+          order.tracking_parameters?.utm_content,
+          order.trackingParameters?.utm_content,
+          order.utm_content,
+          data.utm_content,
+          'UNKNOWN',
+        ));
+        await this.prisma.offerEvent.create({
+          data: { userId: existingUser.id, surface: 'CLUBE_GATEDO', offerKey, action: 'CONVERT', metadata: { orderId, planType: grant.planType } },
+        }).catch(() => {});
+      }
 
       return {
         ok: true,

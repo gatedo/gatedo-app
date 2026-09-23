@@ -2,15 +2,13 @@
  * Welcome.jsx — Tela pública universal
  *
  * Exibida para: visitantes, pós-logout, acesso direto
- * Fluxo: slides cinematográficos → /planos
+ * Fluxo: slides cinematográficos → /register (cadastro grátis)
  *        "Já tenho conta" → /login
- *
- * FIX: Zap importado (estava sendo usado sem import no original)
  */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Sparkles, Crown, Heart, User, Zap } from 'lucide-react';
+import { ArrowRight, Sparkles, Heart, User, Gift } from 'lucide-react';
 import { brandAssets } from '../brand/assets';
 
 const SLIDES = [
@@ -34,13 +32,12 @@ const SLIDES = [
   },
   {
     id: 3,
-    eyebrow: 'Plano Fundador',
-    title: ['Seja', 'Fundador', ' Gatedo'],
-    desc: 'Acesso vitalício com preço de lançamento. Sem renovações. Prioridade na comunidade.',
+    eyebrow: 'Gatedo é grátis',
+    title: ['Comece', 'Agora,', 'de Graça'],
+    desc: 'Cadastro, perfil dos seus gatos e cuidados essenciais — sem cartão, sem pegadinha.',
     img: '/assets/slide-3.webp',
-    Icon: Crown,
-    accentColor: '#f59e0b',
-    isOffer: true,
+    Icon: Gift,
+    accentColor: '#10B981',
   },
 ];
 
@@ -60,7 +57,7 @@ export default function Welcome() {
   const handleCTA = () => {
     setPaused(true);
     if (current < SLIDES.length - 1) setCurrent(c => c + 1);
-    else navigate('/clube');
+    else navigate('/register');
   };
 
   return (
@@ -164,15 +161,6 @@ export default function Welcome() {
               style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.93rem' }}>
               {slide.desc}
             </p>
-
-            {slide.isOffer && (
-              <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.25 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[11px] uppercase tracking-wide mb-5"
-                style={{ background: 'linear-gradient(135deg, #ffa20085, #d97706a1)', color: 'white' }}>
-                <Zap size={11} fill="white" /> Oferta de Lançamento · Vagas Limitadas
-              </motion.div>
-            )}
           </motion.div>
         </AnimatePresence>
 
@@ -181,26 +169,16 @@ export default function Welcome() {
           className="w-full flex items-center justify-between px-6 rounded-full font-black text-sm uppercase tracking-widest text-white"
           style={{
             height: 62,
-            background: slide.isOffer
-              ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-              : 'linear-gradient(135deg, #823fff, #682adb)',
-            boxShadow: slide.isOffer
-              ? '0 8px 28px rgba(245,158,11,0.4)'
-              : '0 8px 28px rgba(120,101,218,0.5)',
+            background: 'linear-gradient(135deg, #10B981, #059669)',
+            boxShadow: '0 8px 28px rgba(16,185,129,0.45)',
           }}>
-          <span>{current === SLIDES.length - 1 ? 'Ver Planos' : 'Próximo'}</span>
+          <span>{current === SLIDES.length - 1 ? 'Cadastrar grátis' : 'Próximo'}</span>
           <motion.span
             animate={{ x: [0, 4, 0] }}
             transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}>
             <ArrowRight size={20} />
           </motion.span>
         </motion.button>
-
-        <button onClick={() => navigate('/clube')}
-          className="mt-4 text-center text-[10px] font-black uppercase tracking-widest"
-          style={{ color: 'rgba(255,255,255,0.28)' }}>
-          Ver todos os planos
-        </button>
       </div>
     </div>
   );

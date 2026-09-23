@@ -42,7 +42,12 @@ const IGENT_MEDICATION_TYPES = ['medicine', 'vermifuge', 'parasite'];
 const COMMON_REASONS = [
   'Herpes ocular','Conjuntivite / olho irritado','Vômito','Diarreia',
   'Falta de apetite','Apatia','Espirros','Coceira / pele',
-  'Ferida / machucado','Reavaliação / retorno','Outro',
+  'Ferida / machucado',
+  'Prostração / fraqueza','Isolamento (se escondendo)','Hipotermia (frio ao toque)',
+  'Abdômen dolorido','Dor ao urinar / lambendo a região genital',
+  'Postura de urinar sem sair xixi','Sangue na urina','Dificuldade para urinar',
+  'Urinando com mais frequência','Não consegue urinar (emergência)','Problema renal',
+  'Reavaliação / retorno','Outro',
 ];
 
 const SPECIALTIES = [

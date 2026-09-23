@@ -1,7 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationIntegration } from '../gamification/gamification.integration';
 import { evaluateCondition } from './condition-eval';
+import { canBypassPlanCosts, getUserEntitlements } from '../membership/membership.constants';
 
 function startOfNextCalendarDayUTC(from: Date): Date {
   return new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate() + 1));
@@ -33,10 +35,17 @@ export class ProtocolSpecService {
   }
 
   private async isLocked(protocol: { entitlementProductId: string | null; requiresFounder: boolean }, userId?: string) {
+    const user = userId
+      ? await this.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, badges: true, role: true } })
+      : null;
+    // ADMIN/TESTER_VIP testando o app nunca esbarra em trava — mesma
+    // convenção usada em content.service.ts e gamification.service.ts.
+    if (canBypassPlanCosts(user)) return false;
+
     if (protocol.entitlementProductId) {
       return !(await this.hasProductEntitlement(userId, protocol.entitlementProductId));
     }
-    return protocol.requiresFounder;
+    return protocol.requiresFounder && !getUserEntitlements(user || {}).canAccessProtocols;
   }
 
   // ─── Leitura: protocolo + estado do usuário/gato ────────────────────────
@@ -209,6 +218,55 @@ export class ProtocolSpecService {
     return { entry };
   }
 
+  /** v1.1 — resposta de um único campo por toque (pergunta_final_toque, pergunta_areia_toque, habito_diario). */
+  async submitDayAnswer(body: { enrollmentId: string; dayNumber: number; fieldId: string; value: any }) {
+    const log = await this.findDayLog(body.enrollmentId, body.dayNumber);
+    const existing = await this.prisma.protocolDayEntry.findFirst({ where: { dayLogId: log.id } });
+    const entry = existing
+      ? await this.prisma.protocolDayEntry.update({
+          where: { id: existing.id },
+          data: { data: { ...(existing.data as any), [body.fieldId]: body.value } },
+        })
+      : await this.prisma.protocolDayEntry.create({ data: { dayLogId: log.id, data: { [body.fieldId]: body.value } } });
+    return { entry };
+  }
+
+  /**
+   * "Aconteceu de novo" — disponível a qualquer momento durante os 7 dias,
+   * de qualquer tela (card da home, botão + do app). Resolve o dia sozinho
+   * (o dia corrente da inscrição) — quem chama não precisa saber em que dia
+   * o protocolo está.
+   */
+  async submitRegistroAvulso(slug: string, body: { enrollmentId: string; onde: string; como: string }) {
+    const protocol = await this.getProtocolEntity(slug);
+    const spec: any = protocol.spec;
+    const enrollment = await this.prisma.protocolEnrollment.findUnique({ where: { id: body.enrollmentId } });
+    if (!enrollment) throw new NotFoundException('Inscrição não encontrada.');
+    if (enrollment.status !== 'EM_ANDAMENTO') throw new BadRequestException('Este protocolo não está em andamento.');
+    if (enrollment.currentDay < 1) throw new BadRequestException('A triagem ainda não foi concluída.');
+
+    const log = await this.findDayLog(enrollment.id, enrollment.currentDay);
+    const marco = spec.registro_avulso?.marco_timeline?.rotulo || null;
+    const entry = await this.prisma.protocolDayEntry.create({
+      data: {
+        dayLogId: log.id,
+        data: { tipo: 'registro_avulso', onde: body.onde, como: body.como, ...(marco ? { __marco: marco } : {}) },
+      },
+    });
+
+    return { entry, confirmacao: spec.registro_avulso?.confirmacao || null };
+  }
+
+  /** Tela "Como funciona" — marca como vista, uma vez por inscrição. */
+  async markPresentationSeen(enrollmentId: string) {
+    const enrollment = await this.prisma.protocolEnrollment.findUnique({ where: { id: enrollmentId } });
+    if (!enrollment) throw new NotFoundException('Inscrição não encontrada.');
+    if (!enrollment.presentationSeenAt) {
+      await this.prisma.protocolEnrollment.update({ where: { id: enrollmentId }, data: { presentationSeenAt: new Date() } });
+    }
+    return this.serializeEnrollment(enrollmentId);
+  }
+
   async completeFixedTask(enrollmentId: string) {
     await this.prisma.protocolEnrollment.update({ where: { id: enrollmentId }, data: { fixedTaskDone: true } });
     return { ok: true };
@@ -267,6 +325,30 @@ export class ProtocolSpecService {
     return { interrupted: true, telaUrgencia: blocoEmergencia?.tela_urgencia || null };
   }
 
+  /**
+   * "Marquei errado, quero reconsiderar" — pro tutor que clicou sem querer
+   * num item de emergência. Não é um jeito de ignorar uma emergência real:
+   * se a interrupção aconteceu ainda na triagem (currentDay 0, nunca abriu
+   * o dia 1), manda de volta pra refazer a triagem do zero. Se aconteceu a
+   * partir do atalho de emergência em pleno protocolo (currentDay >= 1), só
+   * destrava de novo — nenhum progresso de dia é perdido.
+   */
+  async reconsiderEmergency(enrollmentId: string) {
+    const enrollment = await this.prisma.protocolEnrollment.findUnique({ where: { id: enrollmentId } });
+    if (!enrollment) throw new NotFoundException('Inscrição não encontrada.');
+    if (enrollment.status !== 'INTERROMPIDO_EMERGENCIA') {
+      throw new BadRequestException('Esta inscrição não está interrompida por emergência.');
+    }
+
+    const data: Prisma.ProtocolEnrollmentUpdateInput =
+      enrollment.currentDay === 0
+        ? { status: 'EM_ANDAMENTO', triageAnswers: Prisma.JsonNull }
+        : { status: 'EM_ANDAMENTO' };
+
+    await this.prisma.protocolEnrollment.update({ where: { id: enrollmentId }, data });
+    return this.serializeEnrollment(enrollmentId);
+  }
+
   async advance(enrollmentId: string) {
     const enrollment = await this.prisma.protocolEnrollment.findUnique({ where: { id: enrollmentId } });
     if (!enrollment) throw new NotFoundException('Inscrição não encontrada.');
@@ -277,6 +359,53 @@ export class ProtocolSpecService {
   }
 
   // ─── Fechamento ──────────────────────────────────────────────────────────
+
+  /**
+   * Comparativo início×fim — conta ocorrências reais, não autorrelato.
+   * Reconhece dois formatos de entry porque a troca de versão do spec não
+   * apaga histórico: v1.1 marca "Aconteceu de novo" com {tipo:'registro_avulso'},
+   * v1.0 (quem começou antes da v1.1 existir) grava direto {local: '...'} no
+   * dia 1. Início = dias 1-2, fim = dias 6-7 (janela fixa, o spec não define
+   * uma diferente).
+   */
+  private async computeComparativo(enrollmentId: string) {
+    const logs = await this.prisma.protocolDayLog.findMany({
+      where: { enrollmentId },
+      include: { entries: true },
+      orderBy: { dayNumber: 'asc' },
+    });
+
+    const isOcorrencia = (data: any) => data?.tipo === 'registro_avulso' || Boolean(data?.local);
+    const localDe = (data: any) => String(data.onde || data.local || '').trim().toLowerCase();
+
+    const allOcorrencias = logs.flatMap((l) =>
+      l.entries.filter((e) => isOcorrencia(e.data as any)).map((e) => ({ dayNumber: l.dayNumber, data: e.data as any })),
+    );
+    const inicio = allOcorrencias.filter((e) => e.dayNumber <= 2);
+    const fim = allOcorrencias.filter((e) => e.dayNumber >= 6);
+
+    const locationCounts = new Map<string, number>();
+    allOcorrencias.forEach((e) => {
+      const loc = localDe(e.data);
+      if (!loc) return;
+      locationCounts.set(loc, (locationCounts.get(loc) || 0) + 1);
+    });
+    const locaisRepetidos = [...locationCounts.entries()].filter(([, count]) => count > 1).map(([loc]) => loc);
+
+    return {
+      ocorrenciasInicio: inicio.length,
+      ocorrenciasFim: fim.length,
+      // Nomes antigos mantidos por compatibilidade de quem já lia esse shape.
+      dia1: inicio.length,
+      ultimosDias: fim.length,
+      locaisRepetidos,
+    };
+  }
+
+  /** Prévia do comparativo pro próprio dia 7 (mostra_comparativo), antes do fechamento. */
+  async getComparativoPreview(enrollmentId: string) {
+    return this.computeComparativo(enrollmentId);
+  }
 
   async getClosing(slug: string, enrollmentId: string) {
     const protocol = await this.getProtocolEntity(slug);
@@ -291,25 +420,11 @@ export class ProtocolSpecService {
     });
     if (!enrollment) throw new NotFoundException('Inscrição não encontrada.');
 
-    // Comparativo: ocorrências com campo "local" no dia 1 x nos dias seguintes.
+    const comparativo = await this.computeComparativo(enrollmentId);
+
+    // Cenário aplicável — avalia "quando" contra a resposta do dia 7 (fieldId "resultado").
     const allEntries = enrollment.logs.flatMap((l) => l.entries.map((e) => ({ dayNumber: l.dayNumber, data: e.data as any })));
-    const day1Occurrences = allEntries.filter((e) => e.dayNumber === 1 && e.data?.local);
-    const laterOccurrences = allEntries.filter((e) => e.dayNumber > 1 && e.data?.local);
-    const locationCounts = new Map<string, number>();
-    [...day1Occurrences, ...laterOccurrences].forEach((e) => {
-      const loc = String(e.data.local).trim().toLowerCase();
-      locationCounts.set(loc, (locationCounts.get(loc) || 0) + 1);
-    });
-    const repeatedLocations = [...locationCounts.entries()].filter(([, count]) => count > 1).map(([loc]) => loc);
-
-    const comparativo = {
-      dia1: day1Occurrences.length,
-      ultimosDias: laterOccurrences.length,
-      locaisRepetidos: repeatedLocations,
-    };
-
-    // Cenário aplicável — avalia "quando" contra a resposta do dia 7 (registro.campos "resultado").
-    const day7Entry = allEntries.find((e) => e.dayNumber === 7);
+    const day7Entry = allEntries.find((e) => e.dayNumber === 7 && e.data?.resultado);
     const cenarioContext = { resultado: day7Entry?.data?.resultado || null };
     const cenarioAplicavel = (spec.fechamento?.cenarios || []).find((c: any) => evaluateCondition(c.quando, cenarioContext));
 
@@ -326,7 +441,8 @@ export class ProtocolSpecService {
       comparativo,
       cenario: cenarioAplicavel || null,
       upsell: showUpsell ? upsell : null,
-      geraPdf: spec.fechamento?.gera_pdf || null,
+      // resumo_pdf é o nome v1.1 (era gera_pdf na v1.0) — aceita os dois.
+      geraPdf: spec.fechamento?.resumo_pdf || spec.fechamento?.gera_pdf || null,
       avisoGlobal: spec.aviso_global,
       pet: { id: pet.id, name: pet.name, photoUrl: pet.photoUrl, weight: pet.weight },
       triageAnswers: enrollment.triageAnswers,

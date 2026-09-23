@@ -1,12 +1,15 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
-import { AlertOctagon, Cat, HeartPulse, Home, MapPin, Menu, MessagesSquare, Stethoscope } from 'lucide-react';
+import { AlertOctagon, Cat, HeartPulse, Home, MapPin, Menu, MessagesSquare, PlusCircle, Stethoscope } from 'lucide-react';
 import useSensory from '../hooks/useSensory';
 import { brandAssets } from '../brand/assets';
 import EmergencyCheckModal from './ProfileModules/EmergencyCheckModal';
 import EmergencyCatPicker from './EmergencyCatPicker';
 import useEmergencyCheck from '../hooks/useEmergencyCheck';
+import { AuthContext } from '../context/AuthContext';
+import api from '../services/api';
+import RegistroAvulsoModal from './protocol/RegistroAvulsoModal';
 
 // ─── CORES — mantém a identidade original ────────────────────────────────────
 const ICON_ACTIVE = '#ecff3e';
@@ -245,10 +248,10 @@ const glassCSS = `
 
 // ─── ROTAS — mesmas rotas definidas ───────────────────────────────────────────
 const NAV = [
-  { to: '/home', label: 'Início', Icon: Home, match: (p) => p === '/home' || p === '/' },
-  { to: '/health', label: 'Saúde', Icon: HeartPulse, match: (p) => p.includes('health') },
-  { to: '/comunigato', label: 'ComuniGato', Icon: MessagesSquare, match: (p) => p.includes('comunigato') || p.includes('social') },
-  { to: '/more', label: 'Mais', Icon: Menu, match: (p) => p.includes('more') },
+  { to: '/home', label: 'Início', Icon: Home, match: (p) => p === '/home' || p === '/', tour: 'nav-home' },
+  { to: '/health', label: 'Saúde', Icon: HeartPulse, match: (p) => p.includes('health'), tour: 'nav-health' },
+  { to: '/comunigato', label: 'ComuniGato', Icon: MessagesSquare, match: (p) => p.includes('comunigato') || p.includes('social'), tour: 'nav-comunigato' },
+  { to: '/more', label: 'Mais', Icon: Menu, match: (p) => p.includes('more'), tour: 'nav-more' },
 ];
 
 const CENTER_ACTIONS = [
@@ -256,6 +259,7 @@ const CENTER_ACTIONS = [
     to: '/cats',
     label: 'Meus Gatos',
     Icon: Cat,
+    tour: 'fab-cats',
     x: -71,
     y: -33,
     side: 'left',
@@ -272,6 +276,7 @@ const CENTER_ACTIONS = [
     to: '/igent-vet',
     label: 'iGentVet',
     Icon: Stethoscope,
+    tour: 'fab-igentvet',
     x: -33,
     y: -71,
     side: 'left',
@@ -318,6 +323,27 @@ const CENTER_ACTIONS = [
     },
   },
 ];
+
+// Só entra no leque quando há um protocolo com "registro_avulso" em
+// andamento (ex.: Xixi Fora da Caixa) — atalho pro "Aconteceu de novo" de
+// qualquer tela do app, sem precisar abrir o protocolo primeiro.
+const AVULSO_ACTION = {
+  key: 'avulso',
+  label: 'Aconteceu de novo',
+  Icon: PlusCircle,
+  x: 0,
+  y: -88,
+  side: 'right',
+  isAvulso: true,
+  theme: {
+    '--fab-glass-a': 'rgba(255,180,180,0.92)',
+    '--fab-glass-b': 'rgba(220,38,38,0.80)',
+    '--fab-icon': '#ffffff',
+    '--fab-shadow': 'rgba(153,15,15,0.28)',
+    '--fab-glow': 'rgba(255,90,90,0.46)',
+    '--fab-label-bg': 'rgba(153,15,15,0.86)',
+  },
+};
 
 // Acesso sempre visível — sinais graves, sem gamificação, sem IA
 const CAT_ROUTE_RE = /^\/(cat|gato)\/([^/]+)/;
@@ -478,6 +504,7 @@ function NavSlot({ item, index, slotRef, pathname, onTap }) {
       to={item.to}
       onClick={onTap}
       aria-label={item.label}
+      data-tour={item.tour}
       className="bn-item flex-1 flex items-center justify-center h-full relative select-none"
       style={{ zIndex: 10 }}
     >
@@ -496,10 +523,39 @@ export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const touch = useSensory();
+  const { user } = useContext(AuthContext);
   const [ripples, setRipples] = useState([]);
   const [centerOpen, setCenterOpen] = useState(false);
+  const [avulsoEnrollment, setAvulsoEnrollment] = useState(null);
+  const [avulsoOpen, setAvulsoOpen] = useState(false);
 
   const emergency = useEmergencyCheck({ navigate, touch });
+
+  // "Aconteceu de novo" só entra no leque quando há um protocolo com esse
+  // recurso em andamento — atalho global, sem precisar abrir o protocolo.
+  useEffect(() => {
+    if (!user?.id) return;
+    api.get('/content/protocols/enrollments/mine', { params: { userId: user.id } })
+      .then((r) => {
+        const list = Array.isArray(r.data) ? r.data : [];
+        const found = list.find((e) => e.status === 'EM_ANDAMENTO' && e.currentDay >= 1 && e.protocol?.spec?.registro_avulso);
+        setAvulsoEnrollment(found || null);
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const centerActions = useMemo(
+    () => (avulsoEnrollment ? [...CENTER_ACTIONS, AVULSO_ACTION] : CENTER_ACTIONS),
+    [avulsoEnrollment],
+  );
+
+  // Permite que o tour de recursos (SpotlightTour) abra/feche o leque do
+  // botão central pra conseguir destacar "Meus Gatos"/"iGentVet" de verdade.
+  useEffect(() => {
+    const handler = (e) => setCenterOpen(Boolean(e.detail));
+    window.addEventListener('gatedo-tour-fab', handler);
+    return () => window.removeEventListener('gatedo-tour-fab', handler);
+  }, []);
 
   const pillRef = useRef(null);
   const ref0 = useRef(null);
@@ -538,6 +594,12 @@ export default function BottomNav() {
     emergency.trigger(match ? match[2] : undefined);
   }, [emergency, location.pathname]);
 
+  const handleAvulsoTap = useCallback(() => {
+    setCenterOpen(false);
+    touch?.('success');
+    setAvulsoOpen(true);
+  }, [touch]);
+
   return (
     <>
       <style>{glassCSS}</style>
@@ -563,7 +625,7 @@ export default function BottomNav() {
             style={{ top: '-34px' }}
           >
             <div className="absolute left-1/2 top-[31px] -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
-              {CENTER_ACTIONS.map((action, index) => {
+              {centerActions.map((action, index) => {
                 const Icon = action.Icon;
                 const labelClass = `bn-fab-action-label bn-fab-action-label-${action.side === 'left' ? 'left' : 'right'}`;
                 return (
@@ -597,11 +659,23 @@ export default function BottomNav() {
                         <Icon size={19} strokeWidth={2.25} />
                         <span className={labelClass}>{action.label}</span>
                       </button>
+                    ) : action.isAvulso ? (
+                      <button
+                        type="button"
+                        onClick={handleAvulsoTap}
+                        aria-label={action.label}
+                        className="bn-fab-action relative -translate-x-1/2 -translate-y-1/2"
+                        style={action.theme}
+                      >
+                        <Icon size={19} strokeWidth={2.25} />
+                        <span className={labelClass}>{action.label}</span>
+                      </button>
                     ) : (
                       <Link
                         to={action.to}
                         onClick={handleCenterActionTap}
                         aria-label={action.label}
+                        data-tour={action.tour}
                         className="bn-fab-action relative -translate-x-1/2 -translate-y-1/2"
                         style={action.theme}
                       >
@@ -618,6 +692,7 @@ export default function BottomNav() {
               type="button"
               onClick={handleCenterTap}
               aria-label="Abrir atalhos iGentVet"
+              data-tour="fab-center"
               className="p-0 border-0 bg-transparent"
             >
               <motion.div
@@ -660,6 +735,17 @@ export default function BottomNav() {
           </div>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {avulsoOpen && avulsoEnrollment && (
+          <RegistroAvulsoModal
+            spec={avulsoEnrollment.protocol?.spec}
+            slug={avulsoEnrollment.protocol?.slug}
+            enrollmentId={avulsoEnrollment.id}
+            onClose={() => setAvulsoOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {emergency.open && (

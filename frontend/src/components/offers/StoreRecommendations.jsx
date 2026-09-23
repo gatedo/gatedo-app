@@ -46,7 +46,7 @@ export default function StoreRecommendations() {
       if (firedImpressions.current.has(key)) return;
       firedImpressions.current.add(key);
       api.post('/offers/event', {
-        surface: 'STORE', petId: selectedCatId, offerKey: `product-${item.id}`, action: 'IMPRESSION',
+        surface: 'STORE_RECOMMENDED', petId: selectedCatId, offerKey: `product-${item.id}`, action: 'IMPRESSION',
       }).catch(() => {});
     });
   }, [items, selectedCatId]);
@@ -57,7 +57,7 @@ export default function StoreRecommendations() {
   const handleClick = (item) => {
     touch();
     api.post('/offers/event', {
-      surface: 'STORE', petId: selectedCatId, offerKey: `product-${item.id}`, action: 'CLICK',
+      surface: 'STORE_RECOMMENDED', petId: selectedCatId, offerKey: `product-${item.id}`, action: 'CLICK',
     }).catch(() => {});
     if (item.externalLink) window.open(item.externalLink, '_blank', 'noopener,noreferrer');
   };
