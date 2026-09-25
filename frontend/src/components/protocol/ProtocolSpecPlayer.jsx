@@ -27,6 +27,7 @@ import { AuthContext } from '../../context/AuthContext';
 import MiniMarkdown from '../../utils/MiniMarkdown';
 import BlockRenderer from '../content/BlockRenderer';
 import RegistroAvulsoModal from './RegistroAvulsoModal';
+import { track } from '../../utils/track';
 
 const C = { purple: '#8B4AFF', purpleDark: '#4B40C6', bg: '#F4F3FF', green: '#10B981', red: '#DC2626', amber: '#F59E0B' };
 
@@ -370,6 +371,10 @@ export default function ProtocolSpecPlayer({ slug, initialCatId, onBack }) {
   useEffect(() => { load(); }, [slug, catId, user?.id]); // eslint-disable-line
 
   useEffect(() => {
+    if (slug) track('protocol_viewed', { slug });
+  }, [slug]);
+
+  useEffect(() => {
     if (catId) return;
     // Gato falecido (memorial/arquivado) não recebe protocolo novo — só
     // aparece em listas de memória, com overlay, como já é feito alhures.
@@ -418,7 +423,7 @@ export default function ProtocolSpecPlayer({ slug, initialCatId, onBack }) {
             <p className="text-[13px] font-medium text-gray-600 leading-relaxed mb-4">{preview?.promessa}</p>
             {priceLabel && <p className="text-2xl font-black text-gray-900 mb-4">{priceLabel}</p>}
             <button
-              onClick={() => { touch(); if (checkoutUrl) window.open(checkoutUrl, '_blank'); }}
+              onClick={() => { touch(); if (checkoutUrl) { track('protocol_checkout_click', { slug }); window.open(checkoutUrl, '_blank'); } }}
               disabled={!checkoutUrl}
               className="w-full px-5 py-3.5 rounded-2xl font-black text-white text-sm"
               style={{ background: checkoutUrl ? `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` : '#9ca3af' }}
@@ -736,6 +741,7 @@ function DayFlow({ spec, enrollment, slug, onReload, onBack, onTriggerEmergency,
     setSubmitting(true);
     try {
       await api.post(`/content/protocol-spec/${slug}/complete-day`, { enrollmentId: enrollment.id, dayNumber });
+      track('protocol_day_completed', { day: dayNumber });
       onReload();
 
       // Pós-sucesso — dia concluído: card leve, nunca modal, se o módulo

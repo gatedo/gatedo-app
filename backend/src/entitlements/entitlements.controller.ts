@@ -15,6 +15,7 @@ import {
 import * as crypto from 'crypto';
 import { EntitlementsService } from './entitlements.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { EventsService } from '../events/events.service';
 
 function verifyKiwifySignature(payload: string, signature: string, secret: string): boolean {
   if (!secret) return true;
@@ -70,7 +71,10 @@ const REFUND_EVENTS = [
 export class EntitlementsController {
   private readonly logger = new Logger('EntitlementsWebhook');
 
-  constructor(private readonly entitlements: EntitlementsService) {}
+  constructor(
+    private readonly entitlements: EntitlementsService,
+    private readonly events: EventsService,
+  ) {}
 
   private ensureAdmin(user: any) {
     if (user?.role !== 'ADMIN') {
@@ -135,6 +139,15 @@ export class EntitlementsController {
     }
 
     const result = await this.entitlements.grant({ email, productId, source: 'KIWIFY', externalId: orderId });
+
+    if (!result.pending && (result as any).entitlement?.userId) {
+      this.events.track({
+        name: 'protocol_purchased',
+        userId: (result as any).entitlement.userId,
+        props: { product_id: productId, order_id: orderId },
+      }).catch(() => {});
+    }
+
     return { ok: true, ...result };
   }
 

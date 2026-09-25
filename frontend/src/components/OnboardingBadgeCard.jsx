@@ -2,14 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Share2, Check } from 'lucide-react';
 import api from '../services/api';
 import useSensory from '../hooks/useSensory';
-import { brandAssets } from '../brand/assets';
-import { TUTOR_BADGE_META } from '../utils/membershipMeta';
+import { formatCatAge } from '../utils/catAge';
+import OfficialRgCard from './OfficialRgCard';
+import { track } from '../utils/track';
 
-const badgeMeta = TUTOR_BADGE_META.PRIMEIRA_JORNADA;
+export const ONBOARDING_BADGE_GRADIENT = 'linear-gradient(145deg, #8B4AFF 0%, #7644E8 48%, #5C35C8 100%)';
 
-// Card vertical 9:16 do selo "Primeira Jornada" — mesmo padrão de captura
-// (html2canvas + navigator.share, com fallback pra link/clipboard) já usado
-// no card de adoção do Comunigato/ONG (OngDashboard.jsx InviteModal).
+// Selo compartilhável do tour de boas-vindas — mesmo "RG" oficial usado no
+// cadastro completo (AddCat.jsx), pra manter a identidade visual do app,
+// com a faixa da Primeira Jornada por cima. Reaproveita o padrão de captura
+// (html2canvas + navigator.share) já usado no card de adoção do Comunigato.
 export default function OnboardingBadgeCard({ cat }) {
   const touch = useSensory();
   const cardRef = useRef(null);
@@ -28,11 +30,18 @@ export default function OnboardingBadgeCard({ cat }) {
     setSharing(channel);
     setDone(null);
     api.post('/offers/event', { surface: 'ONBOARDING_BADGE_SHARE', offerKey: channel, action: 'CLICK' }).catch(() => {});
+    track('badge_shared', { badge_id: 'PRIMEIRA_JORNADA', channel });
 
     const shareText = `${cat?.name || 'Meu gato'} e eu completamos a Primeira Jornada no GATEDO! 🐾`;
     try {
       const { default: html2canvas } = await import('html2canvas');
-      const canvas = await html2canvas(cardRef.current, { backgroundColor: null, scale: 2, useCORS: true });
+      if (document.fonts?.ready) await document.fonts.ready;
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+        proxy: `${api.defaults.baseURL}/media/proxy`,
+      });
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
       const file = blob ? new File([blob], `primeira-jornada-${cat?.name || 'gatedo'}.png`, { type: 'image/png' }) : null;
 
@@ -56,35 +65,32 @@ export default function OnboardingBadgeCard({ cat }) {
     }
   };
 
+  const generatedId = cat?.id ? String(cat.id).split('-').pop().toUpperCase() : 'GATEDO';
+  const ageLabel = cat ? formatCatAge(cat, { fallback: null }) : null;
+
   return (
-    <div className="w-full max-w-[220px] mx-auto">
-      <div
-        ref={cardRef}
-        className="rounded-[24px] overflow-hidden aspect-[9/16] flex flex-col"
-        style={{ background: badgeMeta.gradient }}
-      >
-        <div className="pt-5 px-5">
-          <img src={brandAssets.gatedoYellow} alt="Gatedo" className="h-5 object-contain" crossOrigin="anonymous" />
+    <div className="w-full max-w-[380px] mx-auto">
+      <div ref={cardRef} className="rounded-[28px] p-6 pb-7" style={{ background: ONBOARDING_BADGE_GRADIENT }}>
+        <OfficialRgCard
+          name={cat?.name}
+          breed={cat?.breed}
+          avatarPreview={cat?.photoUrl}
+          generatedId={generatedId}
+          petId={cat?.id}
+          ageLabel={ageLabel}
+          weight={cat?.weight ? `${cat.weight} kg` : null}
+        />
+
+        <div className="flex justify-center mt-4 mb-4">
+          <span className="inline-flex items-center gap-1.5 bg-[#ebfc66] text-[#4B2AAF] text-[10px] font-black uppercase tracking-[1.5px] px-3.5 py-1.5 rounded-full shadow-md">
+            🐾 Primeira Jornada
+          </span>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <div className="w-24 h-24 rounded-full overflow-hidden bg-white/15 border-2 border-white/30 mb-4">
-            {cat?.photoUrl ? (
-              <img src={cat.photoUrl} crossOrigin="anonymous" className="w-full h-full object-cover" alt="" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-4xl">🐱</div>
-            )}
-          </div>
-          <p className="text-white text-lg font-black mb-1">{cat?.name || 'Meu gato'}</p>
-          <div className="bg-white/15 border border-white/25 rounded-2xl px-4 py-2.5 mt-2">
-            <span className="text-2xl">{badgeMeta.emoji}</span>
-            <p className="text-white text-[11px] font-black uppercase tracking-[2px] mt-1">{badgeMeta.label}</p>
-          </div>
-        </div>
-
-        <div className="pb-5 pt-2 text-center">
-          <p className="text-white/50 text-[9px] font-black uppercase tracking-[3px]">GATEDO</p>
-        </div>
+        <p className="text-white text-center text-lg font-black leading-tight">Bem-vindo à Família!</p>
+        <p className="text-white/70 text-center text-[12px] font-bold mt-1">
+          {cat?.name || 'Seu gato'} agora pertence ao mundo <span className="text-[#ebfc66]">GATEDO</span>.
+        </p>
       </div>
 
       <div className="flex gap-2 mt-4">

@@ -4,6 +4,7 @@ import { Heart, Copy, Check, X } from 'lucide-react';
 import api from '../services/api';
 import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
+import { track } from '../utils/track';
 
 const C = { purple: '#8B4AFF', purpleDark: '#4B40C6', red: '#DC2626', green: '#10B981' };
 
@@ -50,6 +51,7 @@ export default function SupportGatedoBlock({ className = '' }) {
     navigator.clipboard?.writeText(pixKey).then(() => {
       setCopied(true);
       api.post('/offers/event', { surface, offerKey: 'support-gatedo', action: 'CLICK', metadata: { via: 'copy_pix' } }).catch(() => {});
+      track('pix_support_click');
       setTimeout(() => setCopied(false), 1800);
     });
   };

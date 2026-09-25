@@ -9,6 +9,7 @@ import { EmailModule } from '../email/email.module';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AdminInviteController } from './admin-invite.controller';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { EntitlementsModule } from '../entitlements/entitlements.module';
     EmailModule,
     PassportModule,
     EntitlementsModule,
+    EventsModule,
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: process.env.JWT_SECRET,

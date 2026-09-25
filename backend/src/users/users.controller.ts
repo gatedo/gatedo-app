@@ -110,6 +110,15 @@ export class UsersController {
     return this.usersService.completeOnboarding(id);
   }
 
+  // ── Preferências de lembretes (Perfil) ───────────────────────────────────
+  @Patch(':id/reminder-preferences')
+  updateReminderPreferences(
+    @Param('id') id: string,
+    @Body() body: { remindersPushEnabled?: boolean; remindersEmailEnabled?: boolean; reminderPreferredTime?: 'MORNING' | 'AFTERNOON' },
+  ) {
+    return this.usersService.updateReminderPreferences(id, body);
+  }
+
   // Endpoint usado pelo Store.jsx para buscar pontos
  @Get(':id/points')
 async getPoints(@Param('id') id: string) {
@@ -144,6 +153,9 @@ async getPoints(@Param('id') id: string) {
         xpt: true,
         level: true,
         createdAt: true,
+        remindersPushEnabled: true,
+        remindersEmailEnabled: true,
+        reminderPreferredTime: true,
         tutorPoints: {
           select: {
             points: true,

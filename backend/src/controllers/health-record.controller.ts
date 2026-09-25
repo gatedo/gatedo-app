@@ -9,6 +9,30 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationIntegration } from '../gamification/gamification.integration';
+import { EventsService } from '../events/events.service';
+import { WEIGHT_CHECKIN_TITLE_RE } from '../gamification/xp.config';
+import { RemindersService } from '../reminders/reminders.service';
+
+const CARE_LOGGED_TYPE_MAP: Record<string, string> = {
+  VACCINE: 'vacina',
+  VERMIFUGE: 'vermifugo',
+  PARASITE: 'antipulgas',
+  CONSULTATION: 'consulta',
+  IACONSULT: 'consulta',
+  MEDICATION: 'medicacao',
+  MEDICINE: 'medicacao',
+};
+
+// Tipos de cuidado que geram lembrete pra próxima data (vermífugo,
+// antipulgas, vacina, medicação contínua) — pesagem é tratada à parte,
+// sempre reagendada a partir da pesagem mais recente.
+const REMINDER_TYPE_MAP: Record<string, string> = {
+  VACCINE: 'VACCINE',
+  VERMIFUGE: 'VERMIFUGE',
+  PARASITE: 'PARASITE',
+  MEDICATION: 'MEDICATION',
+  MEDICINE: 'MEDICATION',
+};
 
 function toNullableString(value: any): string | null {
   if (value === undefined || value === null) return null;
@@ -38,6 +62,8 @@ export class HealthRecordController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gamif: GamificationIntegration,
+    private readonly events: EventsService,
+    private readonly reminders: RemindersService,
   ) {}
 
   // SALVAR NOVO REGISTRO (POST /health-records)
@@ -98,9 +124,45 @@ export class HealthRecordController {
       // Busca ownerId do pet e credita gamificação (fire-and-forget)
       this.prisma.pet
         .findUnique({ where: { id: data.petId }, select: { ownerId: true } })
-        .then((pet) => {
-          if (pet?.ownerId) {
-            this.gamif.onHealthRecord(pet.ownerId, data.petId, data.type, data.title).catch(() => {});
+        .then(async (pet) => {
+          if (!pet?.ownerId) return;
+          this.gamif.onHealthRecord(pet.ownerId, data.petId, data.type, data.title).catch(() => {});
+
+          const isWeightCheckin = data.type === 'EXAM' && WEIGHT_CHECKIN_TITLE_RE.test(data.title || '');
+          if (isWeightCheckin) {
+            const priorCount = await this.prisma.healthRecord.count({
+              where: {
+                petId: data.petId,
+                type: 'EXAM',
+                title: { contains: 'check-in de peso', mode: 'insensitive' },
+                id: { not: record.id },
+              },
+            });
+            this.events.track({
+              name: 'weight_logged',
+              userId: pet.ownerId,
+              props: { is_first: priorCount === 0 },
+            }).catch(() => {});
+            this.reminders.rescheduleWeightReminder(pet.ownerId, data.petId, record.date).catch(() => {});
+          } else if (CARE_LOGGED_TYPE_MAP[data.type]) {
+            this.events.track({
+              name: 'care_logged',
+              userId: pet.ownerId,
+              props: { type: CARE_LOGGED_TYPE_MAP[data.type] },
+            }).catch(() => {});
+
+            const reminderType = REMINDER_TYPE_MAP[data.type];
+            if (reminderType && record.nextDueDate) {
+              this.reminders
+                .createFromCareRecord({
+                  userId: pet.ownerId,
+                  petId: data.petId,
+                  type: reminderType,
+                  dueDate: record.nextDueDate,
+                  sourceRecordId: record.id,
+                })
+                .catch(() => {});
+            }
           }
         })
         .catch(() => {});

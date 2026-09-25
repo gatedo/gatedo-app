@@ -30,6 +30,7 @@ import AdminFunnelBuilder from './AdminFunnelBuilder';
 import AdminIgentAlmanac from './AdminIgentAlmanac';
 import AdminEntitlements from './AdminEntitlements';
 import AdminAnalytics from './AdminAnalytics';
+import AdminFunil from './AdminFunil';
 import AdminSettings from './AdminSettings';
 
 import AdminLinkGenerator from '../../components/admin/AdminLinkGenerator';
@@ -66,6 +67,7 @@ const ADMIN_TABS = new Set([
   'venture-os',
   'entitlements',
   'analytics',
+  'funil',
   'settings',
 ]);
 
@@ -192,6 +194,9 @@ export default function AdminDashboard() {
 
       case 'analytics':
         return <AdminAnalytics />;
+
+      case 'funil':
+        return <AdminFunil />;
 
       case 'settings':
         return <AdminSettings />;

@@ -4,10 +4,11 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt'; // <--- Importante para criptografar a senha
 import { getPlanFromUser, normalizeBadges } from '../membership/membership.constants';
 import { awardUserBadge, ONBOARDING_TOUR_BADGE } from '../gamification/badge.utils';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private events: EventsService) {}
 
   // --- ESTATÍSTICAS ---
   async getDashboardStats() {
@@ -204,7 +205,29 @@ export class UsersService {
       data: { onboardingStep: 5, onboardingCompletedAt: new Date() },
     });
     const badgeResult = await awardUserBadge(this.prisma, userId, ONBOARDING_TOUR_BADGE);
+    if (badgeResult.awarded) {
+      this.events.track({ name: 'badge_earned', userId, props: { badge_id: ONBOARDING_TOUR_BADGE } }).catch(() => {});
+    }
 
     return { alreadyCompleted: false, badge: ONBOARDING_TOUR_BADGE, ...badgeResult };
+  }
+
+  async updateReminderPreferences(
+    userId: string,
+    prefs: { remindersPushEnabled?: boolean; remindersEmailEnabled?: boolean; reminderPreferredTime?: 'MORNING' | 'AFTERNOON' },
+  ) {
+    const data: any = {};
+    if (typeof prefs.remindersPushEnabled === 'boolean') data.remindersPushEnabled = prefs.remindersPushEnabled;
+    if (typeof prefs.remindersEmailEnabled === 'boolean') data.remindersEmailEnabled = prefs.remindersEmailEnabled;
+    if (prefs.reminderPreferredTime === 'MORNING' || prefs.reminderPreferredTime === 'AFTERNOON') {
+      data.reminderPreferredTime = prefs.reminderPreferredTime;
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: { remindersPushEnabled: true, remindersEmailEnabled: true, reminderPreferredTime: true },
+    });
+    return updated;
   }
 }

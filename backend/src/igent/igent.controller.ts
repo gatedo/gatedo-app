@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { GamificationIntegration } from '../gamification/gamification.integration';
 import { NotificationService } from '../notifications/notification.service';
 import { hasClubeAccess } from '../membership/membership.constants';
+import { EventsService } from '../events/events.service';
 
 @Controller('igent')
 export class IgentController {
@@ -14,6 +15,7 @@ export class IgentController {
     private readonly prisma: PrismaService,
     private readonly gamif: GamificationIntegration,
     private readonly notifService: NotificationService,
+    private readonly events: EventsService,
   ) {}
 
   @Get('credits')
@@ -154,7 +156,9 @@ export class IgentController {
         provider: result.aiUsage.provider,
         tokensUsed: result.aiUsage.tokensUsed,
       });
-      return { ...result, credits: await this.igentCredits.getStatus(ownerId) };
+      const credits = await this.igentCredits.getStatus(ownerId);
+      this.events.track({ name: 'igentvet_question', userId: ownerId, props: { credits_left: credits.remaining } }).catch(() => {});
+      return { ...result, credits };
     }
 
     return result;

@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsService } from '../events/events.service';
+
+const REMINDER_NOTIF_TYPES = ['MED_REMINDER', 'VACCINE_DUE', 'VACCINE_OVERDUE', 'PROTOCOL_DAY'];
 
 // ─── TIPOS DE NOTIFICAÇÃO ─────────────────────────────────────────────────────
 export type NotifType =
@@ -41,7 +44,7 @@ export const POINTS = {
 
 @Injectable()
 export class NotificationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private events: EventsService) {}
 
   // ─── BUSCA NOTIFICAÇÕES DO USUÁRIO ────────────────────────────────────────
   async getNotifications(userId: string, limit = 30) {
@@ -64,7 +67,7 @@ export class NotificationService {
     cta?: string;
     metadata?: any;
   }) {
-    return this.prisma.notification.create({
+    const created = await this.prisma.notification.create({
       data: {
         userId:      data.userId,
         type:        data.type,
@@ -78,14 +81,26 @@ export class NotificationService {
         read:        false,
       },
     });
+
+    if (REMINDER_NOTIF_TYPES.includes(data.type)) {
+      this.events.track({ name: 'reminder_sent', userId: data.userId, props: { reminder_type: data.type } }).catch(() => {});
+    }
+
+    return created;
   }
 
   // ─── MARCAR COMO LIDA ─────────────────────────────────────────────────────
   async markAsRead(id: string) {
-    return this.prisma.notification.update({
+    const updated = await this.prisma.notification.update({
       where: { id },
       data: { read: true },
     });
+
+    if (REMINDER_NOTIF_TYPES.includes(updated.type)) {
+      this.events.track({ name: 'reminder_opened', userId: updated.userId, props: { reminder_type: updated.type } }).catch(() => {});
+    }
+
+    return updated;
   }
 
   async markAllAsRead(userId: string) {

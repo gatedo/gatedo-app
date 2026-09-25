@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import api from '../../services/api';
 import useSensory from '../../hooks/useSensory';
+import { track } from '../../utils/track';
 
 // Bloco 3 da Loja, sempre por último: convite pro grupo de achadinhos no
 // WhatsApp. Some sozinho se o admin não tiver configurado o link ainda.
@@ -31,6 +32,7 @@ export default function StoreWhatsAppBlock() {
   const open = () => {
     touch();
     api.post('/offers/event', { surface: 'STORE_WHATSAPP', offerKey: 'achadinhos-group', action: 'CLICK' }).catch(() => {});
+    track('whatsapp_group_click');
     window.open(link, '_blank', 'noopener,noreferrer');
   };
 

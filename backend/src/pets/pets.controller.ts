@@ -9,6 +9,7 @@ import { calcCatLevelMeta } from '../gamification/gamification.constants';
 import { getUserEntitlements } from '../membership/membership.constants';
 import { GamificationIntegration } from '../gamification/gamification.integration';
 import { isProfileComplete } from '../gamification/xp.config';
+import { EventsService } from '../events/events.service';
 
 @Controller('pets')
 export class PetsController {
@@ -17,6 +18,7 @@ export class PetsController {
     private readonly cloudflare: CloudflareService,
     private readonly jwtService: JwtService,
     private readonly gamif: GamificationIntegration,
+    private readonly events: EventsService,
   ) {}
 
   private getAuthUser(req: any): { id: string | null; role: string | null } {
@@ -533,6 +535,13 @@ optionalStrings.forEach((f) => {
 });
 
     const created = await this.prisma.pet.create({ data: petData });
+
+    this.prisma.pet
+      .count({ where: { ownerId: created.ownerId, isMemorial: false, isArchived: false } })
+      .then((catCount) => {
+        this.events.track({ name: 'cat_created', userId: created.ownerId, props: { cat_count: catCount } });
+      })
+      .catch(() => {});
 
     // Cadastro já veio completo — ficha do gato completa, XP médio, uma única vez.
     if (isProfileComplete(created)) {

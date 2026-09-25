@@ -6,6 +6,7 @@ import { PetsController } from './pets.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudflareService } from '../cloudflare/cloudflare.service';
 import { GamificationModule } from '../gamification/gamification.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { GamificationModule } from '../gamification/gamification.module';
       secret: process.env.JWT_SECRET || 'CHAVE_SUPER_SECRETA_GATEDO',
     }),
     GamificationModule,
+    EventsModule,
   ],
   controllers: [PetsController],
   providers: [PetsService, PrismaService, CloudflareService],

@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { RegisterDto, LoginDto } from './auth.dto';
 import { EmailService } from '../email/email.service';
+import { EventsService } from '../events/events.service';
 import {
   MEMBERSHIP_BADGES,
   PLAN_KEYS,
@@ -54,6 +55,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
+    private readonly events: EventsService,
   ) {}
 
   private normalizeTutorTitle(value: any): string {
@@ -920,7 +922,19 @@ export class AuthService {
     }
   }
 
-  async register(data: RegisterDto & { origin?: string; token?: string; source?: string }) {
+  async register(
+    data: RegisterDto & {
+      origin?: string;
+      token?: string;
+      source?: string;
+      anonId?: string;
+      utmSource?: string;
+      utmMedium?: string;
+      utmCampaign?: string;
+      utmContent?: string;
+      referrer?: string;
+    },
+  ) {
     const specialOrigin = String(data.origin || '').toLowerCase();
 
     if (
@@ -965,6 +979,18 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
+    const firstTouch = (data.anonId || data.utmSource || data.utmMedium || data.utmCampaign || data.utmContent || data.referrer)
+      ? {
+          anonId: data.anonId || null,
+          utmSource: data.utmSource || null,
+          utmMedium: data.utmMedium || null,
+          utmCampaign: data.utmCampaign || null,
+          utmContent: data.utmContent || null,
+          referrer: data.referrer || null,
+          capturedAt: new Date().toISOString(),
+        }
+      : undefined;
+
     const createdUser = await this.prisma.user.create({
       data: {
         name: data.name,
@@ -976,8 +1002,20 @@ export class AuthService {
         plan: userPlan as any,
         badges: userBadges,
         signupSource: String(data.source || '').trim().slice(0, 100) || null,
+        firstTouch,
       },
     });
+
+    this.events.track({
+      name: 'signup_completed',
+      userId: createdUser.id,
+      anonId: data.anonId,
+      utmSource: data.utmSource,
+      utmMedium: data.utmMedium,
+      utmCampaign: data.utmCampaign,
+      utmContent: data.utmContent,
+      referrer: data.referrer,
+    }).catch(() => {});
 
     const activatedUser = membershipGrant
       ? await this.applyMembershipGrantToUser(createdUser.id, {

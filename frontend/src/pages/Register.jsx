@@ -21,6 +21,8 @@ import api from '../services/api';
 import { getAmbassadorByToken, setAmbassadorAttribution } from '../services/ambassadorProgramStore';
 import { AuthContext } from '../context/AuthContext';
 import { brandAssets } from '../brand/assets';
+import { getAnonId, getFirstTouch } from '../utils/attribution';
+import { track } from '../utils/track';
 
 const PLAN_BADGE = {
   vip: {
@@ -307,6 +309,10 @@ export default function Register() {
   // Cadastro vindo de um convite de transferência de tutoria (ONG → adotante).
   const inviteToken = query.get('inviteToken') || '';
 
+  useEffect(() => {
+    track('signup_started');
+  }, []);
+
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -442,6 +448,7 @@ export default function Register() {
     setLoading(true);
 
     try {
+      const firstTouch = getFirstTouch();
       await api.post('/auth/register', {
         name: formData.name,
         email: formData.email,
@@ -452,6 +459,12 @@ export default function Register() {
         origin: ambassadorToken ? 'ambassador' : actualKind,
         ambassadorToken: ambassadorToken || undefined,
         source: signupSource,
+        anonId: getAnonId(),
+        utmSource: firstTouch.utmSource,
+        utmMedium: firstTouch.utmMedium,
+        utmCampaign: firstTouch.utmCampaign,
+        utmContent: firstTouch.utmContent,
+        referrer: firstTouch.referrer,
       });
 
       if (signIn) {

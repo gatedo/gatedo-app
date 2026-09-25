@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Body, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service'; // Ajuste o caminho
 import { GamificationIntegration } from '../gamification/gamification.integration';
+import { EventsService } from '../events/events.service';
 
 @Controller('diary-entries')
 export class DiaryController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gamif: GamificationIntegration,
+    private readonly events: EventsService,
   ) {}
 
   // SALVAR DIÁRIO (POST /diary-entries)
@@ -30,6 +32,7 @@ export class DiaryController {
         .then((pet) => {
           if (pet?.ownerId) {
             this.gamif.onDiaryEntry(pet.ownerId, data.petId).catch(() => {});
+            this.events.track({ name: 'care_logged', userId: pet.ownerId, props: { type: 'diario' } }).catch(() => {});
           }
         })
         .catch(() => {});

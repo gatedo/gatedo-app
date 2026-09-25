@@ -3,8 +3,10 @@ import { NotificationController } from '../notifications/notification.controller
 import { NotificationService } from '../notifications/notification.service';
 import { GamificationIntegration } from '../gamification/gamification.integration';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsModule } from '../events/events.module';
 
 @Module({
+  imports: [EventsModule],
   controllers: [NotificationController],
   providers: [NotificationService, GamificationIntegration, PrismaService],
   exports: [NotificationService, GamificationIntegration], // ambos disponíveis nos outros módulos

@@ -28,6 +28,7 @@ import {
   KeyRound,
   LineChart,
   ClipboardList,
+  Filter,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { brandAssets } from '../../brand/assets';
@@ -90,6 +91,7 @@ const MENU_SECTIONS = [
       { id: 'revenue-journey', label: 'Jornada & Receita', icon: BadgeDollarSign, isIntelligence: true },
       { id: 'entitlements', label: 'Produtos Liberados', icon: KeyRound },
       { id: 'analytics', label: 'Analytics do Produto', icon: LineChart },
+      { id: 'funil', label: 'Funil de Ativação', icon: Filter },
       { id: 'settings', label: 'Configuracoes', icon: Settings },
     ],
   },

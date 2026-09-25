@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { MediaController } from './media.controller';
+import { MediaProxyController } from './media-proxy.controller';
 import { CloudflareService } from '../cloudflare/cloudflare.service'; // <--- Importe o serviço
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -10,7 +11,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
       secret: process.env.JWT_SECRET || 'CHAVE_SUPER_SECRETA_GATEDO',
     }),
   ],
-  controllers: [MediaController],
+  controllers: [MediaController, MediaProxyController],
   providers: [CloudflareService, JwtAuthGuard], // <--- REGISTRE O SERVIÇO AQUI!
 })
 export class MediaModule {}

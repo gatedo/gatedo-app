@@ -45,6 +45,7 @@ const sections = [
     title: '5. Finalidade do Uso dos Dados',
     blocks: [
       'Utilizamos os dados para funcionamento do aplicativo, personalizacao da experiencia, organizacao do prontuario felino, suporte informativo com IA, funcionamento da comunidade, melhoria continua da plataforma e correcao de falhas tecnicas.',
+      'Tambem coletamos eventos de uso do aplicativo (como telas visitadas e funcionalidades acessadas) para entender como o produto e usado e melhora-lo. Esses eventos nao incluem texto livre do diario, nome do tutor ou e-mail, nao sao vendidos e nao sao compartilhados com terceiros.',
       'Nunca vendemos dados pessoais dos usuarios.',
     ],
   },

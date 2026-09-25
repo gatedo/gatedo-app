@@ -28,6 +28,9 @@ import { OffersModule } from './offers/offers.module';
 import { AdminContentModule } from './admin-content/admin-content.module';
 import { OngModule } from './ong/ong.module';
 import { SettingsModule } from './settings/settings.module';
+import { EventsModule } from './events/events.module';
+import { PushModule } from './push/push.module';
+import { RemindersModule } from './reminders/reminders.module';
 
 // Controllers
 import { HealthController } from './health.controller';
@@ -77,6 +80,9 @@ import { ProspectsModule } from './prospects/prospects.module';
     AdminContentModule,
     OngModule,
     SettingsModule,
+    EventsModule,
+    PushModule,
+    RemindersModule,
   ],
   controllers: [
     HealthController,

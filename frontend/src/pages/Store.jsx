@@ -30,6 +30,7 @@ import StoreRecommendations from '../components/offers/StoreRecommendations';
 import StoreGatedoBlock from '../components/offers/StoreGatedoBlock';
 import StoreWhatsAppBlock from '../components/offers/StoreWhatsAppBlock';
 import StoreSectionBanners from '../components/offers/StoreSectionBanners';
+import { track } from '../utils/track';
 import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -536,6 +537,7 @@ export default function Store() {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       touch('light');
+                      track('store_click', { block: 'catalog', item_id: product.id });
                       setSelectedProduct(product);
                     }}
                     className="bg-white p-3 rounded-[24px] shadow-sm border border-gray-50 flex flex-col gap-2 group relative overflow-hidden cursor-pointer hover:shadow-[0_14px_30px_rgba(92,63,188,0.12)] transition-[transform,box-shadow] duration-200"
@@ -946,6 +948,7 @@ export default function Store() {
                     href={selectedProduct.externalLink || '#'}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => track('store_click', { block: 'product-detail', item_id: selectedProduct.id })}
                     className={`w-full bg-[#8B4AFF] text-white py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-200 hover:brightness-110 active:scale-95 transition-all ${
                       !selectedProduct.externalLink ? 'pointer-events-none opacity-50' : ''
                     }`}
@@ -1041,6 +1044,7 @@ export default function Store() {
                       <div
                         key={product.id}
                         onClick={() => {
+                          track('store_click', { block: 'kit', item_id: product.id });
                           setSelectedProduct(product);
                           setSelectedKit(null);
                         }}

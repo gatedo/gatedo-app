@@ -20,7 +20,6 @@ import {
   X,
   Hash,
   Download,
-  QrCode,
   Send,
   Plus,
   ShieldPlus,
@@ -33,7 +32,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { CAT_THEMES, resolveCatTheme } from '../config/catThemes';
+import OfficialRgCard from '../components/OfficialRgCard';
 import { parseDateOnly } from '../utils/catAge';
+import { CAT_BREEDS } from '../utils/catBreeds';
 
 const EXTRA_THEMES = [
   { id: 'amber', label: 'Âmbar', fromHex: '#F59E0B', toHex: '#FBBF24', accent: '#FFF7CC', back: '#7C4A03' },
@@ -76,45 +77,6 @@ const CIDADES_BR = [
   'Montes Claros, MG','Anápolis, GO','São José do Rio Preto, SP','Rio Branco, AC',
   'Boa Vista, RR','Palmas, TO','Blumenau, SC','Pelotas, RS','Canoas, RS',
   'Maringá, PR','Cascavel, PR','Foz do Iguaçu, PR','Caruaru, PE','Petrolina, PE',
-];
-
-const CAT_BREEDS = [
-  '(SRD) Sem raça definida',
-  'Persa',
-  'Siamês',
-  'Maine Coon',
-  'Angorá',
-  'Sphynx',
-  'Ragdoll',
-  'British Shorthair',
-  'Exótico',
-  'Bengal',
-  'Norueguês da Floresta',
-  'Scottish Fold',
-  'Abissínio',
-  'Bombay',
-  'Birmanês',
-  'Burmese',
-  'Chartreux',
-  'Cornish Rex',
-  'Devon Rex',
-  'Himalaio',
-  'Munchkin',
-  'Ocicat',
-  'Oriental Shorthair',
-  'Russian Blue',
-  'Savannah',
-  'Selkirk Rex',
-  'Somali',
-  'Tonquinês',
-  'Turkish Angora',
-  'Turkish Van',
-  'American Curl',
-  'American Bobtail',
-  'Balinês',
-  'Havana Brown',
-  'LaPerm',
-  'Manx',
 ];
 
 const DISEASE_OPTIONS = [
@@ -511,90 +473,6 @@ function VerticalCardPreview({
   );
 }
 
-function OfficialRgCardPreview({
-  name,
-  breed,
-  avatarPreview,
-  generatedId,
-  petId,
-  ageLabel,
-  weight,
-  actions,
-}) {
-  const profileUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/gato/${petId || generatedId || 'preview'}`
-      : `https://app.gatedo.com/gato/${petId || generatedId || 'preview'}`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(profileUrl)}&bgcolor=ffffff&color=1f2333&margin=1&format=png&ecc=H`;
-
-  return (
-    <div className="relative mx-auto w-full max-w-[360px]">
-      <div className="overflow-hidden rounded-[26px] bg-white shadow-[0_24px_60px_rgba(80,70,176,0.18)]">
-        <div
-          className="relative h-28 overflow-hidden px-5 pt-4"
-          style={{ background: 'linear-gradient(135deg, #B36AF5 0%, #8B4AFF 100%)' }}
-        >
-          {avatarPreview && (
-            <img
-              src={avatarPreview}
-              alt=""
-              className="pointer-events-none absolute -right-6 -top-10 h-44 w-44 rounded-full object-cover opacity-[0.16] blur-[1px] saturate-75"
-            />
-          )}
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ background: 'linear-gradient(135deg, rgba(139,74,255,0.12), rgba(80,70,176,0.24))' }}
-          />
-          <div className="relative flex items-center justify-between">
-            <img src="/assets/logo_gatedo_amarelo.webp" alt="Gatedo" className="h-6 w-auto object-contain" />
-            <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-white/90">
-              <QrCode size={11} />
-              RG Oficial
-            </div>
-          </div>
-        </div>
-
-        <div className="relative px-5 pb-5 pt-12 text-center">
-          <div className="absolute left-1/2 top-0 h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-4 border-white bg-white shadow-xl">
-            {avatarPreview ? (
-              <img src={avatarPreview} className="h-full w-full object-cover" alt={name || 'Gato'} />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-[#F4F3FF]">
-                <Camera size={28} className="text-[#8B4AFF]" />
-              </div>
-            )}
-          </div>
-
-          <h3 className="text-2xl font-black uppercase leading-none text-gray-800">{name || 'Seu gatinho'}</h3>
-          <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-300">ID #{generatedId || 'GATEDO'}</p>
-
-          <div className="mt-5 grid grid-cols-3 gap-3 border-t border-gray-100 pt-4">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">Idade</p>
-              <p className="mt-1 text-xs font-black text-gray-800">{ageLabel || '-'}</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">Raca</p>
-              <p className="mt-1 text-xs font-black text-gray-800">{breed || 'SRD'}</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">Peso</p>
-              <p className="mt-1 text-xs font-black text-gray-800">{weight || '-'}</p>
-            </div>
-          </div>
-
-          <div className="mx-auto mt-5 h-32 w-32 rounded-xl bg-white p-1 shadow-sm">
-            <img src={qrUrl} alt="QR Code" className="h-full w-full" />
-          </div>
-          <p className="mt-2 text-[8px] font-black uppercase tracking-[0.18em] text-gray-300">Escaneie para compartilhar</p>
-
-          {actions && <div className="mt-5">{actions}</div>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function Toggle({ value, onChange, color = 'green' }) {
   const bg = value ? (color === 'red' ? 'bg-red-500' : 'bg-green-500') : 'bg-gray-300';
   return (
@@ -946,7 +824,7 @@ export default function AddCat() {
             </p>
           </div>
 
-          <OfficialRgCardPreview
+          <OfficialRgCard
             name={formData.name}
             breed={displayBreed}
             avatarPreview={formData.avatarPreview}
@@ -1604,7 +1482,7 @@ export default function AddCat() {
 
             <div>
               <label className={lc}>Prévia da identidade</label>
-              <OfficialRgCardPreview
+              <OfficialRgCard
                 name={formData.name}
                 breed={displayBreed}
                 avatarPreview={formData.avatarPreview}

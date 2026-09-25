@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AnimatePresence, motion } from 'framer-motion';
 import LayoutWrapper from '../components/LayoutWrapper';
+import { AuthContext } from '../context/AuthContext';
+import { captureFirstTouch } from '../utils/attribution';
+import { track } from '../utils/track';
 
 // Componentes Globais e Hooks
 import BottomNav from '../components/BottomNav';
@@ -204,7 +207,27 @@ const APP_THEME = '#823fff';
 
 const AppShell = () => {
   const location = useLocation();
+  const { user, loading: authLoading } = useContext(AuthContext) || {};
   const { playMeow } = useSound();
+
+  useEffect(() => {
+    captureFirstTouch();
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    try {
+      if (sessionStorage.getItem('gatedo_app_open_fired')) return;
+      sessionStorage.setItem('gatedo_app_open_fired', '1');
+    } catch {
+      return;
+    }
+    const daysSinceSignup = user?.createdAt
+      ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / 86400000)
+      : null;
+    track('app_open', { days_since_signup: daysSinceSignup });
+  }, [authLoading, user?.id]);
+
   const { installPrompt, handleInstallClick } = usePWAInstall();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [bottomNavForcedHidden, setBottomNavForcedHidden] = useState(false);

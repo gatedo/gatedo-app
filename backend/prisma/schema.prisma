@@ -43,6 +43,17 @@ model User {
   onboardingStep         Int       @default(0)
   onboardingCompletedAt  DateTime?
   lastLoginAt            DateTime?
+  // Origem do primeiro toque (LP/app), capturada no navegador antes do
+  // cadastro e gravada aqui uma única vez — nunca sobrescrita depois.
+  // Formato: { anonId, utmSource, utmMedium, utmCampaign, utmContent, referrer, capturedAt }
+  firstTouch             Json?
+  // Preferências de lembretes de cuidado (Perfil → Lembretes).
+  remindersPushEnabled   Boolean   @default(true)
+  remindersEmailEnabled  Boolean   @default(true)
+  reminderPreferredTime  String    @default("MORNING") // MORNING | AFTERNOON
+  lastReminderEmailAt    DateTime?
+  reminders              Reminder[]
+  pushSubscriptions      PushSubscription[]
   balanceActionsMade     BalanceAdjustmentLog[] @relation("BalanceActor")
   balanceLogs            BalanceAdjustmentLog[] @relation("BalanceTarget")
   comments               Comment[]
@@ -73,6 +84,7 @@ model User {
   protocolEnrollments    ProtocolEnrollment[]
   productEntitlements    ProductEntitlement[]
   offerEvents            OfferEvent[]
+  events                 Event[]
   ongProfile             OngProfile?
   transferInvitesSent    PetTransferInvite[]    @relation("OngTransferInvites")
   transferInvitesAccepted PetTransferInvite[]   @relation("AcceptedTransferInvites")
@@ -153,6 +165,7 @@ model Pet {
   diaryEntries          DiaryEntry[]
   documents             Document[]
   healthRecords         HealthRecord[]
+  reminders             Reminder[]
   igentSessions         IgentSession[]
   igentUsageLogs        IgentUsageLog[]
   protocolEnrollments   ProtocolEnrollment[]
@@ -310,6 +323,65 @@ model OfferEvent {
   @@index([userId, createdAt])
   @@index([offerKey, action])
   @@index([surface, action])
+}
+
+// Funil de ativação/retenção do produto — evento genérico de uso, front e
+// back-end. user_id nulo = visitante ainda não cadastrado, ligado depois ao
+// anon_id salvo no navegador. Nunca guardar texto livre/PII em props — só
+// ids, tipos e números (ver events.service.ts#track).
+model Event {
+  id          String   @id @default(cuid())
+  userId      String?
+  anonId      String?
+  name        String
+  props       Json?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  referrer    String?
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([name, createdAt])
+  @@index([userId])
+  @@map("events")
+}
+
+// Próxima data de cuidado (vermífugo, antipulgas, vacina, medicação contínua,
+// pesagem) — vira o bloco "Próximos cuidados" e dispara push/e-mail.
+// notifyCount conta quantos avisos já saíram pra esse lembrete (rege o teto
+// de 3 avisos de atraso e o "1 aviso no dia seguinte, depois 1 por semana").
+model Reminder {
+  id             String    @id @default(cuid())
+  userId         String
+  petId          String
+  type           String // VERMIFUGE | PARASITE | VACCINE | MEDICATION | WEIGHT
+  dueDate        DateTime
+  status         String    @default("pendente") // pendente | feito | adiado | cancelado
+  sourceRecordId String?
+  notifiedAt     DateTime?
+  notifyCount    Int       @default(0)
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet            Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, dueDate])
+  @@index([petId, status, dueDate])
+  @@map("reminders")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // ═══════════════════════════════════════════════════════════════════════
