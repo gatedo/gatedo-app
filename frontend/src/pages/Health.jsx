@@ -18,6 +18,8 @@ import {
   WeightChart, MarcosBlock, PatternBlock, QuickWeightModal,
   buildMarcos, formatWeightDelta, formatDate,
 } from '../components/ProfileModules/ProfileSections/TimelineModule';
+import UpcomingCareBlock from '../components/UpcomingCareBlock';
+import { track } from '../utils/track';
 
 const C = { purple: '#8B4AFF', purpleDark: '#4B40C6', green: '#10B981', amber: '#F59E0B', red: '#EF4444' };
 
@@ -272,6 +274,13 @@ export default function Health() {
     }).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const src = new URLSearchParams(window.location.search).get('src');
+    if (src === 'push_reminder' || src === 'email_reminder') {
+      track('reminder_opened', { channel: src === 'push_reminder' ? 'push' : 'email' });
+    }
+  }, []);
+
   const loadDetail = useCallback(() => {
     if (!selectedCatId) return;
     setLoadingDetail(true);
@@ -387,6 +396,8 @@ export default function Health() {
               <>
                 {/* 4 — Cartão do gato */}
                 <CatSummaryCard cat={selectedCat} weightSeries={weightSeries} />
+
+                <UpcomingCareBlock catId={selectedCat.id} onWeightFeito={() => setQuickWeightOpen(true)} />
 
                 {/* 5 — Linha do tempo */}
                 <div>

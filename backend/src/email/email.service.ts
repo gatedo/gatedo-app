@@ -154,6 +154,46 @@ export class EmailService {
     await this.send(to, 'Redefinir sua senha - Gatedo', html);
   }
 
+  async sendReminderDigest(to: string, name: string, items: { label: string; overdue: boolean }[]) {
+    const safeName = this.escapeHtml(name || 'Tutor');
+    const first = items[0]?.label || 'um cuidado';
+    const subject = items.length === 1 ? `Esta semana: ${first}` : `Esta semana: ${first} e mais ${items.length - 1}`;
+
+    const rows = items
+      .map(
+        (item) => `
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:#ffffff; border-radius:18px; margin:0 0 10px; box-shadow:0 6px 18px rgba(32,32,54,0.05);">
+        <tr>
+          <td style="padding:14px 18px;">
+            <p style="margin:0; color:#202036; font-size:13px; font-weight:800;">${this.escapeHtml(item.label)}</p>
+            ${item.overdue ? '<p style="margin:4px 0 0; color:#B45309; font-size:11px; font-weight:700;">Já passou da data — sem pressa, é só pra não esquecer.</p>' : ''}
+          </td>
+        </tr>
+      </table>`,
+      )
+      .join('');
+
+    const html = this.baseTemplate(`
+      <div style="text-align:center; padding-bottom:20px;">
+        <h1 style="margin:0 0 8px; font-size:26px; font-weight:900; color:#202036;">Oi, ${safeName}</h1>
+        <p style="margin:0 auto; max-width:360px; color:#72748A; font-size:14px; line-height:1.5;">
+          Esses cuidados estão chegando (ou já passaram da data):
+        </p>
+      </div>
+      ${rows}
+      <div style="text-align:center; padding-top:14px;">
+        <a href="${this.frontendUrl}/health?src=email_reminder" style="display:inline-block; background:#8B4AFF; color:#ffffff; text-decoration:none; padding:16px 40px; border-radius:50px; font-weight:900; font-size:14px;">
+          VER NO APP
+        </a>
+        <p style="margin:18px auto 0; max-width:380px; color:#B0B3C5; font-size:10px; line-height:1.5;">
+          <a href="${this.frontendUrl}/settings" style="color:#B0B3C5;">Não quero mais receber este e-mail</a>
+        </p>
+      </div>
+    `);
+
+    await this.send(to, subject, html);
+  }
+
   private featureRow(title: string, text: string, bg: string, color: string) {
     return `
       <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:#ffffff; border-radius:22px; margin:0 0 16px; box-shadow:0 8px 24px rgba(32,32,54,0.06);">

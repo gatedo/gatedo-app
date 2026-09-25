@@ -19,6 +19,7 @@ import OfferCard from '../components/offers/OfferCard';
 import HealthAlertCard from '../components/offers/HealthAlertCard';
 import RegistroAvulsoModal from '../components/protocol/RegistroAvulsoModal';
 import SpotlightTour from '../components/SpotlightTour';
+import UpcomingCareBlock from '../components/UpcomingCareBlock';
 import ProfileHealthBar from '../components/ProfileModules/ProfileHealthBar';
 import { extractWeightSeries, computeWeightAlerts, daysSinceLastWeight } from '../utils/weightAlerts';
 import imgShortcutBiblioteca from '../assets/cards-home/gatedo-img10.webp';
@@ -1010,6 +1011,9 @@ export default function Home() {
             )}
           </AnimatePresence>
         </motion.section>
+
+        {/* 1.5 ─ Próximos cuidados */}
+        <UpcomingCareBlock onWeightFeito={(catId) => setWeightModalCat(cats.find((c) => c.id === catId) || null)} />
 
         {/* 2 ─ O que precisa de você hoje */}
         <NeedsTodaySection cats={cats} enrollments={enrollments} onOpenWeight={setWeightModalCat} />

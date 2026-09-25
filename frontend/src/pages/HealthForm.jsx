@@ -14,6 +14,9 @@ import QRCode from 'qrcode';
 import { awardHealthXP } from '../utils/healthGamification';
 import ProvidersSelector from '../components/ProfileModules/ProvidersSelector';
 import usePushNotifications from '../hooks/usePushNotifications';
+import NextCareChips from '../components/NextCareChips';
+import PushPermissionPrompt from '../components/PushPermissionPrompt';
+import { hasActivePushSubscription, isPushSupported, isIosNotStandalone } from '../utils/push';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -575,6 +578,7 @@ export default function HealthForm() {
   const [protocolDocument, setProtocolDocument] = useState(null);
   const [protocolNumber, setProtocolNumber] = useState('');
   const [petName, setPetName] = useState('');
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
 
   const [formData, setFormData] = useState({
     title:'', date: new Date().toISOString().split('T')[0], nextDate:'',
@@ -844,6 +848,29 @@ export default function HealthForm() {
       });
       const createdRecord = recordRes?.data||null;
 
+      const reminderId = searchParams.get('reminderId');
+      if (reminderId) {
+        api.patch(`/reminders/${reminderId}/complete`).catch(() => {});
+      }
+
+      if (createdRecord?.nextDueDate && !reminderId) {
+        try {
+          const alreadyAsked = localStorage.getItem('gatedo_push_prompt_shown');
+          if (!alreadyAsked) {
+            if (isIosNotStandalone()) {
+              localStorage.setItem('gatedo_push_prompt_shown', '1');
+              setShowPushPrompt(true);
+            } else if (isPushSupported()) {
+              const hasSub = await hasActivePushSubscription();
+              if (!hasSub) {
+                localStorage.setItem('gatedo_push_prompt_shown', '1');
+                setShowPushPrompt(true);
+              }
+            }
+          }
+        } catch {}
+      }
+
       if (type === 'consultation') {
         persistProviderGuideSignal({
           formData,
@@ -1053,16 +1080,18 @@ export default function HealthForm() {
               value={formData.date} onChange={(e) => set('date', e.target.value)} />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {[['date','Data'],['nextDate','Próxima dose']].map(([k,l]) => (
-              <div key={k} className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-50">
-                <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-tighter text-center">{l}</label>
-                <input type="date" disabled={saved}
-                  className="w-full text-xs font-bold outline-none bg-transparent text-center text-gray-700"
-                  value={formData[k]} onChange={(e) => set(k, e.target.value)} />
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-50">
+              <label className="text-[9px] font-black text-gray-400 uppercase mb-1.5 block tracking-tighter text-center">Data</label>
+              <input type="date" disabled={saved}
+                className="w-full text-xs font-bold outline-none bg-transparent text-center text-gray-700"
+                value={formData.date} onChange={(e) => set('date', e.target.value)} />
+            </div>
+
+            {(['vaccine', 'vermifuge', 'parasite'].includes(type) || (type === 'medicine' && isOngoing)) && !saved && (
+              <NextCareChips type={type} value={formData.nextDate} onChange={(v) => set('nextDate', v)} />
+            )}
+          </>
         )}
 
         {type === 'consultation' && (
@@ -1396,6 +1425,7 @@ export default function HealthForm() {
       </div>
 
       <AnimatePresence>{xpToast ? <XPSuccessPill text={xpToast} /> : null}</AnimatePresence>
+      {showPushPrompt && <PushPermissionPrompt onClose={() => setShowPushPrompt(false)} />}
     </>
   );
 }

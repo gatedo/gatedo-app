@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,10 +12,16 @@ import {
   CheckCircle2,
   AlertTriangle,
   ShieldCheck,
+  Mail,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import useSensory from '../hooks/useSensory';
 import usePushNotifications from '../hooks/usePushNotifications';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { AuthContext } from '../context/AuthContext';
+import api from '../services/api';
+import { enablePush, disablePush, isPushSupported } from '../utils/push';
 
 const STATUS_COPY = {
   granted: {
@@ -96,10 +102,48 @@ export default function Settings() {
   const touch = useSensory();
   const { settings, setSetting, resetSettings, notificationPermission, syncNotificationPermission } = useAppSettings();
   const { requestPermission } = usePushNotifications(null, null);
+  const { user } = useContext(AuthContext) || {};
 
   const [isClearing, setIsClearing] = useState(false);
   const [clearFeedback, setClearFeedback] = useState('');
   const [notifBusy, setNotifBusy] = useState(false);
+
+  const [reminderPrefs, setReminderPrefs] = useState(null);
+  const [reminderPushBusy, setReminderPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    api.get(`/users/${user.id}/profile`)
+      .then((r) => setReminderPrefs({
+        remindersPushEnabled: r.data?.remindersPushEnabled ?? true,
+        remindersEmailEnabled: r.data?.remindersEmailEnabled ?? true,
+        reminderPreferredTime: r.data?.reminderPreferredTime || 'MORNING',
+      }))
+      .catch(() => {});
+  }, [user?.id]);
+
+  const patchReminderPrefs = async (patch) => {
+    const next = { ...reminderPrefs, ...patch };
+    setReminderPrefs(next);
+    if (user?.id) await api.patch(`/users/${user.id}/reminder-preferences`, patch).catch(() => {});
+  };
+
+  const handleReminderPushToggle = async () => {
+    touch();
+    if (reminderPushBusy) return;
+    setReminderPushBusy(true);
+    try {
+      if (reminderPrefs?.remindersPushEnabled) {
+        await disablePush();
+        await patchReminderPrefs({ remindersPushEnabled: false });
+      } else {
+        const result = await enablePush();
+        if (result === 'granted') await patchReminderPrefs({ remindersPushEnabled: true });
+      }
+    } finally {
+      setReminderPushBusy(false);
+    }
+  };
 
   const notificationState = useMemo(() => {
     if (notificationPermission === 'unsupported') return STATUS_COPY.unsupported;
@@ -217,6 +261,50 @@ export default function Settings() {
           </div>
         </div>
       </section>
+
+      {reminderPrefs && (
+        <section className="mb-8">
+          <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] mb-4 ml-2">Lembretes de cuidado</p>
+          <SettingToggle
+            icon={Bell}
+            label="Avisos no dia"
+            desc={!isPushSupported() ? 'Não suportado neste navegador' : reminderPushBusy ? 'Aguarde...' : 'Vermífugo, antipulgas, vacina, pesagem'}
+            active={!!reminderPrefs.remindersPushEnabled}
+            onToggle={handleReminderPushToggle}
+            color="#8B4AFF"
+            disabled={!isPushSupported() || reminderPushBusy}
+          />
+          <SettingToggle
+            icon={Mail}
+            label="E-mail de reserva"
+            desc="1 e-mail por semana, só se houver algo vencendo"
+            active={!!reminderPrefs.remindersEmailEnabled}
+            onToggle={() => { touch(); patchReminderPrefs({ remindersEmailEnabled: !reminderPrefs.remindersEmailEnabled }); }}
+            color="#10B981"
+          />
+
+          <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-50">
+            <p className="font-black text-gray-800 text-sm mb-1">Horário preferido</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight mb-3">Quando te avisamos, dentro do possível</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { touch(); patchReminderPrefs({ reminderPreferredTime: 'MORNING' }); }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[11px]"
+                style={reminderPrefs.reminderPreferredTime === 'MORNING' ? { background: '#8B4AFF', color: '#fff' } : { background: '#F4F3FF', color: '#6b7280' }}
+              >
+                <Sun size={13} /> Manhã
+              </button>
+              <button
+                onClick={() => { touch(); patchReminderPrefs({ reminderPreferredTime: 'AFTERNOON' }); }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[11px]"
+                style={reminderPrefs.reminderPreferredTime === 'AFTERNOON' ? { background: '#8B4AFF', color: '#fff' } : { background: '#F4F3FF', color: '#6b7280' }}
+              >
+                <Moon size={13} /> Tarde
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mb-8">
         <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] mb-4 ml-2">Segurança & PWA</p>
