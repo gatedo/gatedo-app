@@ -1,19 +1,28 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Share, PlusSquare, X } from 'lucide-react';
-import { enablePush, isIosNotStandalone } from '../utils/push';
+import { Bell, Share, PlusSquare, X, Sparkles } from 'lucide-react';
+import { enablePush, isIosNotStandalone, isStandalone } from '../utils/push';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 import useSensory from '../hooks/useSensory';
 
 const C = { purple: '#8B4AFF', purpleDark: '#4B40C6' };
 
 // Tela explicativa antes do pedido nativo de permissão — só aparece depois
-// do primeiro lembrete criado (ver HealthForm.jsx). No iPhone fora do modo
-// instalado, mostra o passo a passo de "Adicionar à Tela de Início" em vez
-// do pedido de permissão, já que push não funciona no Safari solto.
+// do primeiro lembrete criado (ver HealthForm.jsx).
+// - iPhone fora do modo instalado: passo a passo obrigatório de "Adicionar
+//   à Tela de Início", já que push não funciona no Safari solto.
+// - Android fora do modo instalado (com o prompt nativo disponível):
+//   sugere instalar primeiro — não trava, é só pra notificação chegar com
+//   a cara do Gatedo (ícone próprio) em vez de aparecer como "Chrome".
 export default function PushPermissionPrompt({ onClose }) {
   const touch = useSensory();
+  const { installPrompt, handleInstallClick } = usePWAInstall();
   const [status, setStatus] = useState(null);
+
   const iosBlocked = isIosNotStandalone();
+  const canSuggestInstall = !iosBlocked && !isStandalone() && !!installPrompt;
+
+  const [step, setStep] = useState(iosBlocked ? 'ios' : canSuggestInstall ? 'install' : 'push');
 
   const handleEnable = async () => {
     touch();
@@ -22,6 +31,12 @@ export default function PushPermissionPrompt({ onClose }) {
     if (result === 'granted') {
       setTimeout(onClose, 1400);
     }
+  };
+
+  const handleInstall = async () => {
+    touch();
+    await handleInstallClick();
+    setStep('push');
   };
 
   return (
@@ -51,7 +66,7 @@ export default function PushPermissionPrompt({ onClose }) {
             <Bell size={22} className="text-white" />
           </div>
 
-          {iosBlocked ? (
+          {step === 'ios' ? (
             <>
               <h2 className="text-lg font-black text-gray-900 mb-1">Adicione o Gatedo à Tela de Início</h2>
               <p className="text-[13px] font-medium text-gray-500 mb-5 leading-relaxed">
@@ -74,6 +89,31 @@ export default function PushPermissionPrompt({ onClose }) {
               >
                 Entendi
               </button>
+            </>
+          ) : step === 'install' ? (
+            <>
+              <h2 className="text-lg font-black text-gray-900 mb-1">Quer o aviso igual Tinder, 99...?</h2>
+              <p className="text-[13px] font-medium text-gray-500 mb-6 leading-relaxed">
+                Instalando o Gatedo, o aviso chega com o nosso ícone em vez de aparecer como "Chrome". Leva 2 segundos.
+              </p>
+
+              <div className="flex items-center gap-3 bg-gray-50 rounded-2xl p-3 mb-6">
+                <Sparkles size={16} className="text-[#8B4AFF] shrink-0" />
+                <p className="text-[12px] font-bold text-gray-600">Vira um app de verdade na sua tela — sem ocupar espaço extra</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={() => setStep('push')} className="flex-1 px-5 py-3.5 rounded-2xl font-black text-gray-500 text-sm bg-gray-100">
+                  Continuar sem instalar
+                </button>
+                <button
+                  onClick={handleInstall}
+                  className="flex-1 px-5 py-3.5 rounded-2xl font-black text-white text-sm"
+                  style={{ background: `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}
+                >
+                  Instalar
+                </button>
+              </div>
             </>
           ) : (
             <>

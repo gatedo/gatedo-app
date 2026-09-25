@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getInstallPrompt, subscribeInstallPrompt, triggerInstall } from '../utils/pwaInstall';
 
 // Detecta se é iOS (iPhone, iPad, iPod)
 const isIOS = () =>
@@ -11,7 +12,7 @@ const isInStandaloneMode = () =>
   window.navigator.standalone === true;
 
 export function usePWAInstall() {
-  const [installPrompt, setInstallPrompt] = useState(null); // Android/Chrome
+  const [installPrompt, setInstallPrompt] = useState(getInstallPrompt()); // Android/Chrome
   const [showIOSBanner, setShowIOSBanner] = useState(false); // iOS manual
 
   useEffect(() => {
@@ -28,20 +29,15 @@ export function usePWAInstall() {
       return;
     }
 
-    // Android/Chrome — captura o evento nativo
-    const handler = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    // Android/Chrome — assina a fonte única (ver utils/pwaInstall.js);
+    // já chega com o valor certo mesmo se o evento tiver disparado antes
+    // deste componente montar.
+    return subscribeInstallPrompt(setInstallPrompt);
   }, []);
 
   // Android: abre o prompt nativo
   const handleInstallClick = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
+    const outcome = await triggerInstall();
     if (outcome === 'accepted') setInstallPrompt(null);
   };
 
