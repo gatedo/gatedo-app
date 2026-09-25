@@ -16,6 +16,7 @@ import {
   Clock3,
   Sparkles,
   X,
+  Megaphone,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
@@ -153,6 +154,14 @@ export default function Header() {
   } = useNotifications(user?.id, { pollInterval: 30000 });
 
   const firstName = user?.name?.split(' ')[0] || 'Tutor';
+
+  const [hasUnreadNotices, setHasUnreadNotices] = useState(false);
+  useEffect(() => {
+    if (!user?.id) return;
+    api.get('/notices/active').then((r) => {
+      setHasUnreadNotices(Array.isArray(r.data) && r.data.length > 0);
+    }).catch(() => {});
+  }, [user?.id]);
 
   const STATIC_TIPS = [
     {
@@ -439,6 +448,12 @@ export default function Header() {
                   {healthNotifications.length > 0 && (
                     <span className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 border border-[#8b4dff] flex items-center justify-center">
                       <ShieldAlert size={8} className="text-[#5A3A00]" />
+                    </span>
+                  )}
+
+                  {hasUnreadNotices && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#e1ff00] border border-[#8b4dff] flex items-center justify-center">
+                      <Megaphone size={8} className="text-[#4a2166]" />
                     </span>
                   )}
                 </motion.button>

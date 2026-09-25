@@ -20,6 +20,7 @@ import HealthAlertCard from '../components/offers/HealthAlertCard';
 import RegistroAvulsoModal from '../components/protocol/RegistroAvulsoModal';
 import SpotlightTour from '../components/SpotlightTour';
 import UpcomingCareBlock from '../components/UpcomingCareBlock';
+import OfficialNoticeModal from '../components/OfficialNoticeModal';
 import ProfileHealthBar from '../components/ProfileModules/ProfileHealthBar';
 import { extractWeightSeries, computeWeightAlerts, daysSinceLastWeight } from '../utils/weightAlerts';
 import imgShortcutBiblioteca from '../assets/cards-home/gatedo-img10.webp';
@@ -1039,6 +1040,8 @@ export default function Home() {
           />
         )}
       </AnimatePresence>
+
+      <OfficialNoticeModal />
 
       {/* Admin panel */}
       {isAdmin && (

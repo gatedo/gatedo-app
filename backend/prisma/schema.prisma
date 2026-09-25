@@ -1122,17 +1122,22 @@ model FounderPhaseConfig {
 }
 
 model Notice {
-  id        String       @id @default(uuid())
-  title     String
-  xpReward  Int          @default(3)
-  expiresAt DateTime?
-  createdAt DateTime     @default(now())
-  content   String
-  imageUrl  String?
-  isActive  Boolean      @default(true)
-  type      String       @default("INFO")
-  updatedAt DateTime     @updatedAt
-  reads     NoticeRead[]
+  id         String       @id @default(uuid())
+  title      String
+  xpReward   Int          @default(3)
+  expiresAt  DateTime?
+  createdAt  DateTime     @default(now())
+  content    String
+  imageUrl   String?
+  isActive   Boolean      @default(true)
+  type       String       @default("INFO")
+  updatedAt  DateTime     @updatedAt
+  // Push (alerta sonoro no aparelho) é opcional por comunicado — desmarcar
+  // pra publicidade interna discreta que só deve aparecer dentro do app.
+  // pushSentAt evita reenviar ao editar um comunicado já publicado.
+  sendPush   Boolean      @default(true)
+  pushSentAt DateTime?
+  reads      NoticeRead[]
 }
 
 model NoticeRead {

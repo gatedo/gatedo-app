@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationService } from '../gamification/gamification.service';
+import { PushService } from '../push/push.service';
 
 type AuthUser = {
   id: string;
@@ -17,7 +18,14 @@ export class NoticesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gamificationService: GamificationService,
+    private readonly push: PushService,
   ) {}
+
+  private async broadcastPush(notice: { id: string; title: string; content: string }) {
+    const body = notice.content.length > 120 ? `${notice.content.slice(0, 117)}...` : notice.content;
+    await this.push.broadcastToAll({ title: notice.title, body, url: '/home' });
+    await this.prisma.notice.update({ where: { id: notice.id }, data: { pushSentAt: new Date() } });
+  }
 
   private ensureAdmin(user: AuthUser) {
     if (!user || user.role !== 'ADMIN') {
@@ -99,6 +107,8 @@ export class NoticesService {
       updatedAt: notice.updatedAt,
       xpReward: notice.xpReward ?? 3,
       imageUrl: notice.imageUrl ?? null,
+      sendPush: notice.sendPush,
+      pushSentAt: notice.pushSentAt,
       totalReads: notice._count.reads,
     }));
   }
@@ -145,20 +155,30 @@ export class NoticesService {
       throw new BadRequestException('Conteúdo é obrigatório.');
     }
 
-    return this.prisma.notice.create({
+    const isActive = typeof data.isActive === 'boolean' ? data.isActive : true;
+    const sendPush = typeof data.sendPush === 'boolean' ? data.sendPush : true;
+
+    const notice = await this.prisma.notice.create({
       data: {
         title: data.title.trim(),
         content: data.content.trim(),
         type: data.type || 'INFO',
-        isActive: typeof data.isActive === 'boolean' ? data.isActive : true,
+        isActive,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         xpReward:
           data.xpReward !== undefined && data.xpReward !== null
             ? Number(data.xpReward)
             : 3,
         imageUrl: data.imageUrl?.trim() || null,
+        sendPush,
       },
     });
+
+    if (isActive && sendPush) {
+      this.broadcastPush(notice).catch(() => {});
+    }
+
+    return notice;
   }
 
   async updateNotice(user: AuthUser, id: string, data: any) {
@@ -172,7 +192,10 @@ export class NoticesService {
       throw new NotFoundException('Comunicado não encontrado.');
     }
 
-    return this.prisma.notice.update({
+    const isActive = typeof data.isActive === 'boolean' ? data.isActive : existing.isActive;
+    const sendPush = typeof data.sendPush === 'boolean' ? data.sendPush : existing.sendPush;
+
+    const updated = await this.prisma.notice.update({
       where: { id },
       data: {
         title:
@@ -182,8 +205,7 @@ export class NoticesService {
             ? String(data.content).trim()
             : existing.content,
         type: data.type ?? existing.type,
-        isActive:
-          typeof data.isActive === 'boolean' ? data.isActive : existing.isActive,
+        isActive,
         expiresAt:
           data.expiresAt === null
             ? null
@@ -198,8 +220,17 @@ export class NoticesService {
           data.imageUrl !== undefined
             ? data.imageUrl?.trim() || null
             : existing.imageUrl,
+        sendPush,
       },
     });
+
+    // Só dispara na transição pra ativo — nunca reenvia por causa de uma
+    // edição de texto num comunicado que já foi publicado.
+    if (isActive && sendPush && !existing.pushSentAt) {
+      this.broadcastPush(updated).catch(() => {});
+    }
+
+    return updated;
   }
 
   async deleteNotice(user: AuthUser, id: string) {

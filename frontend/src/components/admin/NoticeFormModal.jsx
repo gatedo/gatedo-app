@@ -25,6 +25,7 @@ const defaultForm = {
   isActive: true,
   xpReward: 3,
   expiresAt: '',
+  sendPush: true,
 };
 
 function toDatetimeLocal(value) {
@@ -70,6 +71,8 @@ export default function NoticeFormModal({
             ? Number(initialData.xpReward)
             : 3,
         expiresAt: toDatetimeLocal(initialData.expiresAt),
+        sendPush:
+          typeof initialData.sendPush === 'boolean' ? initialData.sendPush : true,
       });
     } else {
       setForm(defaultForm);
@@ -113,6 +116,7 @@ export default function NoticeFormModal({
       isActive: !!form.isActive,
       xpReward: Number(form.xpReward || 0),
       expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
+      sendPush: !!form.sendPush,
     };
 
     try {
@@ -303,6 +307,24 @@ export default function NoticeFormModal({
               <p className="text-sm font-black text-gray-800">Comunicado ativo</p>
               <p className="text-xs text-gray-500 font-medium">
                 Se marcado, o comunicado poderá aparecer para os usuários.
+              </p>
+            </div>
+          </label>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={!!form.sendPush}
+              onChange={(e) => updateField('sendPush', e.target.checked)}
+              className="w-4 h-4"
+              disabled={!!initialData?.pushSentAt}
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-black text-gray-800">Enviar notificação push</p>
+              <p className="text-xs text-gray-500 font-medium">
+                {initialData?.pushSentAt
+                  ? `Já enviado em ${new Date(initialData.pushSentAt).toLocaleString('pt-BR')} — não reenvia.`
+                  : 'Dispara alerta sonoro no aparelho de quem já ativou avisos. Desmarque pra publicidade discreta, só dentro do app.'}
               </p>
             </div>
           </label>
