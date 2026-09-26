@@ -194,6 +194,29 @@ export class EmailService {
     await this.send(to, subject, html);
   }
 
+  async sendAiBudgetAlert(to: string, params: { spend: number; budget: number; ratio: number; paused: boolean }) {
+    const percent = Math.round(params.ratio * 100);
+    const subject = params.paused
+      ? `iGentVet pausado — 100% do orçamento de IA do mês`
+      : `Aviso: iGentVet em ${percent}% do orçamento de IA do mês`;
+
+    const html = this.baseTemplate(`
+      <div style="text-align:center; padding-bottom:20px;">
+        <h1 style="margin:0 0 8px; font-size:26px; font-weight:900; color:#202036;">${subject}</h1>
+        <p style="margin:0 auto; max-width:380px; color:#72748A; font-size:14px; line-height:1.5;">
+          Gasto estimado do mês: <strong>US$ ${params.spend.toFixed(2)}</strong> de US$ ${params.budget.toFixed(2)} (${percent}%).
+        </p>
+        ${
+          params.paused
+            ? '<p style="margin:12px auto 0; max-width:380px; color:#B45309; font-size:13px; font-weight:800;">O iGentVet do plano free foi pausado até o próximo ciclo. Clube e pacote avulso continuam funcionando normalmente.</p>'
+            : ''
+        }
+      </div>
+    `);
+
+    await this.send(to, subject, html);
+  }
+
   private featureRow(title: string, text: string, bg: string, color: string) {
     return `
       <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:#ffffff; border-radius:22px; margin:0 0 16px; box-shadow:0 8px 24px rgba(32,32,54,0.06);">

@@ -81,10 +81,12 @@ model User {
   vetRecommendations     VetRecommendation[]
   noticeReads            NoticeRead[]
   igentUsageLogs         IgentUsageLog[]
+  aiCreditPacks          AiCreditPack[]
   protocolEnrollments    ProtocolEnrollment[]
   productEntitlements    ProductEntitlement[]
   offerEvents            OfferEvent[]
   events                 Event[]
+  feedbackMessages       FeedbackMessage[]
   ongProfile             OngProfile?
   transferInvitesSent    PetTransferInvite[]    @relation("OngTransferInvites")
   transferInvitesAccepted PetTransferInvite[]   @relation("AcceptedTransferInvites")
@@ -290,20 +292,71 @@ model IgentSession {
   @@index([petId])
 }
 
+// action = QUESTION | EXAM_EXPLANATION — dobra como tabela de uso E de
+// custo (kind pedido no spec = este campo; model é o provider+modelo real).
+// source diz se essa pergunta consumiu cota do mês ou saldo de pacote avulso.
 model IgentUsageLog {
   id           String   @id @default(cuid())
   userId       String
   petId        String?
   action       String   @default("QUESTION")
   provider     String?
+  model        String?
   tokensUsed   Int?
+  tokensIn     Int?
+  tokensOut    Int?
   costEstimate Float?
+  source       String   @default("QUOTA") // QUOTA | PACK
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   pet          Pet?     @relation(fields: [petId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([petId, createdAt])
+}
+
+// Pacote avulso de perguntas (+30, validade 12 meses). Consumo é sempre
+// depois da cota do mês esgotar — ver IgentCreditsService#canAsk.
+model AiCreditPack {
+  id          String   @id @default(cuid())
+  userId      String
+  credits     Int      @default(30)
+  creditsUsed Int      @default(0)
+  externalId  String? // pedido Kiwify — idempotência e remoção em reembolso
+  status      String   @default("ACTIVE") // ACTIVE | REFUNDED
+  purchasedAt DateTime @default(now())
+  expiresAt   DateTime
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, expiresAt])
+  @@map("ai_credit_packs")
+}
+
+// Pacote avulso comprado por alguém que ainda não tem conta — aplicado no
+// próximo cadastro/login com esse e-mail (mesmo instante em que
+// EntitlementsService#promotePending já roda, ver auth.controller.ts).
+model PendingAiCreditPack {
+  id         String   @id @default(cuid())
+  email      String
+  credits    Int      @default(30)
+  externalId String?
+  createdAt  DateTime @default(now())
+
+  @@index([email])
+  @@map("pending_ai_credit_packs")
+}
+
+// Lista de espera do Clube — usada quando CLUBE_VENDAS_ABERTAS está
+// desligado: preço fica visível, botão vira "Me avise quando abrir".
+model ClubeWaitlistEntry {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  plan      String? // qual toggle (mensal/anual) a pessoa tinha selecionado
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@map("clube_waitlist")
 }
 
 // Rastreio de impressão/clique/conversão do motor único de decisão de oferta,
@@ -346,6 +399,27 @@ model Event {
   @@index([name, createdAt])
   @@index([userId])
   @@map("events")
+}
+
+// Caixa de sugestões (Mundo Gatedo) e "Fale com a gente" (Perfil) — um
+// único inbox pro admin, diferenciado por `source`. status é um fluxo
+// simples de triagem manual (NOVO → LIDO → RESPONDIDO/ARQUIVADO).
+model FeedbackMessage {
+  id         String    @id @default(cuid())
+  userId     String
+  category   String    @default("OTHER") // FEATURE | BUG | DESIGN | MESSAGE | OTHER
+  source     String // MUNDO_GATEDO | PROFILE
+  text       String
+  status     String    @default("NOVO") // NOVO | LIDO | RESPONDIDO | ARQUIVADO
+  adminReply String?
+  repliedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("feedback_messages")
 }
 
 // Próxima data de cuidado (vermífugo, antipulgas, vacina, medicação contínua,

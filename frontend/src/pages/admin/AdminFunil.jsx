@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Filter, GitBranch, Repeat, DollarSign, Globe2 } from 'lucide-react';
+import { Filter, GitBranch, Repeat, DollarSign, Globe2, Crown } from 'lucide-react';
 import api from '../../services/api';
 
 const C = { purple: '#8B4AFF' };
@@ -63,6 +63,7 @@ export default function AdminFunil() {
   const [retention, setRetention] = useState([]);
   const [monetization, setMonetization] = useState(null);
   const [sources, setSources] = useState([]);
+  const [clube, setClube] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function AdminFunil() {
       api.get('/events/retention').then((r) => setRetention(r.data)).catch(() => setRetention([])),
       api.get('/events/monetization', { params: { days: days || undefined } }).then((r) => setMonetization(r.data)).catch(() => setMonetization(null)),
       api.get('/events/sources', { params: { days: days || undefined } }).then((r) => setSources(r.data)).catch(() => setSources([])),
+      api.get('/clube/admin/funnel', { params: { days: days || undefined } }).then((r) => setClube(r.data)).catch(() => setClube(null)),
     ]).finally(() => setLoading(false));
   }, [days, utmSource, utmCampaign]);
 
@@ -183,6 +185,55 @@ export default function AdminFunil() {
           ]}
           rows={sources}
         />
+      </Section>
+
+      <Section icon={Crown} title="Clube GATEDO">
+        {clube && (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xl font-black text-gray-800">{clube.viewed}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Viram a oferta</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xl font-black text-gray-800">{clube.checkoutClicks}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Cliques no checkout</p>
+              </div>
+              <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                <p className="text-xl font-black text-emerald-600">{clube.subscribed}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Assinaram</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xl font-black text-gray-800">{clube.activeSubs}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Assinantes ativos</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xl font-black text-gray-800">{clube.viewedToCheckoutPercent != null ? `${clube.viewedToCheckoutPercent}%` : '—'}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Oferta → checkout</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xl font-black text-gray-800">{clube.checkoutToSubscribedPercent != null ? `${clube.checkoutToSubscribedPercent}%` : '—'}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Checkout → assinatura</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xl font-black text-gray-800">{clube.packPurchased}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Pacotes vendidos</p>
+              </div>
+              <div className="bg-red-50 rounded-xl p-3 text-center">
+                <p className="text-xl font-black text-red-600">{clube.canceledThisMonth}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Cancelamentos (mês)</p>
+              </div>
+            </div>
+
+            <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mb-2">Por plano</p>
+            <Table columns={[{ key: 'plan', label: 'Plano' }, { key: 'count', label: 'Assinaturas' }]} rows={clube.byPlan} />
+
+            <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mt-4 mb-2">Por origem</p>
+            <Table columns={[{ key: 'origem', label: 'Origem' }, { key: 'count', label: 'Visualizações' }]} rows={clube.byOrigin} />
+
+            <p className="text-[11px] font-medium text-gray-400 mt-3">{clube.waitlist} pessoa(s) na lista de espera.</p>
+          </>
+        )}
       </Section>
     </div>
   );

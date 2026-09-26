@@ -9,5 +9,6 @@ import { GamificationModule } from '../gamification/gamification.module';
   imports: [GamificationModule],
   controllers: [ContentController, ProtocolSpecController],
   providers: [ContentService, ProtocolSpecService],
+  exports: [ContentService],
 })
 export class ContentModule {}

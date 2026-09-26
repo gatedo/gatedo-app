@@ -428,6 +428,7 @@ export type UserEntitlements = {
   isUnlimitedCats: boolean;
   maxActiveCats: number | null;
   igentMonthlyQuestions: number | null;
+  igentMonthlyExamExplanations: number | null;
   canAccessProtocols: boolean;
   canReadExamFiles: boolean;
 };
@@ -458,14 +459,31 @@ export function getEntitlementsTier(user: any): EntitlementsTier {
 }
 
 /**
- * Teto mensal de perguntas ao iGentVet por tier. `null` = sem limite.
- * Parâmetro de configuração — mude aqui para ajustar o teto de qualquer
- * tier sem tocar em controller, service ou tela nenhuma.
+ * Limites do iGentVet por tier — único lugar pra mexer em número de plano.
+ * `null` = sem limite. "founder" só existe hoje por planos legados pagos
+ * (Tutor Plus/Master) que não são Clube nem Founder Early — fundador de
+ * verdade já cai em "pro" via hasClubeAccess, mesmos limites do Clube.
  */
 export const IGENT_MONTHLY_QUESTION_LIMITS: Record<EntitlementsTier, number | null> = {
-  free: 10,
-  founder: 60,
-  pro: 200,
+  free: 5,
+  founder: 100,
+  pro: 100,
+};
+
+export const IGENT_MONTHLY_EXAM_LIMITS: Record<EntitlementsTier, number | null> = {
+  free: 0,
+  founder: 10,
+  pro: 10,
+};
+
+// Teto diário de perguntas — vale pra todo mundo, inclusive Clube, só pra
+// segurar abuso/custo de um único usuário num dia ruim.
+export const IGENT_DAILY_QUESTION_CAP = Number(process.env.IGENT_DAILY_QUESTION_CAP || 15);
+
+export const AI_CREDIT_PACK = {
+  credits: 30,
+  priceCentavos: 990,
+  validityMonths: 12,
 };
 
 export function getUserEntitlements(user: any): UserEntitlements {
@@ -479,6 +497,7 @@ export function getUserEntitlements(user: any): UserEntitlements {
     isUnlimitedCats: true,
     maxActiveCats: null,
     igentMonthlyQuestions: staffOverride ? null : IGENT_MONTHLY_QUESTION_LIMITS[tier],
+    igentMonthlyExamExplanations: staffOverride ? null : IGENT_MONTHLY_EXAM_LIMITS[tier],
     // Protocolos (conteúdo estruturado multi-dia) exigem founder ou pro.
     // Guias (almanaque) continuam livres para todo mundo, sem checar isso.
     canAccessProtocols: staffOverride || tier !== 'free',
@@ -491,9 +510,20 @@ export function resolveKiwifyOffer(input: {
   offerName?: string | null;
   productName?: string | null;
   price?: number | null;
+  productId?: string | null;
 }) {
   const joined = `${input.offerName || ''} ${input.productName || ''}`.toLowerCase();
   const price = Number(input.price || 0);
+  const productId = String(input.productId || '').trim();
+
+  // ID configurado bate primeiro — mais confiável que casar por texto do
+  // nome da oferta, que a Kiwify pode mudar sem avisar.
+  if (productId && productId === String(process.env.KIWIFY_CLUBE_MENSAL_ID || '').trim()) {
+    return getMembershipGrantFromPlanType(PLAN_TYPES.CLUBE_GATEDO_MENSAL, { offerLabel: 'Clube GATEDO Mensal' });
+  }
+  if (productId && productId === String(process.env.KIWIFY_CLUBE_ANUAL_ID || '').trim()) {
+    return getMembershipGrantFromPlanType(PLAN_TYPES.CLUBE_GATEDO_ANUAL, { offerLabel: 'Clube GATEDO Anual' });
+  }
 
   const founderByPrice = FOUNDER_PHASES.find((item) => item.price === price);
   const plusPack = POINTS_PACKS.find((item) => Math.round(item.price * 100) === Math.round(price * 100));

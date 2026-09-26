@@ -31,6 +31,8 @@ import { SettingsModule } from './settings/settings.module';
 import { EventsModule } from './events/events.module';
 import { PushModule } from './push/push.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { FeedbackModule } from './feedback/feedback.module';
+import { ClubeModule } from './clube/clube.module';
 
 // Controllers
 import { HealthController } from './health.controller';
@@ -83,6 +85,8 @@ import { ProspectsModule } from './prospects/prospects.module';
     EventsModule,
     PushModule,
     RemindersModule,
+    FeedbackModule,
+    ClubeModule,
   ],
   controllers: [
     HealthController,

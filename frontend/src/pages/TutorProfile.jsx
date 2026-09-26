@@ -12,6 +12,7 @@ import {
   LifeBuoy,
   LogOut,
   MapPin,
+  MessageSquareText,
   PawPrint,
   Repeat,
   Settings,
@@ -26,6 +27,7 @@ import useSensory from '../hooks/useSensory';
 import api from '../services/api';
 import GamificationDrawer from '../components/GamificationDrawer';
 import SupportGatedoBlock from '../components/SupportGatedoBlock';
+import SendMessageModal from '../components/SendMessageModal';
 import {
   countActivePets,
   formatDateBR,
@@ -145,6 +147,7 @@ export default function TutorProfile() {
   const [loading, setLoading] = useState(true);
   const [savingRenewal, setSavingRenewal] = useState(false);
   const [showGamifDrawer, setShowGamifDrawer] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -493,7 +496,7 @@ export default function TutorProfile() {
           />
           <MenuButton
             icon={Crown}
-            title="Gatedo Plus"
+            title="Clube GATEDO"
             subtitle="Planos, founder e gatedo points"
             color="bg-amber-50 text-amber-500"
             onClick={() => navigate('/clube')}
@@ -525,6 +528,13 @@ export default function TutorProfile() {
             subtitle="FAQ e contato direto"
             color="bg-indigo-50 text-indigo-500"
             onClick={() => navigate('/support')}
+          />
+          <MenuButton
+            icon={MessageSquareText}
+            title="Fale com a gente"
+            subtitle="Ideias, problemas e mensagens"
+            color="bg-emerald-50 text-emerald-500"
+            onClick={() => { touch(); setShowMessageModal(true); }}
           />
         </div>
 
@@ -561,6 +571,8 @@ export default function TutorProfile() {
         isOpen={showGamifDrawer}
         onClose={() => setShowGamifDrawer(false)}
       />
+
+      {showMessageModal && <SendMessageModal onClose={() => setShowMessageModal(false)} />}
     </div>
   );
 }

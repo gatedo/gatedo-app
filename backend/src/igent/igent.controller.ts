@@ -1,11 +1,33 @@
 import { Controller, Post, Get, Body, Query, BadRequestException } from '@nestjs/common';
 import { IgentService } from './igent.service';
-import { IgentCreditsService } from './igent-credits.service';
+import { IgentCreditsService, AskDecision, isAskBlocked } from './igent-credits.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationIntegration } from '../gamification/gamification.integration';
 import { NotificationService } from '../notifications/notification.service';
 import { hasClubeAccess } from '../membership/membership.constants';
 import { EventsService } from '../events/events.service';
+import { ContentService } from '../content/content.service';
+
+// Palavras curtas demais/genéricas demais pra valer como palavra-chave de
+// busca no Almanaque — filtra antes de tentar o desvio.
+const ALMANAC_STOPWORDS = new Set([
+  'que', 'com', 'para', 'por', 'uma', 'um', 'meu', 'minha', 'seu', 'sua',
+  'ele', 'ela', 'isso', 'esse', 'essa', 'esta', 'está', 'pode', 'ser',
+  'tem', 'muito', 'como', 'quando', 'onde', 'porque', 'gato', 'gata',
+  'sobre', 'fazer', 'hoje', 'ontem', 'agora', 'ainda', 'mais', 'menos',
+]);
+
+function extractAlmanacKeywords(message: string): string[] {
+  const normalized = message
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ');
+
+  return Array.from(
+    new Set(normalized.split(/\s+/).filter((w) => w.length >= 4 && !ALMANAC_STOPWORDS.has(w))),
+  ).slice(0, 5);
+}
 
 @Controller('igent')
 export class IgentController {
@@ -16,7 +38,25 @@ export class IgentController {
     private readonly gamif: GamificationIntegration,
     private readonly notifService: NotificationService,
     private readonly events: EventsService,
+    private readonly contentService: ContentService,
   ) {}
+
+  private async searchAlmanac(message: string) {
+    const keywords = extractAlmanacKeywords(message);
+    if (keywords.length === 0) return [];
+
+    const results = await Promise.all(
+      keywords.map((q) => this.contentService.listGuideEntries({ q }).catch(() => [])),
+    );
+
+    const seen = new Map<string, any>();
+    for (const batch of results) {
+      for (const entry of batch) {
+        if (!seen.has(entry.slug)) seen.set(entry.slug, entry);
+      }
+    }
+    return Array.from(seen.values()).slice(0, 3);
+  }
 
   @Get('credits')
   async getCredits(@Query('userId') userId?: string, @Query('petId') petId?: string) {
@@ -66,10 +106,16 @@ export class IgentController {
     },
   ) {
     const ownerId = await this.getPetOwnerId(body.petId);
+    let askDecision: AskDecision | null = null;
+
     if (ownerId) {
-      const status = await this.igentCredits.getStatus(ownerId);
-      if (status.blocked) {
-        return { blocked: true, reason: 'MONTHLY_LIMIT', ...status };
+      askDecision = await this.igentCredits.canAsk(ownerId, 'QUESTION');
+      const decision = askDecision;
+      if (isAskBlocked(decision)) {
+        if (decision.reason === 'MONTHLY_LIMIT' || decision.reason === 'DAILY_CAP') {
+          this.events.track({ name: 'ai_limit_hit', userId: ownerId, props: { reason: decision.reason } }).catch(() => {});
+        }
+        return { blocked: true, reason: decision.reason, ...(await this.igentCredits.getStatus(ownerId)) };
       }
     }
 
@@ -84,6 +130,8 @@ export class IgentController {
       await this.igentCredits.logUsage({
         userId: ownerId,
         petId: body.petId,
+        kind: 'QUESTION',
+        source: askDecision?.allowed ? askDecision.source : 'QUOTA',
         provider: result.aiUsage.provider,
         tokensUsed: result.aiUsage.tokensUsed,
       });
@@ -109,24 +157,45 @@ export class IgentController {
       examMode?: boolean;
       examPdfBase64?: string;
       examPdfFilename?: string;
+      skipDeflection?: boolean;
     },
   ) {
     const ownerId = await this.getPetOwnerId(body.petId);
-    if (ownerId) {
-      const status = await this.igentCredits.getStatus(ownerId);
-      if (status.blocked) {
-        return { blocked: true, reason: 'MONTHLY_LIMIT', ...status };
-      }
-    }
+    const kind: 'QUESTION' | 'EXAM_EXPLANATION' = body.examMode || body.examPdfBase64 ? 'EXAM_EXPLANATION' : 'QUESTION';
 
     // Leitura de exame/laudo (PDF ou foto) é exclusiva Clube GATEDO.
-    if ((body.examMode || body.examPdfBase64) && ownerId) {
+    if (kind === 'EXAM_EXPLANATION' && ownerId) {
       const membershipUser = await this.prisma.user.findUnique({
         where: { id: ownerId },
         select: { plan: true, badges: true, planExpires: true, role: true },
       });
       if (!hasClubeAccess(membershipUser)) {
         return { blocked: true, reason: 'CLUBE_REQUIRED', feature: 'IGENT_EXAM_READING' };
+      }
+    }
+
+    let askDecision: AskDecision | null = null;
+    if (ownerId) {
+      askDecision = await this.igentCredits.canAsk(ownerId, kind);
+      const decision = askDecision;
+      if (isAskBlocked(decision)) {
+        if (decision.reason === 'MONTHLY_LIMIT' || decision.reason === 'DAILY_CAP') {
+          this.events.track({ name: 'ai_limit_hit', userId: ownerId, props: { reason: decision.reason, kind } }).catch(() => {});
+        }
+        return { blocked: true, reason: decision.reason, ...(await this.igentCredits.getStatus(ownerId)) };
+      }
+    }
+
+    // Desvio pelo Almanaque — só perguntas de texto puro, sem imagem/exame,
+    // e só na primeira tentativa (não repete se a pessoa já disse "ainda
+    // quero perguntar"). Não consome crédito nenhum.
+    if (kind === 'QUESTION' && !body.skipDeflection && !body.imageBase64 && body.message?.trim()) {
+      const almanacEntries = await this.searchAlmanac(body.message);
+      if (almanacEntries.length > 0) {
+        if (ownerId) {
+          this.events.track({ name: 'almanaque_deflect_shown', userId: ownerId, props: { matches: almanacEntries.length } }).catch(() => {});
+        }
+        return { deflected: true, entries: almanacEntries };
       }
     }
 
@@ -153,11 +222,13 @@ export class IgentController {
       await this.igentCredits.logUsage({
         userId: ownerId,
         petId: body.petId,
+        kind,
+        source: askDecision?.allowed ? askDecision.source : 'QUOTA',
         provider: result.aiUsage.provider,
         tokensUsed: result.aiUsage.tokensUsed,
       });
       const credits = await this.igentCredits.getStatus(ownerId);
-      this.events.track({ name: 'igentvet_question', userId: ownerId, props: { credits_left: credits.remaining } }).catch(() => {});
+      this.events.track({ name: 'igentvet_question', userId: ownerId, props: { credits_left: credits.questionRemaining, kind } }).catch(() => {});
       return { ...result, credits };
     }
 

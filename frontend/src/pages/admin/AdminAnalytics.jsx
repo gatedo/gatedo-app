@@ -53,6 +53,7 @@ export default function AdminAnalytics() {
   const [records, setRecords] = useState([]);
   const [igentUsage, setIgentUsage] = useState([]);
   const [protocolConv, setProtocolConv] = useState([]);
+  const [aiBudget, setAiBudget] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,11 +64,10 @@ export default function AdminAnalytics() {
       api.get('/analytics/records').then((r) => setRecords(r.data)).catch(() => {}),
       api.get('/analytics/igent-usage').then((r) => setIgentUsage(r.data)).catch(() => {}),
       api.get('/analytics/protocol-conversion').then((r) => setProtocolConv(r.data)).catch(() => {}),
+      api.get('/analytics/ai-budget').then((r) => setAiBudget(r.data)).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
 
-  const totalCost = igentUsage.reduce((acc, u) => acc + (u.estimatedCostUsd || 0), 0);
-  const totalQuestions = igentUsage.reduce((acc, u) => acc + (u.questions || 0), 0);
 
   return (
     <div className="space-y-6 pb-10">
@@ -148,15 +148,30 @@ export default function AdminAnalytics() {
         />
       </Section>
 
-      <Section icon={Bot} title="Perguntas ao iGentVet por usuário e custo estimado">
-        <div className="flex gap-4 mb-3">
-          <p className="text-xs font-bold text-gray-500">
-            Total: <span className="text-gray-800">{totalQuestions} perguntas</span>
-          </p>
-          <p className="text-xs font-bold text-gray-500">
-            Custo estimado total: <span className="text-gray-800">US$ {totalCost.toFixed(4)}</span>
-          </p>
-        </div>
+      <Section icon={Bot} title="Custo da IA (iGentVet) — mês atual">
+        {aiBudget && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-xl font-black text-gray-800">US$ {aiBudget.spend.toFixed(2)}</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Gasto do mês</p>
+            </div>
+            <div className={`rounded-xl p-3 text-center ${aiBudget.ratioPercent != null && aiBudget.ratioPercent >= 100 ? 'bg-red-50' : aiBudget.ratioPercent != null && aiBudget.ratioPercent >= 80 ? 'bg-amber-50' : 'bg-gray-50'}`}>
+              <p className={`text-xl font-black ${aiBudget.ratioPercent != null && aiBudget.ratioPercent >= 100 ? 'text-red-600' : aiBudget.ratioPercent != null && aiBudget.ratioPercent >= 80 ? 'text-amber-600' : 'text-gray-800'}`}>
+                {aiBudget.ratioPercent != null ? `${aiBudget.ratioPercent}%` : 'sem teto'}
+              </p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Do orçamento</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-xl font-black text-gray-800">US$ {aiBudget.avgCostPerQuestion.toFixed(4)}</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Custo médio/pergunta</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-xl font-black text-gray-800">{aiBudget.questions}</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Perguntas no mês</p>
+            </div>
+          </div>
+        )}
+        <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mt-4 mb-2">Top 10 por consumo</p>
         <Table
           columns={[
             { key: 'name', label: 'Tutor' },

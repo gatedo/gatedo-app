@@ -16,6 +16,7 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import {
+  AI_CREDIT_PACK,
   FOUNDER_PHASES,
   PLAN_KEYS,
   addMonths,
@@ -25,6 +26,7 @@ import {
 } from '../membership/membership.constants';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { EmailService } from '../email/email.service';
+import { EventsService } from '../events/events.service';
 
 function verificarAssinaturaKiwify(
   payload: string,
@@ -94,6 +96,44 @@ function isRefundOrderEvent(value: any) {
   ].includes(event);
 }
 
+// Cobrança de renovação falhou/atrasou — Kiwify mantém a assinatura em
+// tentativa de cobrança por alguns dias antes de cancelar de vez.
+function isLatePaymentEvent(value: any) {
+  const event = normalizeEventName(value);
+  return [
+    'subscription_late',
+    'subscription_past_due',
+    'order_late',
+    'payment_late',
+    'pagamento_atrasado',
+    'assinatura_atrasada',
+    'atrasado',
+    'late',
+  ].includes(event);
+}
+
+// Assinante cancelou o auto-renew — Kiwify manda esse evento na hora do
+// cancelamento, mas o acesso só cai quando o período já pago vencer
+// (isso já acontece sozinho via planExpires — aqui só é bookkeeping).
+function isCanceledEvent(value: any) {
+  const event = normalizeEventName(value);
+  return [
+    'subscription_canceled',
+    'subscription_cancelled',
+    'assinatura_cancelada',
+    'cancelada',
+    'canceled',
+    'cancelled',
+  ].includes(event);
+}
+
+function isPacoteIaProduct(productId: string, offerName: string, productName: string) {
+  const configuredId = String(process.env.KIWIFY_PACOTE_IA_ID || '').trim();
+  if (configuredId && productId === configuredId) return true;
+  const joined = `${offerName} ${productName}`.toLowerCase();
+  return (joined.includes('pacote') && (joined.includes('pergunta') || joined.includes('ia') || joined.includes('igentvet') || joined.includes('igent')));
+}
+
 function normalizePrice(input: any) {
   const raw = Number(input || 0);
   if (!Number.isFinite(raw) || raw <= 0) return 0;
@@ -147,7 +187,74 @@ export class KiwifyController {
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
     private readonly emailService: EmailService,
+    private readonly events: EventsService,
   ) {}
+
+  // ── Pacote avulso de perguntas (+30, 12 meses) ───────────────────────────
+  private async handlePacotePurchase(email: string, orderId: string | null) {
+    if (orderId) {
+      const existing = await this.prisma.aiCreditPack.findFirst({ where: { externalId: orderId } });
+      if (existing) {
+        this.logger.warn(`Pacote de IA — pedido ${orderId} já processado.`);
+        return { ok: true, duplicate: true };
+      }
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const expiresAt = addMonths(new Date(), AI_CREDIT_PACK.validityMonths);
+
+    if (!user) {
+      await this.prisma.pendingAiCreditPack.create({
+        data: { email, credits: AI_CREDIT_PACK.credits, externalId: orderId },
+      });
+      this.logger.log(`Pacote de IA pendente para ${email} (conta ainda não existe).`);
+      return { ok: true, pending: true };
+    }
+
+    await this.prisma.aiCreditPack.create({
+      data: { userId: user.id, credits: AI_CREDIT_PACK.credits, externalId: orderId, expiresAt },
+    });
+
+    this.events.track({ name: 'pack_purchased', userId: user.id, props: { credits: AI_CREDIT_PACK.credits } }).catch(() => {});
+    this.logger.log(`Pacote de IA (+${AI_CREDIT_PACK.credits} perguntas) liberado para ${email}`);
+    return { ok: true, applied: true, userId: user.id, credits: AI_CREDIT_PACK.credits };
+  }
+
+  // ── Pagamento atrasado: 3 dias de carência, sem derrubar o Clube na hora ──
+  private async handleLatePayment(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, plan: true, planExpires: true },
+    });
+    if (!user || user.plan !== PLAN_KEYS.CLUBE_GATEDO) {
+      return { ok: true, ignored: true };
+    }
+
+    const graceUntil = addMonths(new Date(), 0);
+    graceUntil.setDate(graceUntil.getDate() + 3);
+    const currentExpires = user.planExpires ? new Date(user.planExpires) : null;
+    const nextExpires = currentExpires && currentExpires.getTime() > graceUntil.getTime() ? currentExpires : graceUntil;
+
+    await this.prisma.user.update({ where: { id: user.id }, data: { planExpires: nextExpires } });
+    await this.prisma.subscription.updateMany({ where: { userId: user.id }, data: { status: 'PAST_DUE' } });
+
+    this.events.track({ name: 'clube_payment_late', userId: user.id }).catch(() => {});
+    this.logger.log(`Clube GATEDO em carência (3 dias) para ${email} — cai pra free em ${nextExpires.toISOString()} se não regularizar.`);
+    return { ok: true, graceUntil: nextExpires };
+  }
+
+  // ── Cancelamento: só bookkeeping — o acesso cai sozinho quando planExpires vencer ──
+  private async handleCancellation(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email }, select: { id: true, plan: true } });
+    if (!user || user.plan !== PLAN_KEYS.CLUBE_GATEDO) {
+      return { ok: true, ignored: true };
+    }
+
+    await this.prisma.subscription.updateMany({ where: { userId: user.id }, data: { autoRenew: false, status: 'CANCELED' } });
+    this.events.track({ name: 'clube_canceled', userId: user.id }).catch(() => {});
+    this.logger.log(`Assinatura Clube GATEDO cancelada (auto-renew) para ${email} — acesso segue até o fim do período pago.`);
+    return { ok: true };
+  }
 
   private ensureAdmin(user: any) {
     if (user?.role !== 'ADMIN') {
@@ -358,39 +465,7 @@ export class KiwifyController {
     const customer = data.Customer ?? data.customer ?? data.Client ?? data.client ?? data.buyer ?? {};
     const order = data.Order ?? data.order ?? data.Sale ?? data.sale ?? data;
     const product = data.Product ?? data.product ?? data.Offer ?? data.offer ?? {};
-
-    if (isRefundOrderEvent(detectedEvent)) {
-      const refundEmail = String(firstValue(
-        customer.email,
-        customer.email_address,
-        order.customer_email,
-        order.email,
-        data.customer_email,
-        data.email,
-      )).trim().toLowerCase();
-      const refundOfferName = String(
-        firstValue(order.offer_name, order.offerName, product.offer_name, product.offerName, order.product_name, ''),
-      ).trim();
-      const refundProductName = String(firstValue(product.name, product.product_name, order.product_name, data.product_name, '')).trim();
-      const refundGrant = resolveKiwifyOffer({ offerName: refundOfferName, productName: refundProductName, price: null });
-
-      if (refundEmail && refundGrant?.plan === PLAN_KEYS.CLUBE_GATEDO) {
-        const refundUser = await this.prisma.user.findUnique({ where: { email: refundEmail }, select: { id: true, plan: true } });
-        if (refundUser?.plan === PLAN_KEYS.CLUBE_GATEDO) {
-          await this.prisma.user.update({ where: { id: refundUser.id }, data: { planExpires: new Date() } });
-          this.logger.log(`Reembolso Clube GATEDO processado — acesso encerrado para ${refundEmail}`);
-          return { ok: true, refunded: true, userId: refundUser.id };
-        }
-      }
-
-      this.logger.log(`Webhook de reembolso Kiwify ignorado (nao e Clube GATEDO ou usuario nao encontrado): ${refundEmail || 'sem-email'}`);
-      return { ok: true, ignored: true, event: detectedEvent || null };
-    }
-
-    if (!isApprovedOrderEvent(detectedEvent)) {
-      this.logger.log(`Webhook Kiwify ignorado por evento/status: ${detectedEvent || 'sem-evento'}`);
-      return { ok: true, ignored: true, event: detectedEvent || null };
-    }
+    const productId = String(firstValue(product.product_id, product.id, product.productId, '')).trim();
 
     const email = String(firstValue(
       customer.email,
@@ -400,6 +475,71 @@ export class KiwifyController {
       data.customer_email,
       data.email,
     )).trim().toLowerCase();
+    const orderId = String(firstValue(order.id, order.order_id, order.orderId, data.order_id, data.id)).trim() || null;
+    const offerName = String(
+      firstValue(order.offer_name, order.offerName, product.offer_name, product.offerName, order.product_name, ''),
+    ).trim();
+    const productName = String(firstValue(product.name, product.product_name, order.product_name, data.product_name, '')).trim();
+
+    if (isRefundOrderEvent(detectedEvent)) {
+      if (!email) {
+        this.logger.log('Webhook de reembolso Kiwify ignorado — sem e-mail.');
+        return { ok: true, ignored: true, event: detectedEvent || null };
+      }
+
+      if (isPacoteIaProduct(productId, offerName, productName) || orderId) {
+        // Reembolso do pacote avulso — remove créditos ainda não usados
+        // (não mexe no que já foi gasto, só zera o saldo restante).
+        const pack = orderId ? await this.prisma.aiCreditPack.findFirst({ where: { externalId: orderId, status: 'ACTIVE' } }) : null;
+        if (pack) {
+          await this.prisma.aiCreditPack.update({ where: { id: pack.id }, data: { status: 'REFUNDED', creditsUsed: pack.credits } });
+          this.events.track({ name: 'refund', userId: pack.userId, props: { kind: 'pack' } }).catch(() => {});
+          this.logger.log(`Reembolso do pacote de IA processado — pedido ${orderId}`);
+          return { ok: true, refunded: true, kind: 'pack' };
+        }
+      }
+
+      const refundGrant = resolveKiwifyOffer({ offerName, productName, price: null, productId });
+
+      if (refundGrant?.plan === PLAN_KEYS.CLUBE_GATEDO) {
+        const refundUser = await this.prisma.user.findUnique({ where: { email }, select: { id: true, plan: true } });
+        if (refundUser?.plan === PLAN_KEYS.CLUBE_GATEDO) {
+          await this.prisma.user.update({ where: { id: refundUser.id }, data: { planExpires: new Date() } });
+          await this.prisma.subscription.updateMany({ where: { userId: refundUser.id }, data: { status: 'REFUNDED' } });
+          this.events.track({ name: 'refund', userId: refundUser.id, props: { kind: 'clube' } }).catch(() => {});
+          this.logger.log(`Reembolso Clube GATEDO processado — acesso encerrado para ${email}`);
+          return { ok: true, refunded: true, userId: refundUser.id };
+        }
+      }
+
+      this.logger.log(`Webhook de reembolso Kiwify ignorado (nao mapeado ou usuario nao encontrado): ${email || 'sem-email'}`);
+      return { ok: true, ignored: true, event: detectedEvent || null };
+    }
+
+    if (isLatePaymentEvent(detectedEvent)) {
+      if (!email) return { ok: true, ignored: true, event: detectedEvent || null };
+      return this.handleLatePayment(email);
+    }
+
+    if (isCanceledEvent(detectedEvent)) {
+      if (!email) return { ok: true, ignored: true, event: detectedEvent || null };
+      return this.handleCancellation(email);
+    }
+
+    if (!isApprovedOrderEvent(detectedEvent)) {
+      this.logger.log(`Webhook Kiwify ignorado por evento/status: ${detectedEvent || 'sem-evento'}`);
+      return { ok: true, ignored: true, event: detectedEvent || null };
+    }
+
+    if (!email) {
+      this.logger.warn('Webhook Kiwify aprovado sem email do comprador.');
+      return { ok: false, ignored: true, reason: 'missing_email' };
+    }
+
+    if (isPacoteIaProduct(productId, offerName, productName)) {
+      return this.handlePacotePurchase(email, orderId);
+    }
+
     const name = String(firstValue(
       customer.full_name,
       customer.name,
@@ -408,11 +548,6 @@ export class KiwifyController {
       data.name,
       'Tutor Gatedo',
     )).trim();
-    const orderId = String(firstValue(order.id, order.order_id, order.orderId, data.order_id, data.id)).trim() || null;
-    const offerName = String(
-      firstValue(order.offer_name, order.offerName, product.offer_name, product.offerName, order.product_name, ''),
-    ).trim();
-    const productName = String(firstValue(product.name, product.product_name, order.product_name, data.product_name, '')).trim();
     const price = normalizePrice(firstValue(
       order.amount_total,
       order.amount,
@@ -432,15 +567,11 @@ export class KiwifyController {
       `Webhook Kiwify aprovado recebido: ${email || 'sem-email'} | pedido ${orderId || 'sem-id'} | ${offerName || productName || 'sem-oferta'} | R$ ${price}`,
     );
 
-    if (!email) {
-      this.logger.warn('Webhook Kiwify aprovado sem email do comprador.');
-      return { ok: false, ignored: true, reason: 'missing_email' };
-    }
-
     const grant = resolveKiwifyOffer({
       offerName,
       productName,
       price,
+      productId,
     });
 
     if (!grant) {
@@ -464,9 +595,13 @@ export class KiwifyController {
     const existingUser = email
       ? await this.prisma.user.findUnique({
           where: { email },
-          select: { id: true, email: true, name: true },
+          select: { id: true, email: true, name: true, plan: true, planExpires: true },
         })
       : null;
+    const wasAlreadyActiveClube =
+      existingUser?.plan === PLAN_KEYS.CLUBE_GATEDO &&
+      !!existingUser?.planExpires &&
+      new Date(existingUser.planExpires).getTime() > Date.now();
 
     const expiresAt =
       Number(grant.cycleMonths || 0) > 0
@@ -569,6 +704,12 @@ export class KiwifyController {
         ));
         await this.prisma.offerEvent.create({
           data: { userId: existingUser.id, surface: 'CLUBE_GATEDO', offerKey, action: 'CONVERT', metadata: { orderId, planType: grant.planType } },
+        }).catch(() => {});
+
+        this.events.track({
+          name: wasAlreadyActiveClube ? 'clube_renewed' : 'clube_subscribed',
+          userId: existingUser.id,
+          props: { plan: grant.planType },
         }).catch(() => {});
       }
 

@@ -10,6 +10,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import useSensory from '../hooks/useSensory';
 import api from '../services/api';
+import { track } from '../utils/track';
 import OfferCard from '../components/offers/OfferCard';
 import ClubeGate from '../components/ClubeGate';
 import { brandAssets } from '../brand/assets';
@@ -731,6 +732,8 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory, skipAutoSta
   const [resetNotified, setResetNotified] = useState(false);
   const [painOffer, setPainOffer] = useState(null);
   const painOfferCheckedRef = useRef(null);
+  const [lastQuestionText, setLastQuestionText] = useState('');
+  const skipDeflectionRef = useRef(false);
 
   // Saldo de perguntas do mês — buscado uma vez e atualizado a cada resposta da IA
   useEffect(() => {
@@ -1345,7 +1348,7 @@ useEffect(() => {
     return replies.slice(0, 7);
   };
 
-  const handleSend = async (forcedText = null) => {
+  const handleSend = async (forcedText = null, skipEcho = false) => {
     const text = (forcedText ?? input).trim();
     if (!text && !mediaFile) return;
     if (awaitingMoreQ || sessionClosed || credits?.blocked) return; // bloqueado
@@ -1356,7 +1359,7 @@ useEffect(() => {
     // Monta mensagem do usuário
     const userMsg = { sender: 'user', type: 'text', text, media: mediaFile || null };
     setMediaFile(null);
-    addMsg(userMsg);
+    if (!skipEcho) addMsg(userMsg);
 
     setIsTyping(true);
     try {
@@ -1417,6 +1420,9 @@ useEffect(() => {
         payload.audioTranscript = userMsg.media?.transcript || '[áudio enviado]';
       }
 
+      if (skipDeflectionRef.current) payload.skipDeflection = true;
+      skipDeflectionRef.current = false;
+
       const res = await api.post('/igent/chat', payload);
       setIsTyping(false);
 
@@ -1428,6 +1434,13 @@ useEffect(() => {
         }
         return;
       }
+
+      if (res.data.deflected) {
+        setLastQuestionText(text);
+        addMsg({ sender: 'bot', type: 'almanac_deflect', entries: res.data.entries || [] });
+        return;
+      }
+
       if (res.data.credits) setCredits(res.data.credits);
 
       const botText = res.data.text;
@@ -1454,6 +1467,15 @@ useEffect(() => {
           ? 'Nao consegui analisar a foto agora. Pode tentar reenviar a imagem ou me descrever o que voce percebeu nela?'
           : 'Desculpe, a conexao oscilou. Pode repetir?',
       });
+    }
+  };
+
+  const handleDeflectAction = (outcome) => {
+    touch();
+    track('almanaque_deflect_resolved', { outcome });
+    if (outcome === 'continue' && lastQuestionText) {
+      skipDeflectionRef.current = true;
+      handleSend(lastQuestionText, true);
     }
   };
 
@@ -1989,6 +2011,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
                 onSetMedAlert={(data) => setMedAlertModal({ ...data, hours: 8 })}
                 onQuickReply={handleSend}
                 onFeedback={handleFeedback}
+                onDeflectAction={handleDeflectAction}
               />
             </motion.div>
           ))}
@@ -2106,28 +2129,37 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             className="bg-white rounded-[26px] p-5 shadow-2xl border border-gray-100">
             <p className="text-center text-2xl mb-1">🐾</p>
             <p className="text-center font-black text-gray-800 text-sm mb-1.5">
-              Suas perguntas ao iGentVet deste mês acabaram
+              {credits?.reason === 'DAILY_CAP'
+                ? 'Você chegou no limite diário de perguntas'
+                : credits?.reason === 'BUDGET_PAUSED'
+                  ? `O iGentVet está descansando${creditsResetLabel ? ` até ${creditsResetLabel}` : ''}`
+                  : `Suas ${credits?.limit ?? ''} perguntas deste mês acabaram`}
             </p>
             <p className="text-center text-[12px] font-medium text-gray-500 leading-relaxed mb-4">
-              Cada resposta do iGentVet usa uma consulta de IA de verdade, com custo real — por isso existe um teto mensal.
-              {creditsResetLabel && <> Ele renova em <b>{creditsResetLabel}</b>.</>}
+              {credits?.reason === 'DAILY_CAP'
+                ? 'É só pra manter o app saudável pra todo mundo — volta amanhã.'
+                : credits?.reason === 'BUDGET_PAUSED'
+                  ? 'Muita gente usou o iGentVet esse mês. Quem é do Clube ou tem pacote avulso continua funcionando normalmente.'
+                  : <>Cada resposta do iGentVet usa uma consulta de IA de verdade, com custo real.{creditsResetLabel && <> Renova em <b>{creditsResetLabel}</b>.</>}</>}
             </p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => { touch(); navigate('/clube'); }}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-[18px] font-black text-sm text-white"
-                style={{ background: `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}>
-                <Sparkles size={16} /> Ver como ganhar mais GPTS
-              </button>
-              <button
-                onClick={handleNotifyReset}
-                disabled={notifyingReset || resetNotified}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-[18px] font-black text-sm"
-                style={{ background: '#F4F3FF', color: C.purple }}>
-                <Clock size={16} />
-                {resetNotified ? 'Vamos te avisar!' : notifyingReset ? 'Só um momento...' : 'Avisar quando renovar'}
-              </button>
-            </div>
+            {credits?.reason !== 'DAILY_CAP' && (
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => { touch(); setClubeGateOpen(true); }}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-[18px] font-black text-sm text-white"
+                  style={{ background: `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}>
+                  <Sparkles size={16} /> Assinar o Clube ou comprar pacote
+                </button>
+                <button
+                  onClick={handleNotifyReset}
+                  disabled={notifyingReset || resetNotified}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-[18px] font-black text-sm"
+                  style={{ background: '#F4F3FF', color: C.purple }}>
+                  <Clock size={16} />
+                  {resetNotified ? 'Vamos te avisar!' : notifyingReset ? 'Só um momento...' : 'Avisar quando renovar'}
+                </button>
+              </div>
+            )}
           </motion.div>
         </div>
       )}
@@ -2260,7 +2292,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
 }
 
 // ─── BOLHA DE MENSAGEM ────────────────────────────────────────────────────────
-function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback }) {
+function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback, onDeflectAction }) {
   const [triageAnswers, setTriageAnswers] = useState({});
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackChoice, setFeedbackChoice] = useState(null);
@@ -2792,6 +2824,44 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback 
               {reply.label}
             </button>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.type === 'almanac_deflect') {
+    return (
+      <div className="w-full bg-white rounded-[22px] p-4 shadow-sm border" style={{ borderColor: `${C.purple}20` }}>
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-2">Achamos isso no Almanaque</p>
+        <div className="space-y-2 mb-3">
+          {(msg.entries || []).map((entry) => (
+            <a
+              key={entry.slug}
+              href={`/guia/${entry.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="block rounded-2xl px-3.5 py-3 bg-[#F5F1FF] border border-[#8B4AFF]/15"
+            >
+              <p className="text-[13px] font-black text-gray-800">{entry.title}</p>
+              {entry.excerpt && <p className="text-[11px] font-medium text-gray-500 mt-0.5 line-clamp-2">{entry.excerpt}</p>}
+            </a>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onDeflectAction?.('resolved')}
+            className="flex-1 py-2.5 rounded-2xl text-xs font-black"
+            style={{ background: '#F0FDF4', color: '#16A34A' }}
+          >
+            Isso responde
+          </button>
+          <button
+            onClick={() => onDeflectAction?.('continue')}
+            className="flex-1 py-2.5 rounded-2xl text-xs font-black"
+            style={{ background: '#F4F3FF', color: C.purple }}
+          >
+            Ainda quero perguntar
+          </button>
         </div>
       </div>
     );

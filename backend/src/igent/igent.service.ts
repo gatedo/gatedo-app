@@ -3,10 +3,28 @@ import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
 import pdfParse from 'pdf-parse';
 import { buildFelineClinicalAlmanacPrompt } from './feline-clinical-almanac';
+const sharp = require('sharp');
 
 // Teto de caracteres do texto extraído do PDF de exame que entra no prompt —
 // protege contra laudos gigantes estourando o limite de contexto/custo.
 const EXAM_PDF_TEXT_CHAR_LIMIT = 12000;
+
+// Foto de exame comprimida/redimensionada antes de ir pro modelo de visão —
+// controla custo de tokens de imagem sem perder legibilidade de texto/valores.
+async function compressImageForAI(base64: string): Promise<{ base64: string; mimeType: string }> {
+  try {
+    const clean = base64.includes(',') ? base64.split(',').pop() || '' : base64;
+    const buffer = Buffer.from(clean, 'base64');
+    const optimized = await sharp(buffer)
+      .rotate()
+      .resize(1280, 1280, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 78 })
+      .toBuffer();
+    return { base64: optimized.toString('base64'), mimeType: 'image/jpeg' };
+  } catch {
+    return { base64, mimeType: 'image/jpeg' };
+  }
+}
 
 // Retorno normalizado de qualquer provider
 interface AITextResult {
@@ -1050,11 +1068,12 @@ ${examPdfText}
 TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' : 'Avalie a imagem enviada pelo tutor.')}`;
 
     try {
+      const compressedImage = hasImage ? await compressImageForAI(visualInput?.imageBase64 || '') : null;
       const { text, provider, tokensUsed } = hasImage
         ? await this.callAIVision(
             fullPrompt,
-            visualInput?.imageBase64 || '',
-            visualInput?.imageMimeType || 'image/jpeg',
+            compressedImage?.base64 || '',
+            compressedImage?.mimeType || 'image/jpeg',
             0.35,
             visualInput?.referenceImages || [],
           )

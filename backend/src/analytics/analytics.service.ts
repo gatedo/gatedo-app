@@ -204,7 +204,31 @@ export class AnalyticsService {
         totalTokens: g._sum.tokensUsed || 0,
         estimatedCostUsd: Math.round((g._sum.costEstimate || 0) * 10000) / 10000,
       }))
-      .sort((a, b) => b.questions - a.questions);
+      .sort((a, b) => b.estimatedCostUsd - a.estimatedCostUsd)
+      .slice(0, 10);
+  }
+
+  // 7. Gasto do mês com IA, custo médio por pergunta e % do teto global.
+  async aiBudget() {
+    const budget = Number(process.env.AI_MONTHLY_BUDGET || '0');
+    const start = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+
+    const [spendAgg, countAgg] = await Promise.all([
+      this.prisma.igentUsageLog.aggregate({ where: { createdAt: { gte: start } }, _sum: { costEstimate: true } }),
+      this.prisma.igentUsageLog.count({ where: { createdAt: { gte: start } } }),
+    ]);
+
+    const spend = spendAgg._sum.costEstimate || 0;
+    const questions = countAgg;
+    const avgCostPerQuestion = questions ? spend / questions : 0;
+
+    return {
+      spend: Math.round(spend * 10000) / 10000,
+      budget,
+      ratioPercent: budget ? Math.round((spend / budget) * 1000) / 10 : null,
+      questions,
+      avgCostPerQuestion: Math.round(avgCostPerQuestion * 10000) / 10000,
+    };
   }
 
   // 6. Conversão por produto — protocolos (inscritos → concluídos → resolvidos)

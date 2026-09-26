@@ -48,4 +48,10 @@ export class AnalyticsController {
     this.ensureAdmin(req.user);
     return this.analytics.protocolConversion();
   }
+
+  @Get('ai-budget')
+  aiBudget(@Req() req: any) {
+    this.ensureAdmin(req.user);
+    return this.analytics.aiBudget();
+  }
 }

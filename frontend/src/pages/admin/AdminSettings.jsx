@@ -272,6 +272,10 @@ const CLUBE_FIELDS = [
   { key: 'CLUBE_ANNUAL_PRICE_CENTAVOS', label: 'Preço anual (centavos)', placeholder: 'Ex.: 19900' },
   { key: 'CLUBE_ANNUAL_KIWIFY_URL', label: 'Link de checkout Kiwify — anual', placeholder: 'https://pay.kiwify.com.br/...' },
   { key: 'CLUBE_COMMUNITY_LINK', label: 'Link do grupo/comunidade exclusiva do Clube', placeholder: 'https://chat.whatsapp.com/... ou https://t.me/...' },
+  { key: 'CLUBE_MANAGE_URL', label: 'Link pra assinante gerenciar a assinatura', placeholder: 'https://dashboard.kiwify.com.br/...' },
+  { key: 'CLUBE_VENDAS_ABERTAS', label: 'Vendas abertas? (true/false)', placeholder: 'true — false mostra "Me avise quando abrir"' },
+  { key: 'PACOTE_IA_PRICE_CENTAVOS', label: 'Preço do pacote avulso de perguntas (centavos)', placeholder: 'Ex.: 990' },
+  { key: 'PACOTE_IA_KIWIFY_URL', label: 'Link de checkout Kiwify — pacote avulso', placeholder: 'https://pay.kiwify.com.br/...' },
 ];
 
 function SettingsFieldsCard({ icon: Icon, title, hint, fields }) {

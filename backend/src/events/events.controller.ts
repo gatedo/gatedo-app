@@ -22,6 +22,10 @@ const ALLOWED_CLIENT_EVENTS = new Set([
   'whatsapp_group_click',
   'pix_support_click',
   'reminder_opened',
+  'clube_viewed',
+  'clube_checkout_click',
+  'pack_checkout_click',
+  'almanaque_deflect_resolved',
 ]);
 
 @Controller('events')

@@ -17,6 +17,7 @@ import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import ClubeGate from '../components/ClubeGate';
+import ClubeOfferCard from '../components/ClubeOfferCard';
 import {
   countActivePets,
   formatDateBR,
@@ -27,6 +28,7 @@ import {
   normalizeBadges,
   TUTOR_BADGE_META,
 } from '../utils/membershipMeta';
+import { isFounderTierUser } from '../utils/membershipMeta';
 
 // ── StatTile ──────────────────────────────────────────────────────────────
 
@@ -150,17 +152,25 @@ export default function Clube() {
 
   const [profile, setProfile] = useState(null);
   const [communityLink, setCommunityLink] = useState(null);
+  const [manageUrl, setManageUrl] = useState(null);
   const [gateFeature, setGateFeature] = useState(null);
+  const [aiCredits, setAiCredits] = useState(null);
 
   useEffect(() => {
     if (!user?.id) return;
     api.get(`/users/${user.id}/profile`)
       .then((r) => setProfile(r.data || null))
       .catch(() => {});
+    api.get('/igent/credits', { params: { userId: user.id } })
+      .then((r) => setAiCredits(r.data || null))
+      .catch(() => {});
   }, [user?.id]);
 
   useEffect(() => {
-    api.get('/settings/public').then((r) => setCommunityLink(r.data?.CLUBE_COMMUNITY_LINK || null)).catch(() => {});
+    api.get('/settings/public').then((r) => {
+      setCommunityLink(r.data?.CLUBE_COMMUNITY_LINK || null);
+      setManageUrl(r.data?.CLUBE_MANAGE_URL || null);
+    }).catch(() => {});
   }, []);
 
   const effectiveUser = profile || user || {};
@@ -354,25 +364,45 @@ export default function Clube() {
           <div className="rounded-[32px] p-5 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #181120 0%, #4B2AAF 55%, #8B4AFF 150%)' }}>
             <div className="flex items-center gap-2 mb-2">
               <Crown size={16} className="text-[#ebfc66]" />
-              <p className="text-[10px] font-black uppercase tracking-[3px] text-[#ebfc66]">Você é Clube GATEDO</p>
+              <p className="text-[10px] font-black uppercase tracking-[3px] text-[#ebfc66]">
+                {isFounderTierUser(effectiveUser) ? 'Você já é do Clube · vitalício' : 'Você já é do Clube'}
+              </p>
             </div>
-            <p className="text-[12px] font-medium text-white/70 leading-relaxed">
+            <p className="text-[12px] font-medium text-white/70 leading-relaxed mb-4">
               iGentVet ampliado com leitura de exames, destaque no Comunigato, ranking, grupo exclusivo e selo do Clube — tudo liberado.
             </p>
+
+            {aiCredits && (
+              <div className="grid grid-cols-2 gap-2.5 mb-1">
+                <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                  <p className="text-lg font-black">{aiCredits.questionRemaining ?? '—'}<span className="text-[11px] font-bold text-white/50">/{aiCredits.questionLimit ?? '—'}</span></p>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-white/50">Perguntas restantes</p>
+                </div>
+                <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                  <p className="text-lg font-black">{aiCredits.examRemaining ?? '—'}<span className="text-[11px] font-bold text-white/50">/{aiCredits.examLimit ?? '—'}</span></p>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-white/50">Exames restantes</p>
+                </div>
+              </div>
+            )}
+            {aiCredits?.resetsAt && (
+              <p className="text-[10px] font-bold text-white/50 mt-2">Renova em {formatDateBR(aiCredits.resetsAt)}</p>
+            )}
+
+            {!isFounderTierUser(effectiveUser) && manageUrl && (
+              <a
+                href={manageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block mt-4 text-[11px] font-black underline text-white/70"
+              >
+                Gerenciar assinatura
+              </a>
+            )}
           </div>
         ) : (
-          <button
-            onClick={() => { touch(); setGateFeature('CLUBE_PAGE_CTA'); }}
-            className="w-full text-left rounded-[32px] p-5 text-white relative overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #181120 0%, #4B2AAF 55%, #8B4AFF 150%)' }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Crown size={16} className="text-[#ebfc66]" />
-              <p className="text-[10px] font-black uppercase tracking-[3px] text-[#ebfc66]">Clube GATEDO</p>
-            </div>
-            <p className="text-[13px] font-black leading-relaxed mb-1">iGentVet ampliado, destaque, ranking e grupo exclusivo</p>
-            <p className="text-[12px] font-medium text-white/60">Toque para ver os planos e assinar</p>
-          </button>
+          <div className="bg-white rounded-[32px] p-5 border border-gray-100 shadow-sm">
+            <ClubeOfferCard origin="CLUBE_PAGE" />
+          </div>
         )}
 
         {/* ── Ranking de tutores ── */}
