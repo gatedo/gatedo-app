@@ -1017,7 +1017,7 @@ export default function Home() {
         <UpcomingCareBlock onWeightFeito={(catId) => setWeightModalCat(cats.find((c) => c.id === catId) || null)} />
 
         {/* 2 ─ O que precisa de você hoje */}
-        <NeedsTodaySection cats={cats} enrollments={enrollments} onOpenWeight={setWeightModalCat} />
+        {!loading && <NeedsTodaySection cats={cats} enrollments={enrollments} onOpenWeight={setWeightModalCat} />}
 
         {/* 3 ─ Registro rápido */}
         <QuickRecordSection cats={cats} onOpenWeight={setWeightModalCat} />

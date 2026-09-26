@@ -175,6 +175,21 @@ export class UsersService {
       select: { onboardingStep: true, onboardingCompletedAt: true },
     });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    // Contas que já têm gato cadastrado (inclusive de antes desse campo
+    // existir) nunca devem ver o convite de onboarding de novo — completa
+    // retroativamente em vez de ficar pedindo pra sempre.
+    if (!user.onboardingCompletedAt) {
+      const hasActivePet = await this.prisma.pet.findFirst({
+        where: { ownerId: userId, isMemorial: false, isArchived: false },
+        select: { id: true },
+      });
+      if (hasActivePet) {
+        const result = await this.completeOnboarding(userId);
+        return { step: 5, completedAt: new Date(), badge: result.badge };
+      }
+    }
+
     return { step: user.onboardingStep, completedAt: user.onboardingCompletedAt };
   }
 
