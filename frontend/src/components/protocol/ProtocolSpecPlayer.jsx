@@ -410,8 +410,11 @@ export default function ProtocolSpecPlayer({ slug, initialCatId, onBack }) {
   // ── Trancado: apresentação + botão de compra externa ──────────────────────
   if (locked) {
     const priceLabel = preview?.preco_centavos ? `R$ ${(preview.preco_centavos / 100).toFixed(2).replace('.', ',')}` : null;
-    const checkoutUrl = preview?.produto_externo_id && preview.produto_externo_id !== 'DEFINIR_ID_KIWIFY'
-      ? `https://pay.kiwify.com.br/${preview.produto_externo_id}`
+    const externalId = preview?.produto_externo_id?.trim();
+    // Campo aceita tanto o código (ex.: kjNHRCA) quanto a URL completa colada
+    // do painel Kiwify — evita duplicar o domínio se já vier com https://.
+    const checkoutUrl = externalId && externalId !== 'DEFINIR_ID_KIWIFY'
+      ? (/^https?:\/\//i.test(externalId) ? externalId : `https://pay.kiwify.com.br/${externalId}`)
       : null;
     return (
       <Screen>
