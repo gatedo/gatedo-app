@@ -4,6 +4,8 @@ import { EmailService } from '../email/email.service';
 import {
   IGENT_DAILY_QUESTION_CAP,
   getUserEntitlements,
+  addMonths,
+  AI_CREDIT_PACK,
 } from '../membership/membership.constants';
 
 /**
@@ -89,6 +91,37 @@ export class IgentCreditsService {
       select: { credits: true, creditsUsed: true },
     });
     return packs.reduce((sum, p) => sum + Math.max(0, p.credits - p.creditsUsed), 0);
+  }
+
+  // Pacote avulso comprado por alguém que ainda não tinha conta — o webhook
+  // da Kiwify grava em PendingAiCreditPack por e-mail; isso aplica pro
+  // usuário assim que ele se cadastra ou loga com esse e-mail, espelhando
+  // EntitlementsService#promotePending (mesmo padrão, tabela diferente).
+  // Validade conta a partir da COMPRA (createdAt), não de quando a pessoa
+  // resolveu criar a conta — é o que ela pagou.
+  async promotePendingAiCreditPacks(userId: string, email: string): Promise<void> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const pending = await this.prisma.pendingAiCreditPack.findMany({
+      where: { email: normalizedEmail },
+    });
+    if (pending.length === 0) return;
+
+    await Promise.all(
+      pending.map((p) =>
+        this.prisma.aiCreditPack.create({
+          data: {
+            userId,
+            credits: p.credits,
+            externalId: p.externalId,
+            purchasedAt: p.createdAt,
+            expiresAt: addMonths(p.createdAt, AI_CREDIT_PACK.validityMonths),
+          },
+        }),
+      ),
+    );
+
+    await this.prisma.pendingAiCreditPack.deleteMany({ where: { email: normalizedEmail } });
+    this.logger.log(`${pending.length} pacote(s) de IA pendente(s) promovido(s) para ${normalizedEmail}`);
   }
 
   async getStatus(userId: string): Promise<IgentCreditsStatus> {

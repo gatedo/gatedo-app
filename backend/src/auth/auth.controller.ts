@@ -1,12 +1,14 @@
 import { Controller, Post, Get, Body, Query, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
+import { IgentCreditsService } from '../igent/igent-credits.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly entitlements: EntitlementsService,
+    private readonly igentCredits: IgentCreditsService,
   ) {}
 
   @Post('register')
@@ -14,6 +16,7 @@ export class AuthController {
     const result = await this.authService.register(body);
     if (result?.user?.id && result?.user?.email) {
       this.entitlements.promotePending(result.user.id, result.user.email).catch(() => {});
+      this.igentCredits.promotePendingAiCreditPacks(result.user.id, result.user.email).catch(() => {});
     }
     return result;
   }
@@ -23,6 +26,7 @@ export class AuthController {
     const result = await this.authService.login(body);
     if (result?.user?.id && result?.user?.email) {
       this.entitlements.promotePending(result.user.id, result.user.email).catch(() => {});
+      this.igentCredits.promotePendingAiCreditPacks(result.user.id, result.user.email).catch(() => {});
     }
     return result;
   }

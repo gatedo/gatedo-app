@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CloudflareService } from '../cloudflare/cloudflare.service';
 import { GamificationModule } from '../gamification/gamification.module';
 import { EventsModule } from '../events/events.module';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -17,6 +18,6 @@ import { EventsModule } from '../events/events.module';
     EventsModule,
   ],
   controllers: [PetsController],
-  providers: [PetsService, PrismaService, CloudflareService],
+  providers: [PetsService, PrismaService, CloudflareService, JwtAuthGuard],
 })
 export class PetsModule {}

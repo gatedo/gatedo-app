@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { AdminInviteController } from './admin-invite.controller';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { EventsModule } from '../events/events.module';
+import { IgentCreditsService } from '../igent/igent-credits.service';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { EventsModule } from '../events/events.module';
     }),
   ],
   controllers: [AuthController, AdminInviteController],
-  providers: [AuthService, JwtAuthGuard],
+  providers: [AuthService, JwtAuthGuard, IgentCreditsService],
   exports: [AuthService, JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}

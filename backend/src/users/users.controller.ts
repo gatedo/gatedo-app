@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors, UseGuards, Req, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CloudflareService } from '../cloudflare/cloudflare.service';
@@ -13,8 +13,11 @@ import {
   getRenewalDiscountPercent,
   normalizeBadges,
 } from '../membership/membership.constants';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { assertIsSelfOrAdmin } from '../common/ownership.util';
 
 @Controller('users')
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
@@ -59,69 +62,82 @@ export class UsersController {
   }
 
   @Get('stats')
-  async getStats() {
+  async getStats(@Req() req: any) {
+    if (req.user.role !== 'ADMIN') throw new ForbiddenException();
     return this.usersService.getDashboardStats();
   }
 
   @Post()
-  create(@Body() createUserDto: Prisma.UserCreateInput) {
+  create(@Req() req: any, @Body() createUserDto: Prisma.UserCreateInput) {
+    if (req.user.role !== 'ADMIN') throw new ForbiddenException();
     return this.usersService.create(createUserDto);
   }
 
   @Get()
-  findAll() {
+  findAll(@Req() req: any) {
+    if (req.user.role !== 'ADMIN') throw new ForbiddenException();
     return this.usersService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Req() req: any, @Param('id') id: string) {
+    assertIsSelfOrAdmin(id, req.user);
     return this.usersService.findOne(id);
   }
 
   // ── Bloco "Apoie o GATEDO" — Perfil + pós-PDF ────────────────────────────
   @Get(':id/donation-state')
-  getDonationState(@Param('id') id: string) {
+  getDonationState(@Req() req: any, @Param('id') id: string) {
+    assertIsSelfOrAdmin(id, req.user);
     return this.usersService.getDonationState(id);
   }
 
   @Post(':id/donation/pdf-generated')
-  notifyDonationAfterPdf(@Param('id') id: string) {
+  notifyDonationAfterPdf(@Req() req: any, @Param('id') id: string) {
+    assertIsSelfOrAdmin(id, req.user);
     return this.usersService.notifyDonationAfterPdf(id);
   }
 
   @Post(':id/donation/dismiss')
-  dismissDonation(@Param('id') id: string) {
+  dismissDonation(@Req() req: any, @Param('id') id: string) {
+    assertIsSelfOrAdmin(id, req.user);
     return this.usersService.dismissDonationPrompt(id);
   }
 
   // ── Tour de boas-vindas ──────────────────────────────────────────────────
   @Get(':id/onboarding')
-  getOnboarding(@Param('id') id: string) {
+  getOnboarding(@Req() req: any, @Param('id') id: string) {
+    assertIsSelfOrAdmin(id, req.user);
     return this.usersService.getOnboardingState(id);
   }
 
   @Patch(':id/onboarding')
-  advanceOnboarding(@Param('id') id: string, @Body() body: { step: number }) {
+  advanceOnboarding(@Req() req: any, @Param('id') id: string, @Body() body: { step: number }) {
+    assertIsSelfOrAdmin(id, req.user);
     return this.usersService.advanceOnboarding(id, body.step);
   }
 
   @Post(':id/onboarding/complete')
-  completeOnboarding(@Param('id') id: string) {
+  completeOnboarding(@Req() req: any, @Param('id') id: string) {
+    assertIsSelfOrAdmin(id, req.user);
     return this.usersService.completeOnboarding(id);
   }
 
   // ── Preferências de lembretes (Perfil) ───────────────────────────────────
   @Patch(':id/reminder-preferences')
   updateReminderPreferences(
+    @Req() req: any,
     @Param('id') id: string,
     @Body() body: { remindersPushEnabled?: boolean; remindersEmailEnabled?: boolean; reminderPreferredTime?: 'MORNING' | 'AFTERNOON' },
   ) {
+    assertIsSelfOrAdmin(id, req.user);
     return this.usersService.updateReminderPreferences(id, body);
   }
 
   // Endpoint usado pelo Store.jsx para buscar pontos
  @Get(':id/points')
-async getPoints(@Param('id') id: string) {
+async getPoints(@Req() req: any, @Param('id') id: string) {
+  assertIsSelfOrAdmin(id, req.user);
   const wallet = await this.prisma.userCredits.findUnique({
     where: { userId: id },
   });
@@ -134,7 +150,8 @@ async getPoints(@Param('id') id: string) {
 }
 
   @Get(':id/profile')
-  async getProfile(@Param('id') id: string) {
+  async getProfile(@Req() req: any, @Param('id') id: string) {
+    assertIsSelfOrAdmin(id, req.user);
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: {
@@ -235,10 +252,16 @@ async getPoints(@Param('id') id: string) {
   @Patch(':id')
   @UseInterceptors(FileFieldsInterceptor([{ name: 'file', maxCount: 1 }]))
   async update(
+    @Req() req: any,
     @Param('id') id: string,
     @UploadedFiles() files: { file?: Express.Multer.File[] },
     @Body() body: any,
   ) {
+    assertIsSelfOrAdmin(id, req.user);
+    // Campos sensiveis (plano, role, badges, pontos, assinatura) so o ADMIN
+    // pode mexer — usuario comum so edita o proprio perfil basico, senao
+    // qualquer um logado poderia se promover a ADMIN/PRIME por essa rota.
+    const isAdmin = req.user.role === 'ADMIN';
     const dataToUpdate: any = {};
     const subscriptionUpdate: any = {};
     let shouldUpdateSubscription = false;
@@ -248,60 +271,63 @@ async getPoints(@Param('id') id: string) {
     if (body.phone !== undefined) dataToUpdate.phone = body.phone || null;
     if (body.tutorTitle !== undefined && String(body.tutorTitle).trim()) dataToUpdate.tutorTitle = this.normalizeTutorTitle(body.tutorTitle);
     if (body.email !== undefined && String(body.email).trim()) dataToUpdate.email = String(body.email).trim().toLowerCase();
-    if (body.status !== undefined && String(body.status).trim()) dataToUpdate.status = String(body.status).trim();
-    if (body.plan !== undefined && String(body.plan).trim()) dataToUpdate.plan = String(body.plan).trim();
-    if (body.role !== undefined && String(body.role).trim()) dataToUpdate.role = String(body.role).trim();
 
-    const parsedBadges = this.parseBadges(body.badges);
-    if (parsedBadges !== undefined) {
-      dataToUpdate.badges = parsedBadges;
-    }
+    if (isAdmin) {
+      if (body.status !== undefined && String(body.status).trim()) dataToUpdate.status = String(body.status).trim();
+      if (body.plan !== undefined && String(body.plan).trim()) dataToUpdate.plan = String(body.plan).trim();
+      if (body.role !== undefined && String(body.role).trim()) dataToUpdate.role = String(body.role).trim();
 
-    const parsedXpt = body.xpt ?? body.xp;
-    if (parsedXpt !== undefined) {
-      const safeXpt = Math.max(0, Number(parsedXpt || 0));
-      dataToUpdate.xpt = safeXpt;
-      dataToUpdate.level = calcTutorLevelMeta(safeXpt).rank;
-    }
+      const parsedBadges = this.parseBadges(body.badges);
+      if (parsedBadges !== undefined) {
+        dataToUpdate.badges = parsedBadges;
+      }
 
-    const parsedGpts = body.gpts ?? body.gatedoPoints;
-    if (parsedGpts !== undefined) {
-      dataToUpdate.gatedoPoints = Math.max(0, Number(parsedGpts || 0));
-    }
+      const parsedXpt = body.xpt ?? body.xp;
+      if (parsedXpt !== undefined) {
+        const safeXpt = Math.max(0, Number(parsedXpt || 0));
+        dataToUpdate.xpt = safeXpt;
+        dataToUpdate.level = calcTutorLevelMeta(safeXpt).rank;
+      }
 
-    const parsedPlanExpires = this.parseOptionalDate(body.planExpires ?? body.subscriptionExpiresAt);
-    if (parsedPlanExpires !== undefined) {
-      dataToUpdate.planExpires = parsedPlanExpires;
-      subscriptionUpdate.expiresAt = parsedPlanExpires;
-      shouldUpdateSubscription = true;
-    }
+      const parsedGpts = body.gpts ?? body.gatedoPoints;
+      if (parsedGpts !== undefined) {
+        dataToUpdate.gatedoPoints = Math.max(0, Number(parsedGpts || 0));
+      }
 
-    if (body.subscriptionStatus !== undefined && String(body.subscriptionStatus).trim()) {
-      subscriptionUpdate.status = String(body.subscriptionStatus).trim();
-      shouldUpdateSubscription = true;
-    }
+      const parsedPlanExpires = this.parseOptionalDate(body.planExpires ?? body.subscriptionExpiresAt);
+      if (parsedPlanExpires !== undefined) {
+        dataToUpdate.planExpires = parsedPlanExpires;
+        subscriptionUpdate.expiresAt = parsedPlanExpires;
+        shouldUpdateSubscription = true;
+      }
 
-    if (body.subscriptionPlanType !== undefined && String(body.subscriptionPlanType).trim()) {
-      subscriptionUpdate.planType = String(body.subscriptionPlanType).trim();
-      shouldUpdateSubscription = true;
-    } else if (body.plan !== undefined && String(body.plan).trim()) {
-      subscriptionUpdate.planType = String(body.plan).trim();
-      shouldUpdateSubscription = true;
-    }
+      if (body.subscriptionStatus !== undefined && String(body.subscriptionStatus).trim()) {
+        subscriptionUpdate.status = String(body.subscriptionStatus).trim();
+        shouldUpdateSubscription = true;
+      }
 
-    if (body.subscriptionProvider !== undefined && String(body.subscriptionProvider).trim()) {
-      subscriptionUpdate.provider = String(body.subscriptionProvider).trim();
-      shouldUpdateSubscription = true;
-    }
+      if (body.subscriptionPlanType !== undefined && String(body.subscriptionPlanType).trim()) {
+        subscriptionUpdate.planType = String(body.subscriptionPlanType).trim();
+        shouldUpdateSubscription = true;
+      } else if (body.plan !== undefined && String(body.plan).trim()) {
+        subscriptionUpdate.planType = String(body.plan).trim();
+        shouldUpdateSubscription = true;
+      }
 
-    if (body.subscriptionAutoRenew !== undefined) {
-      const rawAutoRenew = body.subscriptionAutoRenew;
-      subscriptionUpdate.autoRenew =
-        rawAutoRenew === true ||
-        rawAutoRenew === 'true' ||
-        rawAutoRenew === 1 ||
-        rawAutoRenew === '1';
-      shouldUpdateSubscription = true;
+      if (body.subscriptionProvider !== undefined && String(body.subscriptionProvider).trim()) {
+        subscriptionUpdate.provider = String(body.subscriptionProvider).trim();
+        shouldUpdateSubscription = true;
+      }
+
+      if (body.subscriptionAutoRenew !== undefined) {
+        const rawAutoRenew = body.subscriptionAutoRenew;
+        subscriptionUpdate.autoRenew =
+          rawAutoRenew === true ||
+          rawAutoRenew === 'true' ||
+          rawAutoRenew === 1 ||
+          rawAutoRenew === '1';
+        shouldUpdateSubscription = true;
+      }
     }
 
     if (files?.file?.[0]) {
@@ -380,7 +406,8 @@ async getPoints(@Param('id') id: string) {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  remove(@Req() req: any, @Param('id') id: string) {
+    if (req.user.role !== 'ADMIN') throw new ForbiddenException();
     return this.usersService.remove(id);
   }
 }

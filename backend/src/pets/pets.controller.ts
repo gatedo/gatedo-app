@@ -1,42 +1,25 @@
-import { BadRequestException, Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors, Req, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Body, Patch, Param, Delete, UploadedFiles, UseInterceptors, Req, Query, UseGuards } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { PrismaService } from '../prisma/prisma.service'; 
-import { CloudflareService } from '../cloudflare/cloudflare.service'; 
-import { JwtService } from '@nestjs/jwt';
-import { Express } from 'express'; 
-import 'multer'; 
+import { PrismaService } from '../prisma/prisma.service';
+import { CloudflareService } from '../cloudflare/cloudflare.service';
+import { Express } from 'express';
+import 'multer';
 import { calcCatLevelMeta } from '../gamification/gamification.constants';
 import { getUserEntitlements } from '../membership/membership.constants';
 import { GamificationIntegration } from '../gamification/gamification.integration';
 import { isProfileComplete } from '../gamification/xp.config';
 import { EventsService } from '../events/events.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { assertOwnsPet } from '../common/ownership.util';
 
 @Controller('pets')
 export class PetsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudflare: CloudflareService,
-    private readonly jwtService: JwtService,
     private readonly gamif: GamificationIntegration,
     private readonly events: EventsService,
   ) {}
-
-  private getAuthUser(req: any): { id: string | null; role: string | null } {
-    try {
-      const auth = req.headers?.authorization || '';
-      if (!auth.startsWith('Bearer ')) return { id: null, role: null };
-      const token = auth.split(' ')[1];
-      const payload: any = this.jwtService.verify(token, {
-        secret: process.env.JWT_SECRET || 'CHAVE_SUPER_SECRETA_GATEDO',
-      });
-      return {
-        id: payload?.sub || payload?.id || null,
-        role: payload?.role || null,
-      };
-    } catch {
-      return { id: null, role: null };
-    }
-  }
 
   private parseStringArray(value: any): string[] | undefined {
     if (value === undefined) return undefined;
@@ -60,8 +43,9 @@ export class PetsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   async findAll(@Req() req: any, @Query('scope') scope?: string) {
-    const authUser = this.getAuthUser(req);
+    const authUser = req.user;
 
     // Seleção enxuta — só os campos que o status de saúde (verde/âmbar/vermelho)
     // da Home precisa, sem trazer o histórico inteiro de healthRecords.
@@ -118,6 +102,7 @@ export class PetsController {
   }
 
  @Get(':id')
+ @UseGuards(JwtAuthGuard)
 findOne(@Param('id') id: string) {
   return this.prisma.pet.findUnique({
     where: { id },
@@ -173,11 +158,14 @@ async getPublicMemorialPets() {
 }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard)
+  async remove(@Req() req: any, @Param('id') id: string) {
+    await assertOwnsPet(this.prisma, id, req.user);
     return this.prisma.pet.delete({ where: { id } });
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'file',         maxCount: 1 },
     { name: 'gallery',      maxCount: 6 },
@@ -185,15 +173,17 @@ async getPublicMemorialPets() {
     { name: 'pedigreeBack', maxCount: 1 },  // verso — NOVO
   ]))
   async update(
-    @Param('id') id: string, 
-    @UploadedFiles() files: { 
+    @Req() req: any,
+    @Param('id') id: string,
+    @UploadedFiles() files: {
       file?:         Express.Multer.File[],
       gallery?:      Express.Multer.File[],
       pedigree?:     Express.Multer.File[],
       pedigreeBack?: Express.Multer.File[],  // NOVO
-    }, 
+    },
     @Body() body: any
   ) {
+    await assertOwnsPet(this.prisma, id, req.user);
     const dataToUpdate: any = { ...body };
 
     // Booleanos
@@ -325,6 +315,7 @@ if (typeof body.coexistsWith === 'string') {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'photo',        maxCount: 1 },
     { name: 'file',         maxCount: 1 },  // compatibilidade
@@ -332,19 +323,21 @@ if (typeof body.coexistsWith === 'string') {
     { name: 'pedigreeBack', maxCount: 1 },  // verso no cadastro (futuro)
   ]))
   async create(
+    @Req() req: any,
     @UploadedFiles() files: {
       photo?:        Express.Multer.File[],
       file?:         Express.Multer.File[],
       pedigree?:     Express.Multer.File[],
       pedigreeBack?: Express.Multer.File[],
-    }, 
+    },
     @Body() body: any
   ) {
     const petData: any = { ...body };
 
-    if (!petData.ownerId) {
-      throw new BadRequestException('ownerId é obrigatório para cadastrar um gato.');
-    }
+    // So ADMIN pode cadastrar em nome de outro tutor (suporte); qualquer
+    // outro usuario so pode criar gato pra si mesmo, nunca pro body.ownerId
+    // que ele mandou — fecha o buraco de registrar gato na conta alheia.
+    petData.ownerId = req.user.role === 'ADMIN' && body.ownerId ? body.ownerId : req.user.id;
 
     const owner = await this.prisma.user.findUnique({
       where: { id: String(petData.ownerId) },

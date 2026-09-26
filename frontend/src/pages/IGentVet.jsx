@@ -700,7 +700,7 @@ function StepSymptoms({ cat, onSelect, onBack }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // STEP 2 — Chat IA
 // ═══════════════════════════════════════════════════════════════════════════════
-function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory, skipAutoStart, initialInput }) {
+function StepChat({ cat, cats, onAttachCat, symptom, historyCtx, onBack, onSaveHistory, skipAutoStart, initialInput }) {
   const touch = useSensory();
   const navigate = useNavigate();
   const scrollRef = useRef(null);
@@ -734,19 +734,22 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory, skipAutoSta
   const painOfferCheckedRef = useRef(null);
   const [lastQuestionText, setLastQuestionText] = useState('');
   const skipDeflectionRef = useRef(false);
+  const [attachPickerOpen, setAttachPickerOpen] = useState(false);
+  const attachableCats = (cats || []).filter((c) => !c.isMemorial && !c.isArchived);
 
-  // Saldo de perguntas do mês — buscado uma vez e atualizado a cada resposta da IA
+  // Saldo de perguntas do mês — crédito é por usuário, não por gato (o
+  // backend resolve pelo token, não precisa mais de petId/userId aqui).
   useEffect(() => {
-    api.get('/igent/credits', { params: { petId: cat.id } })
+    api.get('/igent/credits')
       .then(r => setCredits(r.data))
       .catch(() => {});
-  }, [cat.id]);
+  }, []);
 
   const handleNotifyReset = async () => {
     if (notifyingReset || resetNotified) return;
     setNotifyingReset(true);
     try {
-      await api.post('/igent/credits/notify-reset', { petId: cat.id });
+      await api.post('/igent/credits/notify-reset');
       setResetNotified(true);
     } catch {
       // silencioso — não é crítico
@@ -779,10 +782,10 @@ function StepChat({ cat, symptom, historyCtx, onBack, onSaveHistory, skipAutoSta
     if (!/xixi|urin|caixa de areia|areia|marca(ç|c)[aã]o|marcando|marcou/i.test(lastUser.text)) return;
 
     painOfferCheckedRef.current = last.id;
-    api.get('/offers/decide', { params: { surface: 'PAIN_IGENT', petId: cat.id } })
+    api.get('/offers/decide', { params: { surface: 'PAIN_IGENT', petId: cat?.id || undefined } })
       .then((r) => { if (r.data?.offer) setPainOffer(r.data.offer); })
       .catch(() => {});
-  }, [messages, isTyping, cat.id]);
+  }, [messages, isTyping, cat?.id]);
 
 // ─── FASE DE LOADING — só visual, zero áudio ────────────────────────────
 useEffect(() => {
@@ -1370,7 +1373,7 @@ useEffect(() => {
       const visualAtlasContext = hasVisualMedia
         ? buildIgentAlmanacContext({
             symptom: `${symptom.label} ${text}`,
-            breed: cat.breed,
+            breed: cat?.breed,
             visualFindings: text,
             scope: IGENT_VISUAL_ATLAS_SCOPE,
             limit: 6,
@@ -1384,15 +1387,19 @@ useEffect(() => {
         .filter((image) => image?.url)
         .slice(0, 6);
       const payload = {
-        petId: cat.id,
+        petId: cat?.id,
         message: text,
         symptom: symptom.label,
         symptomId: symptom.id,
-        clinicalContext: {
-          ...historyCtx,
-          adminAlmanacContext: buildIgentAlmanacContext({ symptom: symptom.label, breed: cat.breed, scope: IGENT_ALMANAC_SCOPE }),
-          adminVisualAtlasContext: visualAtlasContext,
-        },
+        // Sem gato anexado, não manda prontuário nenhum — é exatamente a
+        // pergunta de conteúdo que não deveria puxar histórico clínico.
+        ...(cat ? {
+          clinicalContext: {
+            ...historyCtx,
+            adminAlmanacContext: buildIgentAlmanacContext({ symptom: symptom.label, breed: cat.breed, scope: IGENT_ALMANAC_SCOPE }),
+            adminVisualAtlasContext: visualAtlasContext,
+          },
+        } : {}),
         conversationContext: messages
           .filter(m => (m.sender === 'user' || m.sender === 'bot') && m.text)
           .slice(-8)
@@ -1720,7 +1727,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
 
   // Salva histórico no perfil do gato + grava IgentSession para IA preditiva
   const handleSaveHistory = async () => {
-    if (saving || saved) return;
+    if (saving || saved || !cat) return;
     setSaving(true);
     try {
       const reportMsg = messages.find(m => m.type === 'report');
@@ -1950,37 +1957,71 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
           </button>
         </div>
 
-        {/* Cat strip */}
-        <div className="flex items-center gap-2 bg-white/10 rounded-2xl px-3 py-2">
-          <div className="w-9 h-9 rounded-full overflow-hidden border-2 flex-shrink-0"
-            style={{ borderColor: C.accent }}>
-            <img src={catAvatar(cat)} className="w-full h-full object-cover" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-black text-white text-sm leading-none">{cat?.name}</p>
-            <p className="text-white/50 text-[10px] font-bold">{cat?.breed || 'SRD'}</p>
-          </div>
-          {/* Loading / status */}
-          <div className="flex flex-col items-end min-w-0 max-w-[140px]">
-            <AnimatePresence mode="wait">
-              {isTyping ? (
-                <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="flex flex-col items-end w-full">
-                  <p className="text-[9px] font-black text-right leading-tight truncate w-full"
-                    style={{ color: C.accent }}>{PHASES[phase]}</p>
-                  <div className="mt-1 w-20 h-1 bg-white/15 rounded-full overflow-hidden">
-                    <div className="neon-bar h-full w-10 rounded-full" style={{ background: C.accent }} />
-                  </div>
-                </motion.div>
+        {/* Cat strip — sem gato anexado, mostra convite pra ligar a conversa a um gato específico */}
+        <div className="bg-white/10 rounded-2xl px-3 py-2">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full overflow-hidden border-2 flex-shrink-0"
+              style={{ borderColor: C.accent }}>
+              <img src={catAvatar(cat)} className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 min-w-0">
+              {cat ? (
+                <>
+                  <p className="font-black text-white text-sm leading-none">{cat.name}</p>
+                  <p className="text-white/50 text-[10px] font-bold">{cat.breed || 'SRD'}</p>
+                </>
               ) : (
-                <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Online</span>
-                </motion.div>
+                <>
+                  <p className="font-black text-white text-sm leading-none">Pergunta geral</p>
+                  <button
+                    onClick={() => { touch(); setAttachPickerOpen((v) => !v); }}
+                    className="text-white/70 text-[10px] font-bold underline underline-offset-2"
+                  >
+                    Isso é sobre um gato específico?
+                  </button>
+                </>
               )}
-            </AnimatePresence>
+            </div>
+            {/* Loading / status */}
+            <div className="flex flex-col items-end min-w-0 max-w-[140px]">
+              <AnimatePresence mode="wait">
+                {isTyping ? (
+                  <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="flex flex-col items-end w-full">
+                    <p className="text-[9px] font-black text-right leading-tight truncate w-full"
+                      style={{ color: C.accent }}>{PHASES[phase]}</p>
+                    <div className="mt-1 w-20 h-1 bg-white/15 rounded-full overflow-hidden">
+                      <div className="neon-bar h-full w-10 rounded-full" style={{ background: C.accent }} />
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Online</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
+
+          {!cat && attachPickerOpen && (
+            <div className="mt-2 pt-2 border-t border-white/10 flex flex-wrap gap-1.5">
+              {attachableCats.length === 0 && (
+                <p className="text-white/50 text-[10px] font-bold py-1">Você ainda não tem gato cadastrado.</p>
+              )}
+              {attachableCats.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => { touch(); onAttachCat?.(c); setAttachPickerOpen(false); }}
+                  className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 rounded-full pl-1 pr-3 py-1"
+                >
+                  <img src={catAvatar(c)} className="w-5 h-5 rounded-full object-cover" />
+                  <span className="text-white text-[11px] font-bold">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Saldo de perguntas do mês */}
@@ -2021,7 +2062,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
           <OfferCard
             offer={painOffer}
             surface="PAIN_IGENT"
-            petId={cat.id}
+            petId={cat?.id}
             onDismiss={() => setPainOffer(null)}
           />
         )}
@@ -2257,8 +2298,9 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
         </div>
       )}
 
-      {/* Botão salvar — só após tutor dizer "não tenho mais dúvidas" */}
-      {sessionClosed && !saved && (
+      {/* Botão salvar — só após tutor dizer "não tenho mais dúvidas", e só
+          faz sentido com um gato anexado (é a ficha médica dele) */}
+      {sessionClosed && !saved && cat && (
         <div className="fixed left-0 right-0 px-4 z-40"
           style={{ maxWidth: 'min(920px, 100vw)', margin: '0 auto', bottom: 'calc(168px + env(safe-area-inset-bottom, 0px))' }}>
           <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3211,6 +3253,13 @@ export default function IGentVet() {
               setStep(1);
             }
           }
+        } else if (prefillMessage) {
+          // Pergunta de conteúdo (veio do Guia sem gato específico em mente)
+          // — nunca faz sentido pedir "escolha um gato" pra isso, então
+          // sempre pula a triagem direto pro chat sem gato nenhum. Se a
+          // pessoa quiser aprofundar sobre um gato dela, tem o botão
+          // "Isso é sobre um gato específico?" dentro do próprio chat.
+          enterChatFromGuia(null);
         }
       })
       .catch(() => setCats([]))
@@ -3266,13 +3315,15 @@ export default function IGentVet() {
             />
           )}
 
-          {/* PASSO 2 — Chat IA */}
-          {step === 2 && selCat && selSymptom && (
+          {/* PASSO 2 — Chat IA (cat pode ser null — pergunta de conteúdo sem gato anexado) */}
+          {step === 2 && selSymptom && (
             <StepChat
               key="chat"
               cat={selCat}
+              cats={cats}
+              onAttachCat={setSelCat}
               symptom={selSymptom}
-              onBack={() => setStep(1)}
+              onBack={() => (selCat ? setStep(1) : navigate(-1))}
               onSaveHistory={() => {}}
               skipAutoStart={Boolean(prefillMessage)}
               initialInput={prefillMessage || ''}

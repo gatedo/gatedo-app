@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -10,16 +11,30 @@ import {
   Query,
   Req,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { DocumentsService } from './documents.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PrismaService } from '../prisma/prisma.service';
+import { assertOwnsPet } from '../common/ownership.util';
 
 @Controller('documents')
+@UseGuards(JwtAuthGuard)
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(
+    private readonly documentsService: DocumentsService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  private async assertOwnsDocument(id: string, user: { id: string; role?: string }) {
+    if (user.role === 'ADMIN') return;
+    const doc = await this.documentsService.findOne(id);
+    if (!doc || doc.ownerId !== user.id) throw new ForbiddenException('Sem acesso a este documento.');
+  }
 
   @Post('upload')
   @UseInterceptors(
@@ -51,16 +66,9 @@ export class DocumentsController {
       throw new BadRequestException('category é obrigatório.');
     }
 
+    await assertOwnsPet(this.prisma, body.petId, req.user);
     const fileUrl = `/uploads/documents/${file.filename}`;
-
-    let ownerId = req?.user?.id || body?.ownerId || body?.userId || null;
-    if (!ownerId && body?.petId) {
-      const pet = await this.documentsService.getPetOwner(body.petId);
-      ownerId = pet?.ownerId || null;
-    }
-    if (!ownerId) {
-      throw new BadRequestException('ownerId não resolvido para o upload do documento.');
-    }
+    const ownerId = req.user.id;
 
     let metadata: any = null;
     if (body?.metadata) {
@@ -103,14 +111,8 @@ export class DocumentsController {
       throw new BadRequestException('base64 é obrigatório.');
     }
 
-    let ownerId = req?.user?.id || body?.ownerId || body?.userId || null;
-    if (!ownerId && body?.petId) {
-      const pet = await this.documentsService.getPetOwner(body.petId);
-      ownerId = pet?.ownerId || null;
-    }
-    if (!ownerId) {
-      throw new BadRequestException('ownerId não resolvido para o documento gerado.');
-    }
+    await assertOwnsPet(this.prisma, body.petId, req.user);
+    const ownerId = req.user.id;
 
     let metadata: any = null;
     if (body?.metadata) {
@@ -138,34 +140,45 @@ export class DocumentsController {
 
   @Get()
   async findAll(
+    @Req() req: any,
     @Query('petId') petId?: string,
     @Query('category') category?: string,
   ) {
+    if (petId) {
+      await assertOwnsPet(this.prisma, petId, req.user);
+    } else if (req.user.role !== 'ADMIN') {
+      throw new ForbiddenException('petId é obrigatório.');
+    }
     return this.documentsService.findAll({ petId, category });
   }
 
   @Get('pet/:petId')
-  async findAllByPet(@Param('petId') petId: string) {
+  async findAllByPet(@Req() req: any, @Param('petId') petId: string) {
+    await assertOwnsPet(this.prisma, petId, req.user);
     return this.documentsService.findAllByPet(petId);
   }
 
   @Get('summary/:petId')
-  async getFolderSummary(@Param('petId') petId: string) {
+  async getFolderSummary(@Req() req: any, @Param('petId') petId: string) {
+    await assertOwnsPet(this.prisma, petId, req.user);
     return this.documentsService.getFolderSummary(petId);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnsDocument(id, req.user);
     return this.documentsService.findOne(id);
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
+  async update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    await this.assertOwnsDocument(id, req.user);
     return this.documentsService.update(id, body);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  async remove(@Req() req: any, @Param('id') id: string) {
+    await this.assertOwnsDocument(id, req.user);
     return this.documentsService.remove(id);
   }
 }

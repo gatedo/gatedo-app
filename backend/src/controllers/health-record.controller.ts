@@ -4,6 +4,8 @@ import {
   Post,
   Body,
   Query,
+  Req,
+  UseGuards,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -12,6 +14,8 @@ import { GamificationIntegration } from '../gamification/gamification.integratio
 import { EventsService } from '../events/events.service';
 import { WEIGHT_CHECKIN_TITLE_RE } from '../gamification/xp.config';
 import { RemindersService } from '../reminders/reminders.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { assertOwnsPet } from '../common/ownership.util';
 
 const CARE_LOGGED_TYPE_MAP: Record<string, string> = {
   VACCINE: 'vacina',
@@ -58,6 +62,7 @@ function toBoolean(value: any, fallback = false): boolean {
 }
 
 @Controller('health-records')
+@UseGuards(JwtAuthGuard)
 export class HealthRecordController {
   constructor(
     private readonly prisma: PrismaService,
@@ -68,11 +73,12 @@ export class HealthRecordController {
 
   // SALVAR NOVO REGISTRO (POST /health-records)
   @Post()
-  async create(@Body() data: any) {
+  async create(@Req() req: any, @Body() data: any) {
     try {
       if (!data?.petId) {
         throw new HttpException('Pet ID obrigatório', HttpStatus.BAD_REQUEST);
       }
+      await assertOwnsPet(this.prisma, data.petId, req.user);
 
       if (!data?.type) {
         throw new HttpException('Tipo obrigatório', HttpStatus.BAD_REQUEST);
@@ -181,10 +187,11 @@ export class HealthRecordController {
 
   // BUSCAR REGISTROS (GET /health-records?petId=...)
   @Get()
-  async findAll(@Query('petId') petId: string) {
+  async findAll(@Req() req: any, @Query('petId') petId: string) {
     if (!petId) {
       throw new HttpException('Pet ID obrigatório', HttpStatus.BAD_REQUEST);
     }
+    await assertOwnsPet(this.prisma, petId, req.user);
 
     return await this.prisma.healthRecord.findMany({
       where: { petId },

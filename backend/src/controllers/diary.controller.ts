@@ -1,9 +1,12 @@
-import { Controller, Get, Post, Body, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Req, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service'; // Ajuste o caminho
 import { GamificationIntegration } from '../gamification/gamification.integration';
 import { EventsService } from '../events/events.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { assertOwnsPet } from '../common/ownership.util';
 
 @Controller('diary-entries')
+@UseGuards(JwtAuthGuard)
 export class DiaryController {
   constructor(
     private readonly prisma: PrismaService,
@@ -13,8 +16,9 @@ export class DiaryController {
 
   // SALVAR DIÁRIO (POST /diary-entries)
   @Post()
-  async create(@Body() data: any) {
+  async create(@Req() req: any, @Body() data: any) {
     try {
+      await assertOwnsPet(this.prisma, data.petId, req.user);
       const entry = await this.prisma.diaryEntry.create({
         data: {
           petId: data.petId,
@@ -39,6 +43,7 @@ export class DiaryController {
 
       return entry;
     } catch (error) {
+      if (error instanceof HttpException) throw error;
       console.error("Erro ao salvar diário:", error);
       throw new HttpException('Erro ao salvar diário', HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -46,8 +51,9 @@ export class DiaryController {
 
   // LISTAR DIÁRIO (GET /diary-entries?petId=...)
   @Get()
-  async findAll(@Query('petId') petId: string) {
+  async findAll(@Req() req: any, @Query('petId') petId: string) {
     if (!petId) throw new HttpException('Pet ID obrigatório', HttpStatus.BAD_REQUEST);
+    await assertOwnsPet(this.prisma, petId, req.user);
 
     return await this.prisma.diaryEntry.findMany({
       where: { petId },

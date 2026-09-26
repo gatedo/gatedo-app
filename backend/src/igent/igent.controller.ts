@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Req, UseGuards } from '@nestjs/common';
 import { IgentService } from './igent.service';
 import { IgentCreditsService, AskDecision, isAskBlocked } from './igent-credits.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +7,8 @@ import { NotificationService } from '../notifications/notification.service';
 import { hasClubeAccess } from '../membership/membership.constants';
 import { EventsService } from '../events/events.service';
 import { ContentService } from '../content/content.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { assertOwnsPet } from '../common/ownership.util';
 
 // Palavras curtas demais/genéricas demais pra valer como palavra-chave de
 // busca no Almanaque — filtra antes de tentar o desvio.
@@ -30,6 +32,7 @@ function extractAlmanacKeywords(message: string): string[] {
 }
 
 @Controller('igent')
+@UseGuards(JwtAuthGuard)
 export class IgentController {
   constructor(
     private readonly igentService: IgentService,
@@ -59,28 +62,20 @@ export class IgentController {
   }
 
   @Get('credits')
-  async getCredits(@Query('userId') userId?: string, @Query('petId') petId?: string) {
-    const resolvedUserId = userId || (petId ? await this.getPetOwnerId(petId) : null);
-    if (!resolvedUserId) {
-      throw new BadRequestException('userId ou petId é obrigatório.');
-    }
-    return this.igentCredits.getStatus(resolvedUserId);
+  async getCredits(@Req() req: any) {
+    return this.igentCredits.getStatus(req.user.id);
   }
 
   @Post('credits/notify-reset')
-  async notifyOnReset(@Body() body: { userId?: string; petId?: string }) {
-    const resolvedUserId = body.userId || (body.petId ? await this.getPetOwnerId(body.petId) : null);
-    if (!resolvedUserId) {
-      throw new BadRequestException('userId ou petId é obrigatório.');
-    }
-
-    const status = await this.igentCredits.getStatus(resolvedUserId);
+  async notifyOnReset(@Req() req: any) {
+    const userId = req.user.id;
+    const status = await this.igentCredits.getStatus(userId);
     const resetLabel = status.resetsAt
       ? new Date(status.resetsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
       : 'no início do próximo mês';
 
     await this.notifService.create({
-      userId: resolvedUserId,
+      userId,
       type: 'SYSTEM',
       message: `⏳ Combinado! Vamos te avisar quando suas perguntas do iGentVet renovarem em ${resetLabel}.`,
     });
@@ -88,16 +83,9 @@ export class IgentController {
     return { ok: true, resetsAt: status.resetsAt };
   }
 
-  private async getPetOwnerId(petId: string): Promise<string | null> {
-    const pet = await this.prisma.pet.findUnique({
-      where: { id: petId },
-      select: { ownerId: true },
-    });
-    return pet?.ownerId || null;
-  }
-
   @Post('analyze')
   async analyze(
+    @Req() req: any,
     @Body() body: {
       petId: string;
       symptom: string;
@@ -105,18 +93,15 @@ export class IgentController {
       clinicalContext?: any;
     },
   ) {
-    const ownerId = await this.getPetOwnerId(body.petId);
-    let askDecision: AskDecision | null = null;
+    const userId = req.user.id;
+    await assertOwnsPet(this.prisma, body.petId, req.user);
 
-    if (ownerId) {
-      askDecision = await this.igentCredits.canAsk(ownerId, 'QUESTION');
-      const decision = askDecision;
-      if (isAskBlocked(decision)) {
-        if (decision.reason === 'MONTHLY_LIMIT' || decision.reason === 'DAILY_CAP') {
-          this.events.track({ name: 'ai_limit_hit', userId: ownerId, props: { reason: decision.reason } }).catch(() => {});
-        }
-        return { blocked: true, reason: decision.reason, ...(await this.igentCredits.getStatus(ownerId)) };
+    const askDecision: AskDecision = await this.igentCredits.canAsk(userId, 'QUESTION');
+    if (isAskBlocked(askDecision)) {
+      if (askDecision.reason === 'MONTHLY_LIMIT' || askDecision.reason === 'DAILY_CAP') {
+        this.events.track({ name: 'ai_limit_hit', userId, props: { reason: askDecision.reason } }).catch(() => {});
       }
+      return { blocked: true, reason: askDecision.reason, ...(await this.igentCredits.getStatus(userId)) };
     }
 
     const result = await this.igentService.analyzeSymptom(
@@ -126,16 +111,16 @@ export class IgentController {
       body.clinicalContext,
     );
 
-    if (ownerId && result?.aiUsage) {
+    if (result?.aiUsage) {
       await this.igentCredits.logUsage({
-        userId: ownerId,
+        userId,
         petId: body.petId,
         kind: 'QUESTION',
-        source: askDecision?.allowed ? askDecision.source : 'QUOTA',
+        source: askDecision.allowed ? askDecision.source : 'QUOTA',
         provider: result.aiUsage.provider,
         tokensUsed: result.aiUsage.tokensUsed,
       });
-      return { ...result, credits: await this.igentCredits.getStatus(ownerId) };
+      return { ...result, credits: await this.igentCredits.getStatus(userId) };
     }
 
     return result;
@@ -143,8 +128,9 @@ export class IgentController {
 
   @Post('chat')
   async chat(
+    @Req() req: any,
     @Body() body: {
-      petId: string;
+      petId?: string;
       message: string;
       symptom?: string;
       symptomId?: string;
@@ -160,13 +146,14 @@ export class IgentController {
       skipDeflection?: boolean;
     },
   ) {
-    const ownerId = await this.getPetOwnerId(body.petId);
+    const userId = req.user.id;
+    if (body.petId) await assertOwnsPet(this.prisma, body.petId, req.user);
     const kind: 'QUESTION' | 'EXAM_EXPLANATION' = body.examMode || body.examPdfBase64 ? 'EXAM_EXPLANATION' : 'QUESTION';
 
     // Leitura de exame/laudo (PDF ou foto) é exclusiva Clube GATEDO.
-    if (kind === 'EXAM_EXPLANATION' && ownerId) {
+    if (kind === 'EXAM_EXPLANATION') {
       const membershipUser = await this.prisma.user.findUnique({
-        where: { id: ownerId },
+        where: { id: userId },
         select: { plan: true, badges: true, planExpires: true, role: true },
       });
       if (!hasClubeAccess(membershipUser)) {
@@ -174,34 +161,32 @@ export class IgentController {
       }
     }
 
-    let askDecision: AskDecision | null = null;
-    if (ownerId) {
-      askDecision = await this.igentCredits.canAsk(ownerId, kind);
-      const decision = askDecision;
-      if (isAskBlocked(decision)) {
-        if (decision.reason === 'MONTHLY_LIMIT' || decision.reason === 'DAILY_CAP') {
-          this.events.track({ name: 'ai_limit_hit', userId: ownerId, props: { reason: decision.reason, kind } }).catch(() => {});
-        }
-        return { blocked: true, reason: decision.reason, ...(await this.igentCredits.getStatus(ownerId)) };
+    const askDecision: AskDecision = await this.igentCredits.canAsk(userId, kind);
+    if (isAskBlocked(askDecision)) {
+      if (askDecision.reason === 'MONTHLY_LIMIT' || askDecision.reason === 'DAILY_CAP') {
+        this.events.track({ name: 'ai_limit_hit', userId, props: { reason: askDecision.reason, kind } }).catch(() => {});
       }
+      return { blocked: true, reason: askDecision.reason, ...(await this.igentCredits.getStatus(userId)) };
     }
 
     // Desvio pelo Almanaque — só perguntas de texto puro, sem imagem/exame,
     // e só na primeira tentativa (não repete se a pessoa já disse "ainda
-    // quero perguntar"). Não consome crédito nenhum.
+    // quero perguntar"). Não consome crédito nenhum. É exatamente aqui que
+    // uma pergunta de conteúdo (sem gato) tem mais chance de nunca precisar
+    // chamar a IA.
     if (kind === 'QUESTION' && !body.skipDeflection && !body.imageBase64 && body.message?.trim()) {
       const almanacEntries = await this.searchAlmanac(body.message);
       if (almanacEntries.length > 0) {
-        if (ownerId) {
-          this.events.track({ name: 'almanaque_deflect_shown', userId: ownerId, props: { matches: almanacEntries.length } }).catch(() => {});
-        }
+        this.events.track({ name: 'almanaque_deflect_shown', userId, props: { matches: almanacEntries.length } }).catch(() => {});
         return { deflected: true, entries: almanacEntries };
       }
     }
 
-    // Usa chatWithVet — endpoint correto com contexto de chat
+    // Usa chatWithVet — endpoint correto com contexto de chat. petId é
+    // opcional: sem ele, chatWithVet monta uma resposta sem histórico
+    // clínico de nenhum gato específico (pergunta de conteúdo genérico).
     const result = await this.igentService.chatWithVet(
-      body.petId,
+      body.petId || null,
       body.message,
       body.symptom,
       body.symptomId,
@@ -218,17 +203,17 @@ export class IgentController {
       body.conversationContext,
     );
 
-    if (ownerId && result?.aiUsage) {
+    if (result?.aiUsage) {
       await this.igentCredits.logUsage({
-        userId: ownerId,
+        userId,
         petId: body.petId,
         kind,
-        source: askDecision?.allowed ? askDecision.source : 'QUOTA',
+        source: askDecision.allowed ? askDecision.source : 'QUOTA',
         provider: result.aiUsage.provider,
         tokensUsed: result.aiUsage.tokensUsed,
       });
-      const credits = await this.igentCredits.getStatus(ownerId);
-      this.events.track({ name: 'igentvet_question', userId: ownerId, props: { credits_left: credits.questionRemaining, kind } }).catch(() => {});
+      const credits = await this.igentCredits.getStatus(userId);
+      this.events.track({ name: 'igentvet_question', userId, props: { credits_left: credits.questionRemaining, kind } }).catch(() => {});
       return { ...result, credits };
     }
 
@@ -237,6 +222,7 @@ export class IgentController {
 
   @Post('report')
   async report(
+    @Req() req: any,
     @Body() body: {
       petId: string;
       symptomLabel: string;
@@ -250,6 +236,7 @@ export class IgentController {
       saveToDocuments?: boolean;
     },
   ) {
+    await assertOwnsPet(this.prisma, body.petId, req.user);
     return this.igentService.generateReport(
       body.petId,
       body.symptomLabel,
@@ -267,35 +254,33 @@ export class IgentController {
   }
 
   @Post('sessions')
-  async createSession(@Body() body: any) {
+  async createSession(@Req() req: any, @Body() body: any) {
+    await assertOwnsPet(this.prisma, body.petId, req.user);
     const session = await this.igentService.createSession(body);
     const totalSessions = await this.prisma.igentSession.count({
       where: { petId: body.petId },
     });
-    const pet = await this.prisma.pet.findUnique({
-      where: { id: body.petId },
-      select: { ownerId: true },
-    });
-    if (pet?.ownerId) {
-      this.gamif
-        .onIgentConsult(pet.ownerId, body.petId, totalSessions === 1)
-        .catch(() => {});
-    }
+    this.gamif
+      .onIgentConsult(req.user.id, body.petId, totalSessions === 1)
+      .catch(() => {});
     return session;
   }
 
   @Get('sessions')
-  async getSessions(@Query('petId') petId: string) {
+  async getSessions(@Req() req: any, @Query('petId') petId: string) {
+    await assertOwnsPet(this.prisma, petId, req.user);
     return this.igentService.getSessions(petId);
   }
 
   @Post('record-update')
-  async recordUpdate(@Body() body: any) {
+  async recordUpdate(@Req() req: any, @Body() body: any) {
+    if (body?.petId) await assertOwnsPet(this.prisma, body.petId, req.user);
     return this.igentService.recordUpdate(body);
   }
 
   @Post('feedback')
-  async feedback(@Body() body: any) {
+  async feedback(@Req() req: any, @Body() body: any) {
+    if (body?.petId) await assertOwnsPet(this.prisma, body.petId, req.user);
     return this.igentService.recordFeedback(body);
   }
 }

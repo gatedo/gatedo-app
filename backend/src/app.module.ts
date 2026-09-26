@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from './prisma/prisma.module';
 import { join } from 'path';
 
@@ -49,12 +50,16 @@ import { IgentCreditsService } from './igent/igent-credits.service';
 import { GamificationIntegration } from './gamification/gamification.integration';
 import { NotificationService } from './notifications/notification.service';
 import { ProspectsModule } from './prospects/prospects.module';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'client'),
       exclude: ['/api/{*splat}'],
+    }),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'CHAVE_SUPER_SECRETA_GATEDO',
     }),
     PrismaModule,
     CloudflareModule,
@@ -102,6 +107,7 @@ import { ProspectsModule } from './prospects/prospects.module';
     IgentCreditsService,
     NotificationService,
     GamificationIntegration,
+    JwtAuthGuard,
   ],
 })
 export class AppModule {}

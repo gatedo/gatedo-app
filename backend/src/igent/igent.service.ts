@@ -57,15 +57,16 @@ export class IgentService {
   // ─── WRAPPER DUAL-AI ────────────────────────────────────────────────────────
   private async callAI(
     prompt: string,
-    options: { mode?: 'text' | 'json'; temperature?: number } = {},
+    options: { mode?: 'text' | 'json'; temperature?: number; maxTokens?: number } = {},
   ): Promise<AITextResult> {
-    const { mode = 'text', temperature = 0.35 } = options;
+    const { mode = 'text', temperature = 0.35, maxTokens } = options;
 
     try {
       const res = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'system', content: prompt }],
         temperature,
+        ...(maxTokens ? { max_tokens: maxTokens } : {}),
         ...(mode === 'json' ? { response_format: { type: 'json_object' } } : {}),
       });
 
@@ -97,7 +98,7 @@ export class IgentService {
             contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
             generationConfig: {
               temperature,
-              maxOutputTokens: 2048,
+              maxOutputTokens: maxTokens || 2048,
               thinkingConfig: { thinkingBudget: 0 },
             },
           }),
@@ -935,7 +936,7 @@ Responda APENAS com este JSON valido:
 
   // ─── MÉTODO 2: CHAT FOCADO NO SINTOMA ──────────────────────────────────────
   async chatWithVet(
-    petId: string,
+    petId: string | null,
     message: string,
     symptom?: string,
     symptomId?: string,
@@ -953,27 +954,33 @@ Responda APENAS com este JSON valido:
     },
     conversationContext: Array<{ sender?: string; text?: string; type?: string }> = [],
   ) {
-   const pet = await this.prisma.pet.findUnique({
-  where: { id: petId },
-  include: {
-    owner: true,
-    healthRecords: { orderBy: { date: 'desc' }, take: 50 },
-    documents: { orderBy: { createdAt: 'desc' }, take: 5 },
-  },
-});
+    // Pergunta de conteudo (sem gato anexado) nao busca prontuario nenhum —
+    // é exatamente o caso que nao deve puxar historico clinico completo.
+    const pet = petId
+      ? await this.prisma.pet.findUnique({
+          where: { id: petId },
+          include: {
+            owner: true,
+            healthRecords: { orderBy: { date: 'desc' }, take: 50 },
+            documents: { orderBy: { createdAt: 'desc' }, take: 5 },
+          },
+        })
+      : null;
 
-    if (!pet) {
+    if (petId && !pet) {
       throw new HttpException('Gato não encontrado', HttpStatus.NOT_FOUND);
     }
 
     const sid = symptomId || 'other';
     const symptomLabel = symptom || 'dúvida geral';
-    const focusedCtx = this.buildFocusedContext(pet, clinicalContext, sid, symptomLabel);
-    const symptomInstruction = this.buildSymptomPrompt(sid, pet, symptomLabel);
+    const focusedCtx = pet
+      ? this.buildFocusedContext(pet, clinicalContext, sid, symptomLabel)
+      : 'PRONTUARIO: nenhum gato especifico anexado a esta pergunta. Responda de forma geral, sem inventar nome, raca ou historico de nenhum paciente.';
+    const symptomInstruction = this.buildSymptomPrompt(sid, pet || {}, symptomLabel);
     const felineAlmanac = buildFelineClinicalAlmanacPrompt({
       symptomId: sid,
       symptomLabel,
-      pet,
+      pet: pet || undefined,
       clinicalContext,
     });
     const recentConversation = (conversationContext || [])
@@ -985,23 +992,22 @@ Responda APENAS com este JSON valido:
       (item) => item?.sender === 'bot' || item?.sender === 'assistant',
     );
 
-    const systemPrompt = `
+    // Ordem importa pro custo: blocos de cima pra baixo vao do mais estavel
+    // (repete identico entre perguntas/usuarios — o prefixo que o cache de
+    // prompt da OpenAI consegue reaproveitar) pro mais dinamico (historico
+    // deste gato, conversa desta sessao). Nao mover o PRONTUARIO/conversa
+    // pra cima sem motivo — isso quebra o cache pra tudo que vem depois.
+    const staticInstructions = `
 Voce e o iGentVet, agente veterinario especializado em felinos da Gatedo.
 Tom: empatico, preciso, como um bom veterinario que conhece o paciente pelo nome.
 NUNCA prescreva doses especificas ou receitas — oriente a buscar consulta presencial.
-
-${focusedCtx}
 
 ${felineAlmanac}
 
 ${symptomInstruction}
 
-CONSULTA EM ANDAMENTO — SINTOMA: "${symptomLabel}"
-
-${recentConversation ? `HISTORICO RECENTE DA CONVERSA:\n${recentConversation}\n` : ''}
-
 REGRAS DE OURO:
-1. Trate o gato pelo nome: ${pet.name}. Personalize SEMPRE.
+1. Trate o gato pelo nome indicado no PRONTUARIO abaixo. Personalize SEMPRE.
 2. Voce TEM ACESSO ao historico completo — use-o ativamente nas respostas
 3. Vacinas: consulte IMUNIZACAO — cite status real e alerte se [VENCIDA]
 4. Medicacoes: consulte MEDICACOES ATIVAS — analise interacao com o sintoma atual
@@ -1015,6 +1021,15 @@ REGRAS DE OURO:
 12. Continue exatamente do que o tutor acabou de responder; reconheca a informacao nova em uma frase curta antes de orientar.
 13. Evite resposta seca. Use uma frase de acolhimento concreta, uma explicacao clinica em linguagem simples e uma pergunta de contexto.
 14. Se o tema for comportamento, ofereca caminhos como agressividade, miado excessivo, tentativa de fuga, marcacao territorial e urina fora da caixa; relacione com idade, castracao, ambiente e possivel dor sem fechar diagnostico.`.trim();
+
+    const dynamicContext = `
+${focusedCtx}
+
+CONSULTA EM ANDAMENTO — SINTOMA: "${symptomLabel}"
+
+${recentConversation ? `HISTORICO RECENTE DA CONVERSA:\n${recentConversation}\n` : ''}`.trim();
+
+    const systemPrompt = `${staticInstructions}\n\n${dynamicContext}`;
 
     const hasImage = Boolean(visualInput?.imageBase64);
     const examMode = Boolean(visualInput?.examMode);
@@ -1080,8 +1095,19 @@ TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' :
         : await this.callAI(fullPrompt, {
             mode: 'text',
             temperature: 0.4,
+            // Resposta curta por padrão — regra 8 do prompt já pede "no
+            // máximo 3 parágrafos", isso é o teto de verdade que garante
+            // (e barata o custo de saída, que junto com o de entrada é
+            // onde o gasto por pergunta mais varia).
+            maxTokens: 700,
           });
       this.logger.log(`chatWithVet OK via ${provider}`);
+      if (!pet) {
+        // Sem gato anexado: a regra 10 do prompt ja pede pro modelo fechar
+        // com uma pergunta de acompanhamento — nao força saudacao/pergunta
+        // com nome de paciente que nao existe aqui.
+        return { text: text.trim(), sender: 'bot', aiUsage: { provider, tokensUsed } };
+      }
       const opening = hasPriorBotReply
         ? ''
         : this.buildContextualOpening(pet, pet?.owner?.name, symptomLabel, message);
@@ -1093,7 +1119,9 @@ TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' :
     } catch (err) {
       this.logger.error('Erro chatWithVet:', err);
       return {
-        text: `Conexão instável com a IA. Pode repetir o que você observou em ${pet.name} para eu seguir te orientando melhor?`,
+        text: pet
+          ? `Conexão instável com a IA. Pode repetir o que você observou em ${pet.name} para eu seguir te orientando melhor?`
+          : 'Conexão instável com a IA. Pode repetir sua pergunta que eu tento de novo?',
         sender: 'bot',
         aiUsage: null,
       };
