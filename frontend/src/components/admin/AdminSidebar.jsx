@@ -29,6 +29,7 @@ import {
   LineChart,
   ClipboardList,
   Filter,
+  MessageSquareText,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { brandAssets } from '../../brand/assets';
@@ -92,6 +93,7 @@ const MENU_SECTIONS = [
       { id: 'entitlements', label: 'Produtos Liberados', icon: KeyRound },
       { id: 'analytics', label: 'Analytics do Produto', icon: LineChart },
       { id: 'funil', label: 'Funil de Ativação', icon: Filter },
+      { id: 'feedback', label: 'Sugestões & Mensagens', icon: MessageSquareText },
       { id: 'settings', label: 'Configuracoes', icon: Settings },
     ],
   },

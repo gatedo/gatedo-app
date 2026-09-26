@@ -31,6 +31,7 @@ import AdminIgentAlmanac from './AdminIgentAlmanac';
 import AdminEntitlements from './AdminEntitlements';
 import AdminAnalytics from './AdminAnalytics';
 import AdminFunil from './AdminFunil';
+import AdminFeedback from './AdminFeedback';
 import AdminSettings from './AdminSettings';
 
 import AdminLinkGenerator from '../../components/admin/AdminLinkGenerator';
@@ -68,6 +69,7 @@ const ADMIN_TABS = new Set([
   'entitlements',
   'analytics',
   'funil',
+  'feedback',
   'settings',
 ]);
 
@@ -197,6 +199,9 @@ export default function AdminDashboard() {
 
       case 'funil':
         return <AdminFunil />;
+
+      case 'feedback':
+        return <AdminFeedback />;
 
       case 'settings':
         return <AdminSettings />;
