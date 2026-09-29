@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, PawPrint, FileText, DollarSign,
   Eye, Handshake, Store, Pill, Syringe, Scale, PenTool,
   Sparkles, MessagesSquare, Stethoscope, PlusCircle,
-  TrendingDown, TrendingUp, Activity,
+  TrendingDown, TrendingUp, Activity, Crown,
 } from 'lucide-react';
 import Header from '../components/Header';
 import useSensory from '../hooks/useSensory';
@@ -106,16 +106,21 @@ const fadeUp  = {
 // ─────────────────────────────────────────────────────────────────────────────
 // CatsRail — Meus Gatos, com ponto de status por card
 // ─────────────────────────────────────────────────────────────────────────────
-function MiniTutorBadge({ badge }) {
+function MiniTutorBadge({ badge, crown = false }) {
   const [failed, setFailed] = useState(false);
   if (!badge) return null;
+  // pl-4 só existe pra reservar espaço pro ícone circular do launchBadge,
+  // sobreposto na borda esquerda. Sem launchBadge (caso comum, ex. "SUPREME"),
+  // isso sobrava como vazio — troca pra padding normal + coroa coladinha.
+  const hasLaunchImg = Boolean(badge.launchBadge) && !failed;
+
   return (
     <span
-      className="relative ml-2 inline-flex items-center overflow-visible rounded-full px-1.5 py-0.5 pl-4 text-[7px] font-black uppercase tracking-[1px] shadow-sm"
+      className={`relative inline-flex items-center overflow-visible rounded-full py-0.5 text-[7px] font-black uppercase tracking-[1px] shadow-sm ${hasLaunchImg ? 'pl-4 pr-1.5' : 'px-1.5'}`}
       style={{ background: badge.gradient || badge.pillBg || badge.color || C.purple, color: badge.pillText || '#ebfc66' }}
       title={badge.label}
     >
-      {badge.launchBadge && !failed ? (
+      {hasLaunchImg ? (
         <img
           src={badge.asset || `/assets/badges/${badge.key}.png`}
           alt={badge.label}
@@ -123,6 +128,7 @@ function MiniTutorBadge({ badge }) {
           onError={() => setFailed(true)}
         />
       ) : null}
+      {crown && !hasLaunchImg && <Crown size={8} className="relative z-10 mr-0.5" fill="currentColor" strokeWidth={0} />}
       <span className="relative z-10">{badge.petLabel || badge.label}</span>
     </span>
   );
@@ -157,6 +163,10 @@ function CatsRail({ cats, loading, onAdd, tutorBadge, selectedCatId, onSelect })
               boxShadow: isSelected ? `0 8px 22px ${skinColor}55` : '0 2px 8px rgba(0,0,0,0.08)',
               outline: isSelected ? `2px solid ${skinColor}` : 'none',
               outlineOffset: 2,
+              // Borda de verdade (não uma div por cima) — o border-radius do
+              // próprio card já curva ela certinho nos dois cantos de baixo,
+              // sem o vão que aparecia quando isso era uma barra sobreposta.
+              borderBottom: `7px solid ${skinColor}`,
               transition: 'box-shadow 0.25s ease',
             }}>
             <div className="w-full h-full">
@@ -166,35 +176,40 @@ function CatsRail({ cats, loading, onAdd, tutorBadge, selectedCatId, onSelect })
             </div>
             <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.35) 40%,transparent 100%)' }} />
 
-            {/* Painel preditivo — micro score + gráfico, sem sair da Home */}
-            <motion.button
-              whileHover={{ scale: 1.14 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                touch();
-                onSelect(isSelected ? null : cat.id);
-              }}
-              title="Painel de saúde"
-              className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center shadow-sm"
-              style={{
-                background: isSelected ? skinColor : 'rgba(255,255,255,0.28)',
-                border: '1px solid rgba(255,255,255,0.5)',
-                backdropFilter: 'blur(3px)',
-              }}
-            >
-              <Activity size={11} className="text-white" />
-            </motion.button>
-
-            <div className="absolute bottom-2 left-0 right-0 px-2.5 pb-1.5">
-              <p className="font-black text-white text-sm leading-none truncate">{cat.name}</p>
-              <div className="mt-1 flex flex-col items-start gap-1">
-                <MiniTutorBadge badge={tutorBadge} />
-                <p className="text-[8px] text-white/70 font-black uppercase tracking-[1.6px] truncate">{getCatLifeBadge(cat)}</p>
-              </div>
+            {/* Selo do plano + painel preditivo juntos, no topo direito */}
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+              <MiniTutorBadge badge={tutorBadge} crown />
+              <motion.button
+                whileHover={{ scale: 1.14 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  touch();
+                  onSelect(isSelected ? null : cat.id);
+                }}
+                title="Painel de saúde"
+                className="relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center shadow-sm"
+                style={{
+                  background: `${skinColor}55`,
+                  border: `1px solid ${skinColor}88`,
+                  backdropFilter: 'blur(4px)',
+                  WebkitBackdropFilter: 'blur(4px)',
+                }}
+              >
+                <motion.span
+                  className="absolute inset-0 rounded-full pointer-events-none"
+                  style={{ background: skinColor }}
+                  animate={{ scale: [1, 1.7, 1], opacity: [0.55, 0, 0.55] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                <Activity size={11} className="text-white relative z-10" />
+              </motion.button>
             </div>
-            {/* Barrinha com a cor da skin do gato — abaixo do texto, na borda do card */}
-            <div className="absolute bottom-0 left-0 right-0 h-[5px]" style={{ background: skinColor }} />
+
+            <div className="absolute bottom-2 left-0 right-0 px-2.5">
+              <p className="font-black text-white text-sm leading-none truncate text-left">{cat.name}</p>
+              <p className="mt-1 text-[8px] text-white/70 font-black uppercase tracking-[1.6px] truncate text-left">{getCatLifeBadge(cat)}</p>
+            </div>
           </motion.button>
         );
       })}
@@ -713,7 +728,7 @@ function QuickWeightModal({ cat, onClose, onSaved }) {
         <div className="flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-3 mb-2">
           <input type="number" inputMode="decimal" step="0.01" autoFocus
             value={value} onChange={(e) => setValue(e.target.value)} placeholder="0.0"
-            className="flex-1 bg-transparent text-2xl font-black text-gray-800 outline-none" />
+            className="flex-1 min-w-0 bg-transparent text-2xl font-black text-gray-800 outline-none" />
           <span className="font-black text-gray-400 text-sm">kg</span>
         </div>
         {error && <p className="text-[11px] font-bold text-red-500 mb-2">{error}</p>}

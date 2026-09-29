@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import {
   Plus, ArrowLeft, LayoutGrid, List, Search,
   Calendar, Weight, Pill,
-  ChevronRight, GripVertical, Heart, Star, Cat
+  ChevronRight, GripVertical, Heart, Star, Cat, Crown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
@@ -38,21 +38,27 @@ function ageLabel(pet) {
 
 
 
-function PetHierarchyPill({ badge, floating = false }) {
+function PetHierarchyPill({ badge, floating = false, crown = false }) {
   if (!badge) return null;
+  // O pl-6 existe só pra reservar espaço pro ícone circular do launchBadge,
+  // que fica sobreposto na borda esquerda. Sem launchBadge (caso comum, ex.
+  // "SUPREME"), isso sobrava como um vão vazio à esquerda — a coroa entra
+  // no lugar dele, com padding normal, sem reservar espaço demais.
+  const hasLaunchImg = Boolean(badge.launchBadge);
 
   return (
     <span
-      className={`${floating ? 'absolute left-6 top-12 z-10' : 'ml-3'} relative inline-flex items-center overflow-visible rounded-full px-2 py-1 pl-6 text-[8px] font-black uppercase tracking-[1.4px] shadow-sm`}
+      className={`${floating ? 'absolute left-3 top-9 z-10' : 'ml-3'} relative inline-flex items-center overflow-visible rounded-full py-1 text-[8px] font-black uppercase tracking-[1.4px] shadow-sm ${hasLaunchImg ? 'pl-6 pr-2' : 'px-2'}`}
       style={{
         background: badge.gradient || badge.pillBg || badge.color || C.purple,
         color: badge.pillText || C.accent,
       }}
       title={badge.label}
     >
-      {badge.launchBadge && (
+      {hasLaunchImg && (
         <img src={badge.asset} alt="" className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 object-contain" />
       )}
+      {crown && !hasLaunchImg && <Crown size={9} className="relative z-10 mr-1" fill="currentColor" strokeWidth={0} />}
       <span className="relative z-10">{badge.petLabel || badge.label}</span>
     </span>
   );
@@ -78,10 +84,20 @@ function GridCard({ pet, onClick, tutorBadge }) {
       style={{
         borderRadius: 30, height: 300,
         boxShadow: hovered ? `0 20px 48px ${theme}28, 0 4px 12px rgba(0,0,0,0.08)` : '0 2px 8px rgba(0,0,0,0.05)',
-        border: hovered ? `2px solid ${theme}40` : '2px solid #F3F4F6',
-        transition: 'box-shadow 0.3s, border 0.25s',
+        // Só a borda de baixo — largura 0 nos outros lados. Ter um border-width
+        // diferente (ex. 2px) nos lados de cima/laterais competindo com os 7px
+        // debaixo, mesmo mínimo, cria uma pequena quebra visível bem na curva
+        // onde as duas espessuras se encontram. Zerando os outros lados, sobra
+        // só uma transição, sem falha.
+        borderBottom: `7px solid ${theme}`,
+        transition: 'box-shadow 0.3s',
       }}>
-      <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: 28 }}>
+      {/* O recorte de dentro fica flush em cima/lados (raio 30, igual ao card)
+          e inset 7px embaixo (acompanha a borda grossa da cor da skin) — por
+          isso o raio de baixo (23 = 30-7) é menor que o de cima: assim as duas
+          curvas ficam concêntricas com a borda de fora e não sobra vão nenhum
+          entre a foto e a cor. */}
+      <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: '30px 30px 23px 23px' }}>
         <motion.img
           src={pet.photoUrl || 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&q=70'}
           alt={pet.name} className="w-full h-full object-cover"
@@ -105,7 +121,7 @@ function GridCard({ pet, onClick, tutorBadge }) {
         </div>
       </div>
 
-      <PetHierarchyPill badge={tutorBadge} floating />
+      <PetHierarchyPill badge={tutorBadge} floating crown />
 
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
         <motion.div animate={{ y: hovered ? -5 : 0 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
@@ -139,9 +155,6 @@ function GridCard({ pet, onClick, tutorBadge }) {
       <motion.div className="absolute inset-0 pointer-events-none"
         animate={{ opacity: hovered ? 1 : 0 }}
         style={{ borderRadius: 28, boxShadow: `inset 0 0 0 2.5px ${theme}70` }} />
-
-      {/* Barrinha com a cor da skin do gato, escolhida no cadastro/edição */}
-      <div className="absolute bottom-0 left-0 right-0 h-[5px] z-20" style={{ background: theme }} />
     </motion.div>
   );
 }

@@ -1,7 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import App from './app/AppShell' 
+import App from './app/AppShell'
+import UpdatePrompt from './components/UpdatePrompt'
 import './index.css'
 
 // IMPORTAMOS O PROVEDOR DE AUTENTICAÇÃO
@@ -16,6 +17,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AppSettingsProvider>
         <AuthProvider>
           <GamificationProvider>
+            <UpdatePrompt />
             <App />
           </GamificationProvider>
         </AuthProvider>

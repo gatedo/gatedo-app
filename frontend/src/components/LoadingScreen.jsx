@@ -40,7 +40,7 @@ export function LoadingScreen({ isVisible }) {
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-      backgroundColor: '#823fff',
+      backgroundColor: '#8B4AFF',
       zIndex: 99999,
       display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
     }}>

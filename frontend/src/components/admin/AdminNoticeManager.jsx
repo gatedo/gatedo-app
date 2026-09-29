@@ -9,6 +9,7 @@ import {
   Calendar,
   Trophy,
   Eye,
+  BellRing,
 } from 'lucide-react';
 import api from '../../services/api';
 import NoticeFormModal from './NoticeFormModal';
@@ -42,6 +43,7 @@ export default function AdminNoticeManager() {
 
   const [openModal, setOpenModal] = useState(false);
   const [editingNotice, setEditingNotice] = useState(null);
+  const [testingPush, setTestingPush] = useState(false);
 
   const showToast = (msg, type = 'default') => {
     setToast({ msg, type });
@@ -78,6 +80,26 @@ export default function AdminNoticeManager() {
   const handleCreate = () => {
     setEditingNotice(null);
     setOpenModal(true);
+  };
+
+  const handleTestPush = async () => {
+    if (testingPush) return;
+    setTestingPush(true);
+
+    try {
+      const res = await api.post('/push/test');
+      showToast(
+        res.data?.sent > 0
+          ? 'Notificação de teste enviada — confere no seu aparelho'
+          : 'Nenhuma inscrição de push ativa nesta conta (ative "Avisos no dia" nas Configurações primeiro)',
+        res.data?.sent > 0 ? 'success' : 'warn',
+      );
+    } catch (err) {
+      console.error('Erro ao enviar push de teste:', err);
+      showToast('Não foi possível enviar o teste', 'warn');
+    } finally {
+      setTestingPush(false);
+    }
   };
 
   const handleEdit = (notice) => {
@@ -187,14 +209,25 @@ export default function AdminNoticeManager() {
             </p>
           </div>
 
-          <button
-            onClick={handleCreate}
-            className="inline-flex items-center gap-2 px-4 py-3 rounded-[16px] text-white font-black text-sm"
-            style={{ background: 'linear-gradient(135deg, #8B4AFF, #8B5CF6)' }}
-          >
-            <Plus size={16} />
-            Novo comunicado
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleTestPush}
+              disabled={testingPush}
+              className="inline-flex items-center gap-2 px-4 py-3 rounded-[16px] bg-white border border-gray-200 text-gray-700 font-black text-sm disabled:opacity-50"
+            >
+              <BellRing size={16} />
+              {testingPush ? 'Enviando...' : 'Enviar teste pra mim'}
+            </button>
+
+            <button
+              onClick={handleCreate}
+              className="inline-flex items-center gap-2 px-4 py-3 rounded-[16px] text-white font-black text-sm"
+              style={{ background: 'linear-gradient(135deg, #8B4AFF, #8B5CF6)' }}
+            >
+              <Plus size={16} />
+              Novo comunicado
+            </button>
+          </div>
         </div>
 
         <div className="p-6">

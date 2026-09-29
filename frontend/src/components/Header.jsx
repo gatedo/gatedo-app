@@ -361,7 +361,7 @@ export default function Header() {
         <div
           className="pointer-events-none absolute inset-x-0 top-0 z-0 h-16"
           style={{
-            background: 'linear-gradient(180deg, rgb(130, 63, 255) 0%, rgba(130, 63, 255, 0.83) 10%, rgba(140, 74, 255, 0.33) 50%, rgba(139,74,255,0) 100%)',
+            background: 'linear-gradient(180deg, rgb(139, 74, 255) 0%, rgba(139, 74, 255, 0.83) 10%, rgba(139, 74, 255, 0.33) 50%, rgba(139,74,255,0) 100%)',
           }}
         />
         <div className="relative z-50 px-4 pt-4">

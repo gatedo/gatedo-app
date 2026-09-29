@@ -26,6 +26,7 @@ const ALLOWED_CLIENT_EVENTS = new Set([
   'clube_checkout_click',
   'pack_checkout_click',
   'almanaque_deflect_resolved',
+  'topic_drift_gate_resolved',
 ]);
 
 @Controller('events')

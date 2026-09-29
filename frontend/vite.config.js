@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      injectRegister: false,
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.js',
@@ -22,7 +23,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         theme_color: '#8B4AFF', // Cor da barra de status no mobile
-        background_color: '#eeeeff',
+        background_color: '#8B4AFF',
         icons: [
           {
             src: 'pwa-192x192.png',

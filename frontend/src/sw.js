@@ -2,6 +2,14 @@ import { precacheAndRoute } from 'workbox-precaching';
 
 precacheAndRoute(self.__WB_MANIFEST);
 
+// Estratégia injectManifest não faz isso sozinha — sem esse listener, o botão
+// "Atualizar" do UpdatePrompt não tem como ativar a versão nova na hora.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('push', (event) => {
   let data = {};
   try {

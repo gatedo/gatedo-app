@@ -13,7 +13,7 @@
 
 :root {
   --gatedo-light-bg: #eeeeff;
-  --gatedo-app-bg: #eeeeff;
+  --gatedo-app-bg: #8B4AFF;
 }
 
 /* Configuração global */
@@ -49,7 +49,7 @@ body::after {
   right: 0;
   bottom: 0;
   height: env(safe-area-inset-bottom, 0px);
-  background: #592bb6;
+  background: #8B4AFF;
   pointer-events: none;
   z-index: 45;
 }
@@ -103,10 +103,10 @@ body::after {
   min-height: 100vh;
   background: linear-gradient(
     160deg,
-    #5b4fd6 0%,
-    #7b6ef5 40%,
-    #9d8fff 70%,
-    #c5bcff 100%
+    #8B4AFF 0%,
+    #9365e2 40%,
+    #a788dd 70%,
+    #d6c1fa 100%
   ) !important;
   background-attachment: fixed;
   background-size: cover;

@@ -144,6 +144,8 @@ export class IgentController {
       examPdfBase64?: string;
       examPdfFilename?: string;
       skipDeflection?: boolean;
+      topicAnchor?: string;
+      skipTopicGate?: boolean;
     },
   ) {
     const userId = req.user.id;
@@ -179,6 +181,27 @@ export class IgentController {
       if (almanacEntries.length > 0) {
         this.events.track({ name: 'almanaque_deflect_shown', userId, props: { matches: almanacEntries.length } }).catch(() => {});
         return { deflected: true, entries: almanacEntries };
+      }
+    }
+
+    // Guarda de continuidade — só entra depois da primeira pergunta (tem
+    // topicAnchor). Se a mensagem nova tem conteúdo próprio (não é só um
+    // "sim"/"tá" curto) e não compartilha NENHUMA palavra-chave com a
+    // pergunta que abriu a conversa, para antes de gastar crédito e pergunta
+    // se a pessoa quer continuar no mesmo assunto ou mudar — em vez de
+    // simplesmente responder como se fosse tudo a mesma consulta.
+    if (
+      kind === 'QUESTION' && body.skipDeflection && body.topicAnchor && !body.skipTopicGate &&
+      !body.imageBase64 && body.message?.trim()
+    ) {
+      const anchorKeywords = extractAlmanacKeywords(body.topicAnchor);
+      const messageKeywords = extractAlmanacKeywords(body.message);
+      const hasOwnTopic = messageKeywords.length >= 2;
+      const overlaps = messageKeywords.some((k) => anchorKeywords.includes(k));
+      if (hasOwnTopic && anchorKeywords.length > 0 && !overlaps) {
+        const anchorEntries = await this.searchAlmanac(body.topicAnchor);
+        this.events.track({ name: 'topic_drift_gate_shown', userId, props: {} }).catch(() => {});
+        return { offTopic: true, topicLabel: anchorEntries[0]?.title || null };
       }
     }
 

@@ -202,8 +202,11 @@ const PUBLIC_ROUTES_WITHOUT_NAV = [
   '/onboarding',
 ];
 
-const APP_BG = '#e6e6ff';
-const APP_THEME = '#823fff';
+// Mesma cor roxa usada no manifest.json, no meta theme-color do index.html e no
+// fundo sólido do BottomNav — precisa ser uma cor só em todo lugar, senão sobra
+// aquela emenda clara/escura entre a barra do sistema e o resto do app.
+const APP_BG = '#8B4AFF';
+const APP_THEME = '#8B4AFF';
 
 const AppShell = () => {
   const location = useLocation();
@@ -366,7 +369,7 @@ const AppShell = () => {
               className="pointer-events-auto flex h-[52px] max-h-[60px] w-full items-center justify-center gap-3 rounded-b-[26px] px-4 shadow-[0_14px_34px_rgba(70,30,150,0.28)] cursor-pointer"
               style={{
                 width: 'clamp(260px, 50vw, 460px)',
-                background: 'rgba(130,63,255,0.94)',
+                background: '#8B4AFF',
                 border: '1px solid rgba(255,255,255,0.22)',
                 borderTop: 0,
                 backdropFilter: 'blur(14px)',

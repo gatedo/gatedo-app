@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { PushService } from './push.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -23,5 +23,19 @@ export class PushController {
   async unsubscribe(@Body() body: { endpoint: string }) {
     if (body?.endpoint) await this.push.unsubscribe(body.endpoint);
     return { ok: true };
+  }
+
+  // Botão "Enviar notificação de teste pra mim" no painel admin — manda só
+  // pro próprio admin logado, sem afetar os inscritos de verdade.
+  @Post('test')
+  @UseGuards(JwtAuthGuard)
+  async sendTest(@Req() req: any) {
+    if (req.user.role !== 'ADMIN') throw new ForbiddenException('Acesso restrito ao administrador.');
+    const result = await this.push.sendToUser(req.user.id, {
+      title: 'Teste de notificação 🐱',
+      body: 'Se você recebeu isso, o push do Gatedo está funcionando certinho.',
+      url: '/settings',
+    });
+    return result;
   }
 }

@@ -14,6 +14,9 @@ import { track } from '../utils/track';
 import OfferCard from '../components/offers/OfferCard';
 import ClubeGate from '../components/ClubeGate';
 import { brandAssets } from '../brand/assets';
+import MiniMarkdown from '../utils/MiniMarkdown';
+import BlockRenderer from '../components/content/BlockRenderer';
+import { isBlocksArray } from '../components/content/blockTypes';
 import {
   buildIgentAlmanacContext,
   IGENT_ALMANAC_SCOPE,
@@ -734,6 +737,15 @@ function StepChat({ cat, cats, onAttachCat, symptom, historyCtx, onBack, onSaveH
   const painOfferCheckedRef = useRef(null);
   const [lastQuestionText, setLastQuestionText] = useState('');
   const skipDeflectionRef = useRef(false);
+  // Desvio pro Almanaque só pode acontecer na 1a pergunta da conversa —
+  // hasAskedRef vira true no 1o retorno real da IA e nunca mais some,
+  // evitando que uma resposta curta de acompanhamento ("sim, faz 3 dias")
+  // seja desviada de novo e pareça que a conversa "esqueceu" o assunto.
+  const hasAskedRef = useRef(false);
+  // Assunto que abriu a conversa — usado só pra checar se uma pergunta nova
+  // ainda é sobre a mesma coisa (guarda de continuidade de tópico).
+  const topicAnchorRef = useRef(null);
+  const skipTopicGateRef = useRef(false);
   const [attachPickerOpen, setAttachPickerOpen] = useState(false);
   const attachableCats = (cats || []).filter((c) => !c.isMemorial && !c.isArchived);
 
@@ -1427,8 +1439,13 @@ useEffect(() => {
         payload.audioTranscript = userMsg.media?.transcript || '[áudio enviado]';
       }
 
-      if (skipDeflectionRef.current) payload.skipDeflection = true;
+      if (hasAskedRef.current || skipDeflectionRef.current) payload.skipDeflection = true;
       skipDeflectionRef.current = false;
+      if (hasAskedRef.current && topicAnchorRef.current) {
+        payload.topicAnchor = topicAnchorRef.current;
+        if (skipTopicGateRef.current) payload.skipTopicGate = true;
+      }
+      skipTopicGateRef.current = false;
 
       const res = await api.post('/igent/chat', payload);
       setIsTyping(false);
@@ -1448,7 +1465,19 @@ useEffect(() => {
         return;
       }
 
+      if (res.data.offTopic) {
+        setLastQuestionText(text);
+        addMsg({ sender: 'bot', type: 'topic_gate', topicLabel: res.data.topicLabel });
+        return;
+      }
+
       if (res.data.credits) setCredits(res.data.credits);
+
+      // Resposta real da IA — a partir daqui a conversa está "em andamento":
+      // nunca mais desvia pro Almanaque, e ancora o assunto pra guarda de
+      // continuidade das próximas mensagens.
+      hasAskedRef.current = true;
+      if (!topicAnchorRef.current) topicAnchorRef.current = text;
 
       const botText = res.data.text;
       addMsg({ sender: 'bot', type: 'text', text: botText });
@@ -1484,6 +1513,15 @@ useEffect(() => {
       skipDeflectionRef.current = true;
       handleSend(lastQuestionText, true);
     }
+  };
+
+  const handleTopicGateAction = (outcome) => {
+    touch();
+    track('topic_drift_gate_resolved', { outcome });
+    if (!lastQuestionText) return;
+    if (outcome === 'switch') topicAnchorRef.current = lastQuestionText;
+    skipTopicGateRef.current = true;
+    handleSend(lastQuestionText, true);
   };
 
   // ── Captura de foto/imagem ───────────────────────────────────────────────
@@ -1939,9 +1977,16 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
       className="flex flex-col bg-[#F4F3FF] max-w-[920px] w-full mx-auto"
       style={{ height: '100svh' }}
     >
-      {/* Header */}
-      <div className="pt-10 pb-3 px-4 rounded-b-[32px] shadow-md z-30 shrink-0 relative"
-        style={{ background: 'linear-gradient(180deg, #9F63FF 0%, #7E46E1 58%, #592BB6 100%)' }}>
+      {/* Header — sticky pra nunca rolar junto com o chat, mesmo se algum
+          ancestral virar contêiner de scroll. Padding-top usa a área segura
+          real do aparelho (notch/status bar) em vez de um valor fixo, senão
+          em telas com barra de status mais alta o conteúdo fica espremido
+          contra os ícones do sistema. */}
+      <div className="sticky top-0 pb-3 px-4 rounded-b-[32px] shadow-md z-30 shrink-0"
+        style={{
+          background: 'linear-gradient(180deg, #8B4AFF 0%, #7E46E1 58%, #592BB6 100%)',
+          paddingTop: 'max(2.5rem, calc(env(safe-area-inset-top, 0px) + 14px))',
+        }}>
         <div className="flex items-center justify-between mb-3">
           <button onClick={onBack}
             className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center">
@@ -2053,6 +2098,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
                 onQuickReply={handleSend}
                 onFeedback={handleFeedback}
                 onDeflectAction={handleDeflectAction}
+                onTopicGateAction={handleTopicGateAction}
               />
             </motion.div>
           ))}
@@ -2269,14 +2315,14 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             </button>
 
             {/* Campo de texto */}
-            <div className="flex-1 bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center pr-1 pl-4">
+            <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center pr-1 pl-4">
               <input
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !isTyping && handleSend()}
                 placeholder={recording ? '🔴 Gravando...' : 'Responda ao agente...'}
-                className="flex-1 bg-transparent outline-none text-gray-700 text-sm py-3.5"
+                className="flex-1 min-w-0 bg-transparent outline-none text-gray-700 text-sm py-3.5"
               />
               {/* Botão mic / stop */}
               <button onClick={toggleRecording}
@@ -2289,7 +2335,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             {/* Enviar */}
             <motion.button
               whileTap={{ scale: 0.88 }}
-              onClick={handleSend}
+              onClick={() => handleSend()}
               className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-colors flex-shrink-0"
               style={{ background: (input.trim() || mediaFile) ? C.purple : '#D1D5DB' }}>
               <Send size={18} className="ml-0.5" />
@@ -2333,11 +2379,72 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
   );
 }
 
+// ─── ARTIGO DO ALMANAQUE EM MODAL — abre sem sair do chat e sem perder o
+// contexto da conversa (antes abria numa aba nova, que num PWA instalado
+// se comporta como "sair do app") ─────────────────────────────────────────
+function GuideArticleModal({ slug, onClose }) {
+  const [entry, setEntry] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get(`/content/guides/${slug}`)
+      .then((r) => setEntry(r.data))
+      .catch(() => setEntry(null))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  const hasBlocks = isBlocksArray(entry?.blocks);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[1000] bg-black/40 flex items-end justify-center"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        className="w-full max-w-[560px] bg-[#F4F3FF] rounded-t-[28px] max-h-[85vh] overflow-y-auto"
+        style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-[#F4F3FF] pt-3 pb-2 px-5 flex items-center justify-between z-10">
+          <div className="w-10 h-1 rounded-full bg-gray-300 absolute left-1/2 -translate-x-1/2 top-2" />
+          <span className="text-[10px] font-black uppercase tracking-wide text-gray-400 mt-3">Almanaque</span>
+          <button onClick={onClose} className="mt-2 w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center">
+            <X size={16} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="px-5 pb-6">
+          {loading && <p className="text-center text-[12px] font-medium text-gray-400 py-10">Carregando...</p>}
+          {!loading && !entry && <p className="text-center text-[12px] font-medium text-gray-400 py-10">Não foi possível carregar este artigo.</p>}
+          {!loading && entry && (
+            <>
+              <h2 className="text-lg font-black text-gray-800 mb-2">{entry.title}</h2>
+              {entry.excerpt && <p className="text-[13px] font-medium text-gray-500 mb-4">{entry.excerpt}</p>}
+              {hasBlocks ? (
+                <BlockRenderer blocks={entry.blocks} />
+              ) : (
+                <div className="bg-white rounded-[22px] p-4 border border-gray-100 shadow-sm">
+                  <MiniMarkdown text={entry.body} className="text-[13px] font-medium text-gray-600 leading-relaxed" />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── BOLHA DE MENSAGEM ────────────────────────────────────────────────────────
-function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback, onDeflectAction }) {
+function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback, onDeflectAction, onTopicGateAction }) {
   const [triageAnswers, setTriageAnswers] = useState({});
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackChoice, setFeedbackChoice] = useState(null);
+  const [articleSlug, setArticleSlug] = useState(null);
 
   const triageOptionsFor = (question = '', index = 0) => {
     if (msg?.symptomId) return getThemeTriageOptions(msg.symptomId, question, index);
@@ -2874,19 +2981,17 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback,
   if (msg.type === 'almanac_deflect') {
     return (
       <div className="w-full bg-white rounded-[22px] p-4 shadow-sm border" style={{ borderColor: `${C.purple}20` }}>
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-2">Achamos isso no Almanaque</p>
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-2">Achei isso pra você</p>
         <div className="space-y-2 mb-3">
           {(msg.entries || []).map((entry) => (
-            <a
+            <button
               key={entry.slug}
-              href={`/guia/${entry.slug}`}
-              target="_blank"
-              rel="noreferrer"
-              className="block rounded-2xl px-3.5 py-3 bg-[#F5F1FF] border border-[#8B4AFF]/15"
+              onClick={() => setArticleSlug(entry.slug)}
+              className="block w-full text-left rounded-2xl px-3.5 py-3 bg-[#F5F1FF] border border-[#8B4AFF]/15"
             >
               <p className="text-[13px] font-black text-gray-800">{entry.title}</p>
               {entry.excerpt && <p className="text-[11px] font-medium text-gray-500 mt-0.5 line-clamp-2">{entry.excerpt}</p>}
-            </a>
+            </button>
           ))}
         </div>
         <div className="flex gap-2">
@@ -2903,6 +3008,37 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback,
             style={{ background: '#F4F3FF', color: C.purple }}
           >
             Ainda quero perguntar
+          </button>
+        </div>
+        <AnimatePresence>
+          {articleSlug && <GuideArticleModal slug={articleSlug} onClose={() => setArticleSlug(null)} />}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  if (msg.type === 'topic_gate') {
+    return (
+      <div className="w-full bg-white rounded-[22px] p-4 shadow-sm border" style={{ borderColor: `${C.purple}20` }}>
+        <p className="text-gray-700 text-sm leading-relaxed mb-3">
+          {msg.topicLabel
+            ? <>Isso parece outro assunto — quer continuar falando sobre <b>{msg.topicLabel.toLowerCase()}</b> ou prefere seguir por aí?</>
+            : 'Isso parece outro assunto — quer continuar na conversa de antes ou prefere seguir por aí?'}
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onTopicGateAction?.('stay')}
+            className="flex-1 py-2.5 rounded-2xl text-xs font-black"
+            style={{ background: '#F4F3FF', color: C.purple }}
+          >
+            Continuar no assunto
+          </button>
+          <button
+            onClick={() => onTopicGateAction?.('switch')}
+            className="flex-1 py-2.5 rounded-2xl text-xs font-black"
+            style={{ background: '#F0FDF4', color: '#16A34A' }}
+          >
+            É outro assunto mesmo
           </button>
         </div>
       </div>
@@ -3231,6 +3367,16 @@ export default function IGentVet() {
   const [selCat, setSelCat]       = useState(null);
   const [selSymptom, setSelSymptom] = useState(null);
 
+  // Mantém a barra de status na mesma cor roxa padrão (#8B4AFF) que já é o
+  // topo do degradê desta página — evita a costura de cor entre a barra de
+  // status e o cabeçalho.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const previous = meta?.getAttribute('content');
+    meta?.setAttribute('content', '#8B4AFF');
+    return () => { if (previous) meta?.setAttribute('content', previous); };
+  }, []);
+
   const enterChatFromGuia = (cat) => {
     setSelCat(cat);
     setSelSymptom({ id: 'guia', label: 'Dúvida do Guia', emoji: '📖' });
@@ -3278,7 +3424,7 @@ export default function IGentVet() {
       <style>{CSS}</style>
       {/* Fundo roxo estendido — cobre tudo inclusive atrás da BottomNav */}
       <div className="fixed inset-0 pointer-events-none"
-        style={{ background: 'linear-gradient(180deg,#9F63FF 0%,#7E46E1 58%,#592BB6 100%)', zIndex: -1 }} />
+        style={{ background: 'linear-gradient(180deg,#8B4AFF 0%,#7E46E1 58%,#592BB6 100%)', zIndex: -1 }} />
       <div className="flex flex-col igent-root"
         style={{ height: '100svh', overflow: 'hidden', position: 'relative' }}>
         <AnimatePresence mode="wait">

@@ -237,6 +237,14 @@ const glassCSS = `
     text-align: left;
   }
 
+  .bn-fab-action-label-top {
+    top: auto;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .bn-pill,
     .bn-center,
@@ -254,14 +262,19 @@ const NAV = [
   { to: '/more', label: 'Mais', Icon: Menu, match: (p) => p.includes('more'), tour: 'nav-more' },
 ];
 
+// Leque de 4 ícones em arco simétrico (raio ~82px, dois de cada lado). Quando
+// "Aconteceu de novo" entra (ver AVULSO_ACTION), esses mesmos 4 ângulos são
+// reaproveitados só que redistribuídos em 5 pontas — nunca mistura um raio
+// diferente no meio do arco, senão o ícone extra fica visualmente "boiando"
+// fora da curva dos outros (era o que causava o amontoado no topo).
 const CENTER_ACTIONS = [
   {
     to: '/cats',
     label: 'Meus Gatos',
     Icon: Cat,
     tour: 'fab-cats',
-    x: -71,
-    y: -33,
+    x: -73,
+    y: -34,
     side: 'left',
     theme: {
       '--fab-glass-a': 'rgba(244,255,104,0.88)',
@@ -277,8 +290,8 @@ const CENTER_ACTIONS = [
     label: 'iGentVet',
     Icon: Stethoscope,
     tour: 'fab-igentvet',
-    x: -33,
-    y: -71,
+    x: -34,
+    y: -73,
     side: 'left',
     theme: {
       '--fab-glass-a': 'rgba(204,164,255,0.90)',
@@ -293,8 +306,8 @@ const CENTER_ACTIONS = [
     to: '/vets',
     label: 'Guia Vet',
     Icon: MapPin,
-    x: 33,
-    y: -71,
+    x: 34,
+    y: -73,
     side: 'right',
     theme: {
       '--fab-glass-a': 'rgba(92,248,224,0.88)',
@@ -309,41 +322,57 @@ const CENTER_ACTIONS = [
     key: 'emergency',
     label: 'Emergência',
     Icon: AlertOctagon,
-    x: 71,
-    y: -33,
+    x: 73,
+    y: -34,
     side: 'right',
     isEmergency: true,
     theme: {
-      '--fab-glass-a': 'rgba(255,140,140,0.92)',
-      '--fab-glass-b': 'rgba(220,38,38,0.84)',
+      '--fab-glass-a': 'rgba(255,99,99,0.95)',
+      '--fab-glass-b': 'rgba(230,0,0,0.90)',
       '--fab-icon': '#ffffff',
-      '--fab-shadow': 'rgba(153,15,15,0.32)',
-      '--fab-glow': 'rgba(255,90,90,0.52)',
-      '--fab-label-bg': 'rgba(153,15,15,0.86)',
+      '--fab-shadow': 'rgba(179,0,0,0.34)',
+      '--fab-glow': 'rgba(255,45,45,0.56)',
+      '--fab-label-bg': 'rgba(179,0,0,0.92)',
     },
   },
 ];
 
-// Só entra no leque quando há um protocolo com "registro_avulso" em
-// andamento (ex.: Xixi Fora da Caixa) — atalho pro "Aconteceu de novo" de
-// qualquer tela do app, sem precisar abrir o protocolo primeiro.
+// Mesmo arco de raio ~82px do CENTER_ACTIONS, só que com 5 pontas em vez de 4
+// (24.9°, 57.45°, 90°, 122.55°, 155.1° a partir do eixo horizontal) — por isso
+// "Meus Gatos"/"iGentVet"/"Guia Vet"/"Emergência" recebem coordenadas levemente
+// diferentes das de cima quando esta ação entra no leque (ver `centerActions`
+// mais abaixo). "Aconteceu de novo" ocupa a ponta central (90°, reto pra cima)
+// e usa label acima do ícone (side: 'top') pra não colidir com o vizinho.
 const AVULSO_ACTION = {
   key: 'avulso',
   label: 'Aconteceu de novo',
   Icon: PlusCircle,
   x: 0,
-  y: -88,
-  side: 'right',
+  y: -85,
+  side: 'top',
   isAvulso: true,
   theme: {
-    '--fab-glass-a': 'rgba(255,180,180,0.92)',
-    '--fab-glass-b': 'rgba(220,38,38,0.80)',
+    '--fab-glass-a': 'rgba(255,178,60,0.95)',
+    '--fab-glass-b': 'rgba(255,106,0,0.90)',
     '--fab-icon': '#ffffff',
-    '--fab-shadow': 'rgba(153,15,15,0.28)',
-    '--fab-glow': 'rgba(255,90,90,0.46)',
-    '--fab-label-bg': 'rgba(153,15,15,0.86)',
+    '--fab-shadow': 'rgba(194,84,0,0.32)',
+    '--fab-glow': 'rgba(255,140,20,0.54)',
+    '--fab-label-bg': 'rgba(194,84,0,0.92)',
   },
 };
+
+// Coordenadas dos 4 ícones fixos quando "Aconteceu de novo" está presente —
+// mesmo raio (~85px), reespaçados pra abrir um vão de verdade pra ponta central.
+const CENTER_ACTIONS_WITH_AVULSO = CENTER_ACTIONS.map((action) => {
+  const coords = {
+    '/cats': { x: -77, y: -36 },
+    '/igent-vet': { x: -46, y: -72 },
+    '/vets': { x: 46, y: -72 },
+    emergency: { x: 77, y: -36 },
+  };
+  const key = action.to || action.key;
+  return { ...action, ...(coords[key] || {}) };
+});
 
 // Acesso sempre visível — sinais graves, sem gamificação, sem IA
 const CAT_ROUTE_RE = /^\/(cat|gato)\/([^/]+)/;
@@ -545,7 +574,7 @@ export default function BottomNav() {
   }, [user?.id]);
 
   const centerActions = useMemo(
-    () => (avulsoEnrollment ? [...CENTER_ACTIONS, AVULSO_ACTION] : CENTER_ACTIONS),
+    () => (avulsoEnrollment ? [...CENTER_ACTIONS_WITH_AVULSO, AVULSO_ACTION] : CENTER_ACTIONS),
     [avulsoEnrollment],
   );
 
@@ -627,7 +656,7 @@ export default function BottomNav() {
             <div className="absolute left-1/2 top-[31px] -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
               {centerActions.map((action, index) => {
                 const Icon = action.Icon;
-                const labelClass = `bn-fab-action-label bn-fab-action-label-${action.side === 'left' ? 'left' : 'right'}`;
+                const labelClass = `bn-fab-action-label bn-fab-action-label-${action.side === 'left' ? 'left' : action.side === 'top' ? 'top' : 'right'}`;
                 return (
                   <motion.div
                     key={action.to || action.key}

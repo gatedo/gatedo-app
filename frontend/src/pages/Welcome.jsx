@@ -54,6 +54,18 @@ export default function Welcome() {
     return () => clearInterval(t);
   }, [current, paused]);
 
+  // O Android sempre pinta a barra de status com um bloco sólido na cor do
+  // theme-color (não dá pra deixar de verdade "por trás" da imagem) — então
+  // em vez da roxa padrão do app, usamos aqui a mesma cor quase preta do topo
+  // do degradê da própria foto, pra parecer que a imagem continua por baixo
+  // dos ícones em vez de cortar numa barra roxa destacada.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const previous = meta?.getAttribute('content');
+    meta?.setAttribute('content', '#0a0a0a');
+    return () => { if (previous) meta?.setAttribute('content', previous); };
+  }, []);
+
   const handleCTA = () => {
     setPaused(true);
     if (current < SLIDES.length - 1) setCurrent(c => c + 1);

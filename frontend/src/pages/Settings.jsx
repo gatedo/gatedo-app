@@ -21,7 +21,7 @@ import usePushNotifications from '../hooks/usePushNotifications';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
-import { enablePush, disablePush, isPushSupported } from '../utils/push';
+import { enablePush, disablePush, isPushSupported, isStandalone, isIos } from '../utils/push';
 
 const STATUS_COPY = {
   granted: {
@@ -37,8 +37,11 @@ const STATUS_COPY = {
     color: '#6b7280',
     bg: '#f9fafb',
     border: '#e5e7eb',
-    title: 'Notificações bloqueadas no navegador',
-    text: 'Para voltar a receber alertas, libere a permissão nas configurações do navegador.',
+    // title/text reais vêm de deniedNotificationCopy() — variam conforme o
+    // app está instalado (Android/iOS) ou aberto numa aba de navegador, já
+    // que o lugar onde essa permissão se destrava muda de um pro outro.
+    title: 'Notificações bloqueadas',
+    text: 'Para voltar a receber alertas, libere a permissão.',
   },
   default: {
     icon: Bell,
@@ -147,7 +150,31 @@ export default function Settings() {
 
   const notificationState = useMemo(() => {
     if (notificationPermission === 'unsupported') return STATUS_COPY.unsupported;
-    if (notificationPermission === 'denied') return STATUS_COPY.denied;
+    if (notificationPermission === 'denied') {
+      // App instalado (WebAPK) não tem "configurações do navegador" nenhuma
+      // visível — essa permissão vira uma permissão nativa do Android/iOS,
+      // escondida nas configurações do próprio sistema/app. Manda pro lugar
+      // certo em vez de "libere no navegador", que não existe nesse modo.
+      if (isIos()) {
+        return {
+          ...STATUS_COPY.denied,
+          title: 'Notificações bloqueadas no iPhone',
+          text: 'Isso se libera nos Ajustes do iPhone, não dentro do app: Ajustes → Gatedo → Notificações, e ative por lá.',
+        };
+      }
+      if (isStandalone()) {
+        return {
+          ...STATUS_COPY.denied,
+          title: 'Notificações bloqueadas no Android',
+          text: 'Como o app está instalado, essa permissão fica nas configurações do próprio Android, não no navegador: toque e segure o ícone do Gatedo na tela inicial → Informações do app → Notificações, e ative por lá.',
+        };
+      }
+      return {
+        ...STATUS_COPY.denied,
+        title: 'Notificações bloqueadas no navegador',
+        text: 'Toque no menu (⋮) do navegador → Configurações do site → Notificações, e libere para o Gatedo.',
+      };
+    }
     if (notificationPermission === 'granted') return STATUS_COPY.granted;
     return STATUS_COPY.default;
   }, [notificationPermission]);
