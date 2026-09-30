@@ -1414,10 +1414,10 @@ function CopyCard({ item, starred, onStar }) {
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap gap-1.5 mb-2">
-              <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-white"
+              <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white"
                 style={{ backgroundColor: OBJ_COLORS[item.objetivo] || P }}>{item.objetivo}</span>
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{item.formato}</span>
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border"
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{item.formato}</span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
                 style={item.tipo === 'Pago' ? { backgroundColor: '#fef3c7', color: '#d97706', borderColor:'#fde68a' } : { backgroundColor: '#f0fdf4', color: '#15803d', borderColor:'#bbf7d0' }}>
                 {item.tipo}
               </span>
@@ -1435,7 +1435,7 @@ function CopyCard({ item, starred, onStar }) {
 
         <div className="flex flex-wrap gap-1 mb-3">
           {item.tags.map(t => (
-            <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-md bg-gray-50 text-gray-500 border border-gray-100">{t}</span>
+            <span key={t} className="text-[11px] px-1.5 py-0.5 rounded-md bg-gray-50 text-gray-500 border border-gray-100">{t}</span>
           ))}
         </div>
 
@@ -1527,7 +1527,7 @@ export default function AdminCopyBank() {
               <div key={k.label} className="rounded-2xl px-4 py-2.5 border border-white/10 text-center"
                 style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
                 <p className="text-xl font-black text-white">{k.value}</p>
-                <p className="text-[9px] text-white/40 font-medium mt-0.5">{k.label}</p>
+                <p className="text-[11px] text-white/40 font-medium mt-0.5">{k.label}</p>
               </div>
             ))}
           </div>

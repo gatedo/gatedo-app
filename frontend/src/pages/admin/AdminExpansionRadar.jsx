@@ -282,10 +282,10 @@ function ImpactEffortMatrix({ data, onSelect, selected }) {
         {/* Axes */}
         <div className="absolute inset-0 border border-gray-100 rounded-xl overflow-hidden">
           {/* Quadrant labels */}
-          <div className="absolute top-2 left-2 text-[9px] font-black text-green-600 opacity-70">FAZER AGORA</div>
-          <div className="absolute top-2 right-2 text-[9px] font-black text-amber-500 opacity-70">PLANEJAR</div>
-          <div className="absolute bottom-2 left-2 text-[9px] font-black text-blue-500 opacity-70">QUICK WINS</div>
-          <div className="absolute bottom-2 right-2 text-[9px] font-black text-gray-400 opacity-70">DESCARTAR</div>
+          <div className="absolute top-2 left-2 text-[11px] font-black text-green-600 opacity-70">FAZER AGORA</div>
+          <div className="absolute top-2 right-2 text-[11px] font-black text-amber-500 opacity-70">PLANEJAR</div>
+          <div className="absolute bottom-2 left-2 text-[11px] font-black text-blue-500 opacity-70">QUICK WINS</div>
+          <div className="absolute bottom-2 right-2 text-[11px] font-black text-gray-400 opacity-70">DESCARTAR</div>
           {/* Center lines */}
           <div className="absolute top-0 bottom-0 left-1/2 border-l border-dashed border-gray-200" />
           <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-gray-200" />
@@ -309,11 +309,11 @@ function ImpactEffortMatrix({ data, onSelect, selected }) {
         })}
         {/* Axis labels */}
         <div className="absolute -bottom-5 left-0 right-0 flex justify-between px-2">
-          <span className="text-[9px] text-gray-400">Esforço Baixo</span>
-          <span className="text-[9px] text-gray-400">Esforço Alto</span>
+          <span className="text-[11px] text-gray-400">Esforço Baixo</span>
+          <span className="text-[11px] text-gray-400">Esforço Alto</span>
         </div>
         <div className="absolute -left-6 top-0 bottom-0 flex flex-col justify-between py-2">
-          <span className="text-[9px] text-gray-400" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Impacto Alto</span>
+          <span className="text-[11px] text-gray-400" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Impacto Alto</span>
         </div>
       </div>
     </div>
@@ -336,22 +336,22 @@ function ExpansionCard({ exp, onSelect, selected }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 flex-wrap mb-1">
             <p className="text-sm font-black text-gray-900">{exp.title}</p>
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
+            <span className="text-[11px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: A, color: P }}>{exp.tag}</span>
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: catStyle.bg, color: catStyle.text }}>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: catStyle.bg, color: catStyle.text }}>
               {exp.category}
             </span>
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
               style={{ backgroundColor: `${HORIZON_COLOR[exp.horizon]}20`, color: HORIZON_COLOR[exp.horizon] }}>
               📅 {exp.horizon}
             </span>
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
               style={{ backgroundColor: `${EFFORT_COLOR[exp.effort]}15`, color: EFFORT_COLOR[exp.effort] }}>
               ⚡ Esforço {exp.effort}
             </span>
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
               style={{ backgroundColor: `${IMPACT_COLOR[exp.impact]}15`, color: IMPACT_COLOR[exp.impact] }}>
               🎯 Impacto {exp.impact}
             </span>
@@ -366,7 +366,7 @@ function ExpansionCard({ exp, onSelect, selected }) {
           <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: `${exp.color}10`, border: `0.5px solid ${exp.color}25` }}>
             <DollarSign size={14} style={{ color: exp.color }} className="flex-shrink-0" />
             <div>
-              <p className="text-[9px] font-black" style={{ color: exp.color }}>MODELO DE RECEITA</p>
+              <p className="text-[11px] font-black" style={{ color: exp.color }}>MODELO DE RECEITA</p>
               <p className="text-xs font-bold text-gray-800">{exp.revenue}</p>
             </div>
           </div>
@@ -374,18 +374,18 @@ function ExpansionCard({ exp, onSelect, selected }) {
           {/* Problem / Solution */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-red-50 rounded-xl p-3 border border-red-100">
-              <p className="text-[9px] font-black text-red-600 mb-1">🔴 PROBLEMA</p>
+              <p className="text-[11px] font-black text-red-600 mb-1">🔴 PROBLEMA</p>
               <p className="text-xs text-gray-700 leading-relaxed">{exp.problem}</p>
             </div>
             <div className="bg-green-50 rounded-xl p-3 border border-green-100">
-              <p className="text-[9px] font-black text-green-600 mb-1">✅ SOLUÇÃO GATEDO</p>
+              <p className="text-[11px] font-black text-green-600 mb-1">✅ SOLUÇÃO GATEDO</p>
               <p className="text-xs text-gray-700 leading-relaxed">{exp.solution}</p>
             </div>
           </div>
 
           {/* Distribution */}
           <div className="bg-white rounded-xl p-3 border border-gray-100">
-            <p className="text-[9px] font-black text-gray-500 mb-1">📡 CANAL DE DISTRIBUIÇÃO</p>
+            <p className="text-[11px] font-black text-gray-500 mb-1">📡 CANAL DE DISTRIBUIÇÃO</p>
             <p className="text-xs text-gray-600 leading-relaxed">{exp.distribution}</p>
           </div>
 
@@ -401,11 +401,11 @@ function ExpansionCard({ exp, onSelect, selected }) {
 
           {/* Actions */}
           <div>
-            <p className="text-[9px] font-black text-gray-400 mb-2">🚀 PRÓXIMAS 3 AÇÕES</p>
+            <p className="text-[11px] font-black text-gray-400 mb-2">🚀 PRÓXIMAS 3 AÇÕES</p>
             <div className="space-y-1.5">
               {exp.actions.map((a, i) => (
                 <div key={a} className="flex items-start gap-2">
-                  <span className="text-[9px] font-black text-white w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                  <span className="text-[11px] font-black text-white w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: exp.color }}>{i + 1}</span>
                   <p className="text-xs text-gray-600 leading-relaxed">{a}</p>
                 </div>
@@ -472,7 +472,7 @@ export default function AdminExpansionRadar() {
             ].map(k => (
               <div key={k.label} className="rounded-2xl px-4 py-2.5 border border-white/10"
                 style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
-                <p className="text-[9px] text-white/40 font-medium">{k.label}</p>
+                <p className="text-[11px] text-white/40 font-medium">{k.label}</p>
                 <p className="text-lg font-black text-white">{k.value}</p>
               </div>
             ))}

@@ -295,7 +295,7 @@ export default function AdminStore() {
                 ${tab === t.id ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400'}`}>
               <t.icon size={13} />
               {t.label}
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-[#8B4AFF] text-white' : 'bg-gray-200 text-gray-400'}`}>
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-[#8B4AFF] text-white' : 'bg-gray-200 text-gray-400'}`}>
                 {t.count}
               </span>
             </button>
@@ -349,17 +349,17 @@ export default function AdminStore() {
                     {prod.images?.[0]
                       ? <img src={prod.images[0]} alt={prod.name} className="w-full h-full object-cover mix-blend-multiply p-2" />
                       : <div className="w-full h-full flex items-center justify-center"><ImageIcon size={28} className="text-gray-200" /></div>}
-                    {prod.badge && <span className="absolute top-2 left-2 bg-[#8B4AFF] text-white text-[8px] font-black px-2 py-0.5 rounded-full">{prod.badge}</span>}
+                    {prod.badge && <span className="absolute top-2 left-2 bg-[#8B4AFF] text-white text-[10px] font-black px-2 py-0.5 rounded-full">{prod.badge}</span>}
                     {prod.featured && (
-                      <span className="absolute top-2 right-2 bg-[#DFFF40] text-[#1a1a00] text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                      <span className="absolute top-2 right-2 bg-[#DFFF40] text-[#1a1a00] text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5">
                         <Home size={7} /> HOME
                       </span>
                     )}
                   </div>
                   <div className="p-3 flex-1 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] font-black text-[#8B4AFF] bg-purple-50 px-1.5 py-0.5 rounded-full">{prod.platform}</span>
-                      <span className="text-[8px] text-gray-400 font-bold">{prod.category?.name}</span>
+                      <span className="text-[10px] font-black text-[#8B4AFF] bg-purple-50 px-1.5 py-0.5 rounded-full">{prod.platform}</span>
+                      <span className="text-[10px] text-gray-400 font-bold">{prod.category?.name}</span>
                     </div>
                     <h3 className="font-black text-gray-800 text-sm line-clamp-1">{prod.name}</h3>
                     <p className="text-sm font-black text-[#8B4AFF]">R$ {parseFloat(prod.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
@@ -415,7 +415,7 @@ export default function AdminStore() {
                         <h3 className="font-black text-sm">{kit.title}</h3>
                         <p className="text-white/70 text-[10px] font-bold">{kit.subtitle}</p>
                       </div>
-                      <span className={`text-[8px] font-black px-2 py-1 rounded-full ${kit.active ? 'bg-[#ebfc66] text-[#1a0533]' : 'bg-white/20 text-white/60'}`}>
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-full ${kit.active ? 'bg-[#ebfc66] text-[#1a0533]' : 'bg-white/20 text-white/60'}`}>
                         {kit.active ? 'ATIVO' : 'INATIVO'}
                       </span>
                     </div>
@@ -423,11 +423,11 @@ export default function AdminStore() {
                       <p className="text-[10px] text-gray-400 font-bold mb-2">{kitProds.length} produto{kitProds.length !== 1 ? 's' : ''} no kit</p>
                       <div className="flex flex-wrap gap-1 mb-3">
                         {kitProds.slice(0, 4).map(p => (
-                          <span key={p.id} className="text-[9px] bg-gray-50 text-gray-500 font-bold px-2 py-0.5 rounded-full border border-gray-100 line-clamp-1 max-w-[120px]">
+                          <span key={p.id} className="text-[11px] bg-gray-50 text-gray-500 font-bold px-2 py-0.5 rounded-full border border-gray-100 line-clamp-1 max-w-[120px]">
                             {p.name}
                           </span>
                         ))}
-                        {kitProds.length > 4 && <span className="text-[9px] text-gray-400 font-bold">+{kitProds.length - 4}</span>}
+                        {kitProds.length > 4 && <span className="text-[11px] text-gray-400 font-bold">+{kitProds.length - 4}</span>}
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => openKitModal(kit)} className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
@@ -470,7 +470,7 @@ export default function AdminStore() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="font-black text-gray-800 text-sm">{c.description}</span>
-                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${c.active ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${c.active ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
                         {c.active ? 'ATIVO' : 'INATIVO'}
                       </span>
                     </div>
@@ -598,7 +598,7 @@ export default function AdminStore() {
                     <p className="font-black text-sm">{kitForm.title || 'Nome do Kit'}</p>
                     <p className="text-white/70 text-[10px]">{kitForm.subtitle || 'Subtítulo'}</p>
                   </div>
-                  <span className="ml-auto text-[8px] font-black bg-[#ebfc66] text-[#1a0533] px-2 py-1 rounded-full">2× PTS</span>
+                  <span className="ml-auto text-[10px] font-black bg-[#ebfc66] text-[#1a0533] px-2 py-1 rounded-full">2× PTS</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -645,7 +645,7 @@ export default function AdminStore() {
                         {p.images?.[0] && <img src={p.images[0]} className="w-8 h-8 rounded-lg object-cover mix-blend-multiply bg-white shrink-0" alt="" />}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-black text-gray-700 line-clamp-1">{p.name}</p>
-                          <p className="text-[9px] text-[#8B4AFF] font-bold">R$ {parseFloat(p.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-[11px] text-[#8B4AFF] font-bold">R$ {parseFloat(p.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         </div>
                       </div>
                     ))}
@@ -732,7 +732,7 @@ export default function AdminStore() {
                     {users.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
                   </select>
                   {cupForm.targetUserId && (
-                    <p className="text-[9px] text-[#8B4AFF] font-bold mt-1 flex items-center gap-1">
+                    <p className="text-[11px] text-[#8B4AFF] font-bold mt-1 flex items-center gap-1">
                       <Send size={8} /> Só esse usuário pode resgatar este cupom
                     </p>
                   )}

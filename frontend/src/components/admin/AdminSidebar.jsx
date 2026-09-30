@@ -41,6 +41,8 @@ const COLORS = {
 
 const MENU_SECTIONS = [
   {
+    // ONGs parceiras mudou pra cá — é gestão de conta/parceria (aprovação,
+    // acompanhamento), igual "Parceiros (Vets)" logo acima; não é conteúdo.
     title: 'Operacao',
     items: [
       { id: 'dashboard', label: 'Visao Geral', icon: LayoutDashboard },
@@ -48,16 +50,20 @@ const MENU_SECTIONS = [
       { id: 'users', label: 'Tutores', icon: Users },
       { id: 'cats', label: 'Gatos', icon: Cat },
       { id: 'partners', label: 'Parceiros (Vets)', icon: HeartHandshake },
+      { id: 'ong', label: 'ONGs parceiras', icon: HeartHandshake },
     ],
   },
   {
+    // Guia/Biblioteca e Base de Conhecimento IA ficam lado a lado de propósito:
+    // são os dois lugares que descrevem o MESMO conteúdo clínico (um pro leitor,
+    // um pro prompt da IA) — colocar perto lembra o admin de atualizar os dois
+    // quando um tema novo entra, em vez de esquecer um deles.
     title: 'Produto & Conteudo',
     items: [
-      { id: 'content', label: 'Wiki & Studio', icon: BookOpen },
-      { id: 'guides', label: 'Almanaque', icon: BookOpen },
+      { id: 'content', label: 'Wiki', icon: BookOpen },
+      { id: 'guides', label: 'Guia / Biblioteca', icon: BookOpen },
+      { id: 'igent-almanac', label: 'Base de Conhecimento IA', icon: BookOpen, isIntelligence: true },
       { id: 'protocols', label: 'Protocolos', icon: ClipboardList },
-      { id: 'ong', label: 'ONGs parceiras', icon: HeartHandshake },
-      { id: 'igent-almanac', label: 'Almanaque iGent', icon: BookOpen, isIntelligence: true },
       { id: 'notices', label: 'Comunicados', icon: Megaphone },
       { id: 'store', label: 'Loja & Afiliados', icon: ShoppingBag },
     ],

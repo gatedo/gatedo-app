@@ -268,7 +268,7 @@ export default function AdminAmbassadors() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-black text-gray-900">{item.name}</p>
-                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${item.status === 'active' ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${item.status === 'active' ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
                         {item.status}
                       </span>
                     </div>
@@ -289,15 +289,15 @@ export default function AdminAmbassadors() {
                   <div className="rounded-2xl bg-gray-50 p-3">
                     <Users size={13} className="text-gray-400" />
                     <p className="text-sm font-black text-gray-900 mt-1">{Number(item.audience || 0).toLocaleString('pt-BR')}</p>
-                    <p className="text-[9px] text-gray-400">seguidores</p>
+                    <p className="text-[11px] text-gray-400">seguidores</p>
                   </div>
                   <div className="rounded-2xl bg-gray-50 p-3">
                     <p className="text-sm font-black text-gray-900">{item.commissionPercent}%</p>
-                    <p className="text-[9px] text-gray-400">comissao base</p>
+                    <p className="text-[11px] text-gray-400">comissao base</p>
                   </div>
                   <div className="rounded-2xl bg-gray-50 p-3">
                     <p className="text-sm font-black text-gray-900 truncate">{item.affiliateCode}</p>
-                    <p className="text-[9px] text-gray-400">codigo afiliado</p>
+                    <p className="text-[11px] text-gray-400">codigo afiliado</p>
                   </div>
                 </div>
 

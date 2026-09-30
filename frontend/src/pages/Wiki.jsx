@@ -326,7 +326,11 @@ export default function Wiki() {
                     onClick={() => { touch(); navigate('/wiki-vaccines'); }}
                 />
 
-                <h3 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2"><BookOpen size={20} className="text-[#8B4AFF]" /> Biblioteca</h3>
+                {/* "Biblioteca" já é o nome do atalho Home/Mais que leva pro Guia
+                    (conteúdo de triagem por sintoma) — usar o mesmo nome aqui pra
+                    esta grade de artigos gerais criava duas "Bibliotecas" diferentes
+                    no app. Esta é só a grade de artigos da Gatedo Pédia. */}
+                <h3 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2"><BookOpen size={20} className="text-[#8B4AFF]" /> Artigos</h3>
 
                 <div className="grid grid-cols-2 gap-3">
                     {categories.map((cat, idx) => (

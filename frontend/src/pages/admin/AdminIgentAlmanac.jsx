@@ -371,7 +371,7 @@ function compressImageToDataUrl(file) {
 function Stat({ label, value }) {
   return (
     <div className="rounded-2xl bg-white/12 px-4 py-3">
-      <p className="text-[9px] font-black uppercase tracking-widest text-white/55">{label}</p>
+      <p className="text-[11px] font-black uppercase tracking-widest text-white/55">{label}</p>
       <p className="text-2xl font-black">{value}</p>
     </div>
   );

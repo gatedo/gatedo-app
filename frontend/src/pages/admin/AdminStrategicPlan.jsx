@@ -35,7 +35,7 @@ function PillarCard({ icon: Icon, title, desc, color = P, tag }) {
           style={{ backgroundColor: `${color}15` }}>
           <Icon size={20} style={{ color }} />
         </div>
-        {tag && <span className="text-[9px] font-black px-2 py-1 rounded-full"
+        {tag && <span className="text-[11px] font-black px-2 py-1 rounded-full"
           style={{ backgroundColor: A, color: P }}>{tag}</span>}
       </div>
       <p className="text-sm font-black text-gray-900 mb-2">{title}</p>
@@ -104,7 +104,7 @@ function MonetizationTier({ tier, title, price, targets, features = [], color, i
             <Icon size={16} style={{ color }} />
           </div>
           <div>
-            <p className="text-[9px] font-black tracking-widest uppercase" style={{ color }}>{tier}</p>
+            <p className="text-[11px] font-black tracking-widest uppercase" style={{ color }}>{tier}</p>
             <p className="text-sm font-black text-gray-900">{title}</p>
           </div>
         </div>
@@ -134,7 +134,7 @@ function PartnerCard({ type, title, value, mechanic, examples, icon: Icon, color
           <Icon size={15} style={{ color }} />
         </div>
         <div>
-          <p className="text-[9px] font-black tracking-widest uppercase text-gray-400">{type}</p>
+          <p className="text-[11px] font-black tracking-widest uppercase text-gray-400">{type}</p>
           <p className="text-xs font-black text-gray-900">{title}</p>
         </div>
       </div>
@@ -149,7 +149,7 @@ function PartnerCard({ type, title, value, mechanic, examples, icon: Icon, color
         </div>
         <div className="flex flex-wrap gap-1 pt-1">
           {examples.map(e => (
-            <span key={e} className="text-[9px] px-2 py-0.5 rounded-full border border-gray-100 text-gray-400 font-medium">{e}</span>
+            <span key={e} className="text-[11px] px-2 py-0.5 rounded-full border border-gray-100 text-gray-400 font-medium">{e}</span>
           ))}
         </div>
       </div>
@@ -506,7 +506,7 @@ export default function AdminStrategicPlan() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-[10px] font-black text-gray-400">ATIVO #{moat.num}</span>
-                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
+                        <span className="text-[11px] font-black px-2 py-0.5 rounded-full"
                           style={{ backgroundColor: `${moat.color}15`, color: moat.color }}>Moat</span>
                       </div>
                       <p className="text-base font-black text-gray-900 mb-4">{moat.title}</p>

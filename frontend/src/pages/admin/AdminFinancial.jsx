@@ -67,7 +67,7 @@ export default function AdminFinancial() {
           Financeiro
         </h2>
         <button onClick={fetchAll} disabled={loading}
-          className="flex items-center gap-1.5 text-[9px] font-black text-gray-400 uppercase tracking-widest px-3 py-1.5 bg-white rounded-xl border border-gray-100">
+          className="flex items-center gap-1.5 text-[11px] font-black text-gray-400 uppercase tracking-widest px-3 py-1.5 bg-white rounded-xl border border-gray-100">
           <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
           Atualizar
         </button>
@@ -108,7 +108,7 @@ export default function AdminFinancial() {
               animate={{ width: `${(receita / RECEITA_MAXIMA) * 100}%` }}
               transition={{ duration: 1, ease: 'easeOut' }} />
           </div>
-          <p className="text-[9px] text-gray-400 mt-1">
+          <p className="text-[11px] text-gray-400 mt-1">
             {((receita / RECEITA_MAXIMA) * 100).toFixed(1)}% atingido
           </p>
         </motion.div>
@@ -134,7 +134,7 @@ export default function AdminFinancial() {
               animate={{ width: `${progressoMeta}%` }}
               transition={{ duration: 1, ease: 'easeOut' }} />
           </div>
-          <p className="text-[9px] text-gray-400 mt-1">{progressoMeta.toFixed(1)}% da meta</p>
+          <p className="text-[11px] text-gray-400 mt-1">{progressoMeta.toFixed(1)}% da meta</p>
         </motion.div>
       </div>
 
@@ -171,7 +171,7 @@ export default function AdminFinancial() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-xs font-black text-gray-700">{f.label}</p>
-                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full"
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
                       style={{
                         background: ativa ? 'rgba(97,88,202,0.1)' : esgotada ? '#FEE2E2' : '#F3F4F6',
                         color:      ativa ? '#6158ca'              : esgotada ? '#EF4444' : '#9CA3AF',
@@ -186,7 +186,7 @@ export default function AdminFinancial() {
                       transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.1 }}
                       style={{ background: esgotada ? '#EF4444' : ativa ? '#6158ca' : '#D1D5DB' }} />
                   </div>
-                  <p className="text-[9px] text-gray-400 mt-0.5">
+                  <p className="text-[11px] text-gray-400 mt-0.5">
                     {vendidas}/{f.totalVagas} vagas · R${f.price} cada
                   </p>
                 </div>
@@ -196,7 +196,7 @@ export default function AdminFinancial() {
                   <p className="text-sm font-black text-gray-800">
                     R$ {receitaF.toLocaleString('pt-BR')}
                   </p>
-                  <p className="text-[9px] text-gray-400">{pct.toFixed(0)}%</p>
+                  <p className="text-[11px] text-gray-400">{pct.toFixed(0)}%</p>
                 </div>
               </motion.div>
             );
@@ -222,7 +222,7 @@ export default function AdminFinancial() {
             <Users size={18} className="text-blue-500" />
           </div>
           <div>
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Total Tutores</p>
+            <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Total Tutores</p>
             <p className="text-2xl font-black text-gray-800">{usuarios.total}</p>
           </div>
         </div>
@@ -231,7 +231,7 @@ export default function AdminFinancial() {
             <Target size={18} className="text-amber-500" />
           </div>
           <div>
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Conversão</p>
+            <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Conversão</p>
             <p className="text-2xl font-black text-gray-800">
               {usuarios.total > 0 ? ((totalVendidas / usuarios.total) * 100).toFixed(1) : 0}%
             </p>

@@ -5,7 +5,7 @@ import BlockEditor from '../../components/content/BlockEditor';
 
 const C = { purple: '#8B4AFF' };
 const fieldCls = 'w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] font-medium text-gray-700 outline-none focus:border-[#8B4AFF]';
-const labelCls = 'text-[9px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
+const labelCls = 'text-[11px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
 
 const EMPTY = {
   slug: '', title: '', theme: '', categoryId: '', excerpt: '', body: '',
@@ -78,7 +78,7 @@ export default function AdminGuideEditor() {
 
   if (editing) {
     return (
-      <div className="max-w-2xl">
+      <div>
         <button onClick={() => setEditing(null)} className="flex items-center gap-1.5 text-[12px] font-black text-gray-400 mb-4">
           <ChevronLeft size={15} /> Voltar
         </button>
@@ -165,10 +165,10 @@ export default function AdminGuideEditor() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-lg font-black text-gray-800">Almanaque</h2>
+          <h2 className="text-lg font-black text-gray-800">Guia / Biblioteca</h2>
           <p className="text-[11px] font-bold text-gray-400">{list.length} verbetes</p>
         </div>
         <button onClick={openNew} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[11px] font-black text-white" style={{ background: C.purple }}>

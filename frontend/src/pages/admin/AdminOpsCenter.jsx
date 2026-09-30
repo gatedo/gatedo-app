@@ -280,7 +280,7 @@ function Tab({ id, label, icon: Icon, active, onClick, badge }) {
         ${active ? 'text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
       style={active ? { backgroundColor: P } : {}}>
       <Icon size={12} />{label}
-      {badge && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[8px] font-black flex items-center justify-center text-white bg-red-500">{badge}</span>}
+      {badge && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] font-black flex items-center justify-center text-white bg-red-500">{badge}</span>}
     </button>
   );
 }
@@ -408,7 +408,7 @@ function OKRsPanel() {
                           <span className="text-[10px] font-black flex-shrink-0 w-10 text-right" style={{ color: okr.color }}>{pct}%</span>
                         </div>
                       )}
-                      <p className="text-[9px] text-gray-400 mt-1">
+                      <p className="text-[11px] text-gray-400 mt-1">
                         {kr.current.toLocaleString('pt-BR')} {kr.unit} de {kr.target.toLocaleString('pt-BR')} {kr.unit}
                       </p>
                     </div>
@@ -489,7 +489,7 @@ function KPIPanel() {
             { label: 'Assinaturas ativas', value: snapshot.monetization.activeSubscriptions },
           ].map(item => (
             <div key={item.label} className="bg-white border border-gray-100 rounded-2xl p-3">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{item.label}</p>
+              <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">{item.label}</p>
               <p className="text-sm font-black text-gray-900 truncate mt-1">{item.value}</p>
             </div>
           ))}
@@ -528,7 +528,7 @@ function KPIPanel() {
                   </div>
                   <div>
                     <p className="text-xs font-black text-gray-800">{kpi.label}</p>
-                    <p className="text-[9px] text-gray-400">{kpi.category}</p>
+                    <p className="text-[11px] text-gray-400">{kpi.category}</p>
                   </div>
                 </div>
                 <button onClick={() => setEditing(isEditing ? null : kpi.id)}
@@ -588,10 +588,10 @@ function KPIPanel() {
 
               <ProgressBar value={kpi.current} max={kpi.target} color={isOk ? '#10b981' : isWarn ? '#f59e0b' : kpi.color} size="sm" />
               <div className="flex items-center justify-between mt-1">
-                <span className="text-[9px]" style={{ color: isOk ? '#10b981' : isWarn ? '#f59e0b' : '#ef4444' }}>
+                <span className="text-[11px]" style={{ color: isOk ? '#10b981' : isWarn ? '#f59e0b' : '#ef4444' }}>
                   {pct}% da meta
                 </span>
-                <span className={`text-[9px] font-bold ${isOk ? 'text-green-500' : isWarn ? 'text-amber-500' : 'text-red-400'}`}>
+                <span className={`text-[11px] font-bold ${isOk ? 'text-green-500' : isWarn ? 'text-amber-500' : 'text-red-400'}`}>
                   {isOk ? '✅ No alvo' : isWarn ? '⚠️ Atenção' : '🔴 Abaixo'}
                 </span>
               </div>
@@ -686,8 +686,8 @@ function DecisionLog() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: color }}>{d.category}</span>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: color }}>{d.category}</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border
                       ${d.outcome === 'Validado' || d.outcome === 'Definido' ? 'bg-green-50 text-green-700 border-green-100' :
                         d.outcome === 'Revertido' ? 'bg-red-50 text-red-600 border-red-100' :
                         'bg-amber-50 text-amber-600 border-amber-100'}`}>
@@ -772,13 +772,13 @@ function SOPsPanel() {
                   <span className="text-xl">{sop.icon}</span>
                   <div>
                     <p className="text-sm font-black text-gray-900 leading-tight">{sop.title}</p>
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-white"
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white"
                       style={{ backgroundColor: color }}>{sop.category}</span>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-lg font-black" style={{ color }}>{pct}%</p>
-                  <p className="text-[9px] text-gray-400">{done}/{total}</p>
+                  <p className="text-[11px] text-gray-400">{done}/{total}</p>
                 </div>
               </div>
               <ProgressBar value={done} max={total} color={color} size="sm" />
@@ -858,7 +858,7 @@ function RitualsPanel() {
               style={activePeriod === p ? { backgroundColor: color } : {}}>
               <Icon size={12} />
               {p}
-              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${activePeriod === p ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-full ${activePeriod === p ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
                 {done}/{items.length}
               </span>
             </button>
@@ -960,7 +960,7 @@ function IntegrationsPanel() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm font-black text-gray-900">{int.name}</p>
-                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full border"
+                  <span className="text-[11px] font-black px-2 py-0.5 rounded-full border"
                     style={{ backgroundColor: sc.bg, color: sc.text, borderColor: sc.border }}>
                     {int.status}
                   </span>
@@ -991,7 +991,7 @@ function IntegrationsPanel() {
                   <p className="text-xs text-gray-600">{a.action}</p>
                 </div>
               </div>
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-white border border-gray-200 text-gray-500 flex-shrink-0 whitespace-nowrap">
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-white border border-gray-200 text-gray-500 flex-shrink-0 whitespace-nowrap">
                 {a.tool}
               </span>
             </div>
@@ -1084,13 +1084,13 @@ function GlossaryPanel() {
           <div key={`${item.category}-${item.term}`} className="bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between gap-3 mb-2">
               <p className="text-lg font-black text-gray-900">{item.term}</p>
-              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-100">
+              <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-100">
                 {item.category}
               </span>
             </div>
             <p className="text-xs text-gray-600 leading-relaxed">{item.meaning}</p>
             <div className="mt-3 rounded-xl bg-gray-50 border border-gray-100 p-3">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Exemplo Gatedo</p>
+              <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">Exemplo Gatedo</p>
               <p className="text-xs text-gray-700 leading-relaxed">{item.example}</p>
             </div>
           </div>
@@ -1149,7 +1149,7 @@ export default function AdminOpsCenter() {
               <div key={k.label} className="rounded-2xl px-4 py-2.5 border border-white/10 text-center"
                 style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
                 <p className="text-xl font-black text-white">{k.value}</p>
-                <p className="text-[9px] text-white/40 font-medium mt-0.5">{k.label}</p>
+                <p className="text-[11px] text-white/40 font-medium mt-0.5">{k.label}</p>
               </div>
             ))}
           </div>

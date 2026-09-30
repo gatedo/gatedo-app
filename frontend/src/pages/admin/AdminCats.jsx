@@ -61,7 +61,7 @@ function BadgePill({ label, className, icon }) {
   const IconComponent = icon || Crown;
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black border ${className}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black border ${className}`}>
       <IconComponent size={9} />
       {label}
     </span>
@@ -73,7 +73,7 @@ function TutorHierarchyPill({ badge, petMode = false }) {
 
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black border shadow-sm"
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black border shadow-sm"
       style={{
         background: badge.pillBg || badge.color || '#8B4AFF',
         color: badge.pillText || '#ebfc66',

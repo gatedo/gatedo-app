@@ -223,7 +223,7 @@ function OpportunityCard({ item, active, onClick }) {
         </div>
         <div className="text-right">
           <p className="text-2xl font-black" style={{ color: item.color }}>{item.score}</p>
-          <p className="text-[9px] font-black text-gray-300 uppercase">score</p>
+          <p className="text-[11px] font-black text-gray-300 uppercase">score</p>
         </div>
       </div>
 

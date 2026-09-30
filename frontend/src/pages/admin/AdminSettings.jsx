@@ -144,7 +144,7 @@ export default function AdminSettings() {
             ].map((item) => (
               <div key={item.label} className="rounded-2xl p-3 border border-white/10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
                 <p className="text-2xl font-black" style={{ color: item.color }}>{item.value}</p>
-                <p className="text-[9px] font-black text-white/40 uppercase">{item.label}</p>
+                <p className="text-[11px] font-black text-white/40 uppercase">{item.label}</p>
               </div>
             ))}
           </div>

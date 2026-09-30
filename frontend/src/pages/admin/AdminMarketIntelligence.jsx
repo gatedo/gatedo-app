@@ -123,11 +123,11 @@ function CompanyCard({ name, country, flag, desc, tags = [], link, badge, fundin
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           {badge && (
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap"
+            <span className="text-[11px] font-black px-2 py-0.5 rounded-full whitespace-nowrap"
               style={{ backgroundColor: A, color: P }}>{badge}</span>
           )}
           {funding && (
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 whitespace-nowrap">{funding}</span>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 whitespace-nowrap">{funding}</span>
           )}
         </div>
       </div>
@@ -202,7 +202,7 @@ function InfluencerCard({ name, platform, followers, niche, badge, color = '#E91
             <p className="text-[10px] text-gray-400">{platform}</p>
           </div>
         </div>
-        {badge && <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
+        {badge && <span className="text-[11px] font-black px-2 py-0.5 rounded-full"
           style={{ backgroundColor: A, color: P }}>{badge}</span>}
       </div>
       <div className="flex items-center justify-between">
@@ -331,7 +331,7 @@ export default function AdminMarketIntelligence() {
                 ].map(s => (
                   <div key={s.label} className="bg-gray-50 rounded-xl p-2 text-center">
                     <p className="text-[10px] font-black" style={{ color: P }}>{s.share}</p>
-                    <p className="text-[9px] text-gray-500 mt-0.5">{s.label}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{s.label}</p>
                   </div>
                 ))}
               </div>

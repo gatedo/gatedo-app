@@ -113,7 +113,7 @@ function BadgePill({ badge, user }) {
   if (meta) {
     return (
       <span
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black border shadow-sm"
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black border shadow-sm"
         style={{
           background: meta.pillBg || meta.color || '#8B4AFF',
           color: meta.pillText || '#ebfc66',
@@ -127,7 +127,7 @@ function BadgePill({ badge, user }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black border bg-yellow-50 text-yellow-700 border-yellow-200">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black border bg-yellow-50 text-yellow-700 border-yellow-200">
       <Crown size={9} /> {badge}
     </span>
   );

@@ -323,9 +323,9 @@ export function QuickWeightModal({ cat, onClose, onSaved }) {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder="0.0"
-                className="flex-1 bg-transparent text-2xl font-black text-gray-800 outline-none"
+                className="flex-1 min-w-0 bg-transparent text-2xl font-black text-gray-800 outline-none"
               />
-              <span className="font-black text-gray-400 text-sm">kg</span>
+              <span className="font-black text-gray-400 text-sm shrink-0">kg</span>
             </div>
             {error && <p className="text-[11px] font-bold text-red-500 mb-2">{error}</p>}
             <button

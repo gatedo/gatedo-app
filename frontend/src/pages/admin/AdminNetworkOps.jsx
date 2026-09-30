@@ -94,7 +94,7 @@ function StatusBadge({ status }) {
 function TierBadge({ tier }) {
   const map = { Mega: [P,'#fff'], Macro: ['#6366f1','#fff'], Mid: ['#f59e0b','#fff'], Micro: ['#10b981','#fff'], Nano: ['#6b7280','#fff'] };
   const [bg, fg] = map[tier] || ['#ccc','#333'];
-  return <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{ backgroundColor: bg, color: fg }}>{tier}</span>;
+  return <span className="text-[11px] font-black px-2 py-0.5 rounded-full" style={{ backgroundColor: bg, color: fg }}>{tier}</span>;
 }
 
 function PriorityDot({ priority }) {
@@ -125,7 +125,7 @@ function Tab({ id, label, icon: Icon, active, onClick, badge }) {
       style={active ? { backgroundColor: P } : {}}>
       <Icon size={12} />
       {label}
-      {badge && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[8px] font-black flex items-center justify-center text-white" style={{ backgroundColor: '#ef4444' }}>{badge}</span>}
+      {badge && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] font-black flex items-center justify-center text-white" style={{ backgroundColor: '#ef4444' }}>{badge}</span>}
     </button>
   );
 }
@@ -227,7 +227,7 @@ export default function AdminNetworkOps() {
               <div key={k.label} className="rounded-2xl p-3 text-center border border-white/10 min-w-[80px]"
                 style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
                 <p className="text-xl font-black text-white">{k.value}</p>
-                <p className="text-[9px] text-white/40 mt-0.5 font-medium">{k.label}</p>
+                <p className="text-[11px] text-white/40 mt-0.5 font-medium">{k.label}</p>
               </div>
             ))}
           </div>
@@ -563,7 +563,7 @@ export default function AdminNetworkOps() {
                     </div>
                     <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end max-w-[140px]">
                       {c.channels.slice(0,3).map(ch => (
-                        <span key={ch} className="text-[9px] px-1.5 py-0.5 rounded-md bg-gray-50 text-gray-500 border border-gray-100 font-medium">{ch}</span>
+                        <span key={ch} className="text-[11px] px-1.5 py-0.5 rounded-md bg-gray-50 text-gray-500 border border-gray-100 font-medium">{ch}</span>
                       ))}
                     </div>
                     <ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${expandedId === c.id ? 'rotate-180' : ''}`} />
@@ -642,9 +642,9 @@ export default function AdminNetworkOps() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-white whitespace-nowrap"
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white whitespace-nowrap"
                       style={{ backgroundColor: op.color }}>{op.urgency}</span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">esforço {op.effort}</span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">esforço {op.effort}</span>
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed mb-3">{op.desc}</p>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  BookOpen, Palette, Plus, Edit, Trash2, X, Upload, Loader2,
+  BookOpen, Plus, Edit, Trash2, X, Upload, Loader2,
   Cat, Search, RotateCcw, Eye, EyeOff, Brush, ExternalLink, Globe2
 } from 'lucide-react';
 import api from '../../services/api';
@@ -27,12 +27,15 @@ import {
   saveWildFeline,
 } from '../../services/wildFelineStore';
 
+// "Studio Assets" saiu daqui — era uma aba que só mostrava um alerta
+// ("módulo ainda não conectado"), nunca teve implementação de verdade.
+// O Studio (gerador de imagem/vídeo por IA) não tem conteúdo administrável
+// ainda; quando tiver, entra como uma aba própria, não misturado no Wiki.
 const tabs = [
   { id: 'wiki', label: 'Gatedopedia', icon: BookOpen, color: 'cyan' },
   { id: 'breeds', label: 'Racas', icon: Cat, color: 'violet' },
   { id: 'srd', label: 'SRD', icon: Brush, color: 'orange' },
   { id: 'wild', label: 'Selvagens', icon: Globe2, color: 'emerald' },
-  { id: 'studio', label: 'Studio Assets', icon: Palette, color: 'orange' },
 ];
 
 const articleCategories = ['Saúde', 'Comportamento', 'Raças', 'Curiosidades', 'Nutrição', 'Higiene', 'Ambiente'];
@@ -344,16 +347,6 @@ export default function AdminContent() {
               ))}
             </div>
           )}
-        </ContentFrame>
-      )}
-
-      {activeTab === 'studio' && (
-        <ContentFrame title="Studio Assets" actionLabel="Novo asset" onAction={() => alert('Modulo de assets ainda nao foi conectado.')}>
-          <div className="p-10 text-center">
-            <Palette size={42} className="mx-auto text-orange-300 mb-3" />
-            <p className="font-black text-gray-700">Assets do Studio</p>
-            <p className="text-sm text-gray-400 font-bold mt-1">A estrutura esta preservada para a proxima etapa.</p>
-          </div>
         </ContentFrame>
       )}
 

@@ -78,15 +78,15 @@ function FunnelMap() {
                 style={{ borderColor:`${s.color}35`, backgroundColor:`${s.color}08` }}>
                 <div className="flex items-center gap-1.5 mb-2">
                   <span className="text-base">{s.icon}</span>
-                  <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black text-white"
+                  <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[11px] font-black text-white"
                     style={{ backgroundColor:s.color }}>{s.n}</div>
                 </div>
-                <p className="text-[9px] font-black mb-2" style={{ color:s.color }}>{s.label}</p>
+                <p className="text-[11px] font-black mb-2" style={{ color:s.color }}>{s.label}</p>
                 <div className="space-y-1 mt-auto">
                   {s.items.map(item => (
                     <div key={item} className="flex items-start gap-1">
                       <div className="w-1 h-1 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor:s.color }} />
-                      <p className="text-[9px] text-gray-600 leading-tight">{item}</p>
+                      <p className="text-[11px] text-gray-600 leading-tight">{item}</p>
                     </div>
                   ))}
                 </div>
@@ -157,7 +157,7 @@ function LaunchPhases() {
                 <span className="text-[10px] font-black px-2 py-1 rounded-full text-white" style={{ backgroundColor:p.color }}>
                   {p.label} — {p.spots} vagas
                 </span>
-                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white border text-gray-500"
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border text-gray-500"
                   style={{ borderColor:`${p.color}40` }}>{p.tag}</span>
               </div>
               <p className="text-sm font-black text-gray-900">{p.name}</p>
@@ -181,11 +181,11 @@ function LaunchPhases() {
                   { label:'⬇️ Downsell (recusou upsell)', d:p.ds, color:'#10b981' },
                 ].map(item => (
                   <div key={item.label} className="rounded-xl p-3 bg-white border border-gray-100">
-                    <p className="text-[9px] font-black mb-1" style={{ color:item.color }}>{item.label}</p>
+                    <p className="text-[11px] font-black mb-1" style={{ color:item.color }}>{item.label}</p>
                     <p className="text-xs font-bold text-gray-800">{item.d.name}</p>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-sm font-black" style={{ color:item.color }}>R${item.d.price}</span>
-                      <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">conv. {item.d.conv}</span>
+                      <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">conv. {item.d.conv}</span>
                     </div>
                   </div>
                 ))}
@@ -331,8 +331,8 @@ function KiwifyPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <p className="text-sm font-black text-gray-900">{ob.name}</p>
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor:ob.color }}>{ob.type}</span>
-                    <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">conv. {ob.conv}</span>
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor:ob.color }}>{ob.type}</span>
+                    <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">conv. {ob.conv}</span>
                   </div>
                   <p className="text-[10px] text-gray-400">{ob.timing}</p>
                 </div>
@@ -343,12 +343,12 @@ function KiwifyPanel() {
                 <div className="border-t border-gray-50 p-4 space-y-3 bg-gray-50/40">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="bg-white rounded-xl p-3 border border-gray-100">
-                      <p className="text-[9px] font-black text-gray-400 mb-1">POR QUE FUNCIONA</p>
+                      <p className="text-[11px] font-black text-gray-400 mb-1">POR QUE FUNCIONA</p>
                       <p className="text-xs text-gray-600 leading-relaxed">{ob.why}</p>
                     </div>
                     <div className="rounded-xl p-3 border" style={{ backgroundColor:`${ob.color}08`, borderColor:`${ob.color}25` }}>
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-[9px] font-black" style={{ color:ob.color }}>HEADLINE + COPY</p>
+                        <p className="text-[11px] font-black" style={{ color:ob.color }}>HEADLINE + COPY</p>
                         <button onClick={() => copy(ob.headline+'\n\n'+ob.copy, ob.id)}
                           className="text-gray-300 hover:text-purple-500">
                           {copied===ob.id ? <CheckCircle2 size={12} className="text-green-500"/> : <Copy size={12}/>}
@@ -380,8 +380,8 @@ function KiwifyPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <p className="text-sm font-black text-gray-900">{us.name}</p>
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor:us.color }}>Upsell 1-clique</span>
-                    <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">conv. {us.conv}</span>
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor:us.color }}>Upsell 1-clique</span>
+                    <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">conv. {us.conv}</span>
                   </div>
                   <p className="text-[10px] text-gray-400">{us.timing}</p>
                 </div>
@@ -392,12 +392,12 @@ function KiwifyPanel() {
                 <div className="border-t border-gray-50 p-4 space-y-3 bg-gray-50/40">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="bg-white rounded-xl p-3 border border-gray-100">
-                      <p className="text-[9px] font-black text-gray-400 mb-1">POR QUE AGORA</p>
+                      <p className="text-[11px] font-black text-gray-400 mb-1">POR QUE AGORA</p>
                       <p className="text-xs text-gray-600 leading-relaxed">{us.why}</p>
                     </div>
                     <div className="rounded-xl p-3 border" style={{ backgroundColor:`${us.color}08`, borderColor:`${us.color}25` }}>
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-[9px] font-black" style={{ color:us.color }}>COPY DA PÁGINA</p>
+                        <p className="text-[11px] font-black" style={{ color:us.color }}>COPY DA PÁGINA</p>
                         <button onClick={() => copy(us.copy, us.id)}
                           className="text-gray-300 hover:text-purple-500">
                           {copied===us.id ? <CheckCircle2 size={12} className="text-green-500"/> : <Copy size={12}/>}
@@ -424,7 +424,7 @@ function KiwifyPanel() {
                 <span className="text-xl">{ds.icon}</span>
                 <div>
                   <p className="text-xs font-black text-gray-900">{ds.name}</p>
-                  <span className="text-[9px] font-bold text-green-600">conv. {ds.conv}</span>
+                  <span className="text-[11px] font-bold text-green-600">conv. {ds.conv}</span>
                 </div>
               </div>
               <p className="text-xs text-gray-500 mb-3 leading-relaxed">{ds.why}</p>
@@ -489,7 +489,7 @@ function PlansPanel() {
           <div key={p.name+p.period} className={`rounded-2xl border-2 p-4 flex flex-col gap-3 hover:shadow-lg transition-all`}
             style={{ borderColor:`${p.color}40`, backgroundColor: p.tag ? `${p.color}06` : 'white' }}>
             <div>
-              {p.tag && <span className="text-[9px] font-black px-2.5 py-1 rounded-full text-white inline-block mb-2" style={{ backgroundColor:p.color }}>{p.tag}</span>}
+              {p.tag && <span className="text-[11px] font-black px-2.5 py-1 rounded-full text-white inline-block mb-2" style={{ backgroundColor:p.color }}>{p.tag}</span>}
               <p className="text-sm font-black text-gray-900">{p.name} <span className="font-bold" style={{ color:p.color }}>{p.period.toUpperCase()}</span></p>
               <p className="text-[10px] text-gray-400">{p.gpts}</p>
               <p className="text-2xl font-black mt-1" style={{ color:p.color }}>{p.price}</p>
@@ -520,11 +520,11 @@ function PlansPanel() {
           <div key={g.pts} className={`rounded-2xl p-4 border-2 text-center hover:shadow-md transition-all ${g.tag?'shadow-md':''}`}
             style={{ borderColor:g.tag?`${P}50`:'#f0f0f0', backgroundColor:g.tag?`${P}06`:'white' }}>
             <span className="text-2xl">{g.icon}</span>
-            {g.tag && <div className="text-[9px] font-black px-2 py-0.5 rounded-full text-white inline-block mt-1 mb-1" style={{ backgroundColor:P }}>{g.tag}</div>}
+            {g.tag && <div className="text-[11px] font-black px-2 py-0.5 rounded-full text-white inline-block mt-1 mb-1" style={{ backgroundColor:P }}>{g.tag}</div>}
             <p className="text-xl font-black text-gray-900 mt-1">{g.pts}</p>
             <p className="text-[10px] text-gray-400 mb-2">Gatedo Points</p>
             <p className="text-base font-black" style={{ color:P }}>{g.price}</p>
-            <p className="text-[9px] text-gray-400 mt-0.5">≈ {g.per}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">≈ {g.per}</p>
           </div>
         ))}
       </div>
@@ -642,7 +642,7 @@ export default function AdminFunnelBuilder() {
               <div key={k.l} className="rounded-2xl px-4 py-2.5 border border-white/10 text-center"
                 style={{ backgroundColor:'rgba(255,255,255,0.06)' }}>
                 <p className="text-xl font-black text-white">{k.v}</p>
-                <p className="text-[9px] text-white/40 font-medium mt-0.5">{k.l}</p>
+                <p className="text-[11px] text-white/40 font-medium mt-0.5">{k.l}</p>
               </div>
             ))}
           </div>
