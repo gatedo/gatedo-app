@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Search, Save, Loader2, ChevronLeft, ChevronDown, ChevronUp, Sparkles, KeyRound, Send } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Search, Save, Loader2, ChevronLeft, ChevronDown, ChevronUp, Sparkles, KeyRound, Send, Plus, Mic, Square, X } from 'lucide-react';
 import api from '../../services/api';
 import BlockEditor from '../../components/content/BlockEditor';
 import { makeBlock, BLOCK_TYPES } from '../../components/content/blockTypes';
 
 const C = { purple: '#8B4AFF' };
 const fieldCls = 'w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] font-medium text-gray-700 outline-none focus:border-[#8B4AFF]';
-const labelCls = 'text-[9px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
-const helpCls = 'text-[10px] text-gray-400 font-medium mt-1 leading-relaxed';
+const labelCls = 'text-[11px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
+const helpCls = 'text-[11px] text-gray-400 font-medium mt-1 leading-relaxed';
 
 function centsToReais(cents) {
   return cents == null ? '' : (Number(cents) / 100).toFixed(2).replace('.', ',');
@@ -15,6 +15,86 @@ function centsToReais(cents) {
 function reaisToCents(value) {
   const n = parseFloat(String(value).replace(',', '.'));
   return Number.isFinite(n) ? Math.round(n * 100) : null;
+}
+
+// Botão de ditado por voz — Web Speech API (só Chrome/Edge/Android têm
+// suporte; Safari/Firefox não). Some sozinho quando o navegador não suporta,
+// em vez de mostrar um botão morto. Acrescenta ao texto que já tinha, não
+// substitui — dá pra ditar em várias tentativas.
+function DictateButton({ onResult }) {
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef(null);
+
+  const SpeechRecognitionCtor = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
+  if (!SpeechRecognitionCtor) return null;
+
+  const stop = () => {
+    recognitionRef.current?.stop();
+  };
+
+  const start = () => {
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = 'pt-BR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results).map((r) => r[0].transcript).join(' ').trim();
+      if (transcript) onResult(transcript);
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={listening ? stop : start}
+      title={listening ? 'Parar ditado' : 'Ditar por voz'}
+      className="flex items-center gap-1 text-[10px] font-black"
+      style={{ color: listening ? '#EF4444' : C.purple }}
+    >
+      {listening ? <Square size={10} fill="currentColor" /> : <Mic size={11} />}
+      {listening ? 'Ouvindo...' : 'Ditar'}
+    </button>
+  );
+}
+
+// Pega o texto atual do campo e pede pra IA desenvolver — pensado pra usar
+// logo depois do ditado (fala rápido e crua -> texto de verdade), mas
+// funciona com qualquer rascunho curto digitado também.
+function ExpandButton({ text, onExpanded }) {
+  const [loading, setLoading] = useState(false);
+
+  const run = async () => {
+    if (!text?.trim() || loading) return;
+    setLoading(true);
+    try {
+      const res = await api.post('/admin/content/expand', { text });
+      if (res.data?.text) onExpanded(res.data.text);
+    } catch {
+      // Falha silenciosa — o texto original continua intacto no campo.
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={loading || !text?.trim()}
+      className="flex items-center gap-1 text-[10px] font-black disabled:opacity-40"
+      style={{ color: C.purple }}
+    >
+      {loading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+      {loading ? 'Expandindo...' : 'Expandir com IA'}
+    </button>
+  );
 }
 
 // ── Venda & Acesso — o que falta pra sair de "Em breve" pra "Comprar acesso":
@@ -95,7 +175,7 @@ function AccessEditor({ spec, setSpec, access, setAccess, slug }) {
         <div className="rounded-xl bg-gray-50 p-3">
           <div className="flex items-center gap-1.5 mb-1.5">
             <KeyRound size={11} className="text-gray-400" />
-            <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">Liberar manualmente (teste, sem comprar)</p>
+            <p className="text-[11px] font-black uppercase tracking-wide text-gray-400">Liberar manualmente (teste, sem comprar)</p>
           </div>
           <div className="flex items-center gap-1.5">
             <input className={fieldCls} placeholder="email@do-tutor.com" value={grantEmail} onChange={(e) => setGrantEmail(e.target.value)} />
@@ -111,7 +191,7 @@ function AccessEditor({ spec, setSpec, access, setAccess, slug }) {
   );
 }
 
-function DayEditor({ dia, index, onUpdate }) {
+function DayEditor({ dia, index, onUpdate, onDelete }) {
   const [open, setOpen] = useState(false);
   const set = (patch) => onUpdate(index, { ...dia, ...patch });
   const hasBlocks = Array.isArray(dia.corpo);
@@ -126,7 +206,7 @@ function DayEditor({ dia, index, onUpdate }) {
     <div className="rounded-[20px] border border-gray-100 bg-white shadow-sm overflow-hidden">
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between px-4 py-3.5">
         <div className="text-left min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">Dia {dia.numero ?? index + 1}</p>
+          <p className="text-[11px] font-black uppercase tracking-wide text-gray-400">Dia {dia.numero ?? index + 1}</p>
           <p className="text-[13px] font-black text-gray-700 truncate">{dia.titulo || 'Sem título'}</p>
         </div>
         {open ? <ChevronUp size={16} className="text-gray-300 shrink-0" /> : <ChevronDown size={16} className="text-gray-300 shrink-0" />}
@@ -139,22 +219,42 @@ function DayEditor({ dia, index, onUpdate }) {
             <input className={fieldCls} value={dia.titulo || ''} onChange={(e) => set({ titulo: e.target.value })} />
           </div>
           <div>
-            <label className={labelCls}>Tarefa de hoje (resumo curto)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className={labelCls} style={{ marginBottom: 0 }}>Tarefa de hoje (resumo curto)</label>
+              <div className="flex items-center gap-2.5">
+                <DictateButton onResult={(t) => set({ tarefa: [dia.tarefa, t].filter(Boolean).join(' ') })} />
+                <ExpandButton text={dia.tarefa} onExpanded={(t) => set({ tarefa: t })} />
+              </div>
+            </div>
             <input className={fieldCls} value={dia.tarefa || ''} onChange={(e) => set({ tarefa: e.target.value })} />
           </div>
           <div>
-            <label className={labelCls}>Por quê (opcional)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className={labelCls} style={{ marginBottom: 0 }}>Por quê (opcional)</label>
+              <div className="flex items-center gap-2.5">
+                <DictateButton onResult={(t) => set({ porque: [dia.porque, t].filter(Boolean).join(' ') })} />
+                <ExpandButton text={dia.porque} onExpanded={(t) => set({ porque: t })} />
+              </div>
+            </div>
             <textarea className={fieldCls} rows={2} value={dia.porque || ''} onChange={(e) => set({ porque: e.target.value })} />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className={labelCls} style={{ marginBottom: 0 }}>Conteúdo do dia</label>
-              {!hasBlocks && (
-                <button type="button" onClick={convertToBlocks} className="flex items-center gap-1 text-[10px] font-black" style={{ color: C.purple }}>
-                  <Sparkles size={11} /> Converter em blocos editáveis
-                </button>
-              )}
+              <div className="flex items-center gap-2.5">
+                {!hasBlocks && (
+                  <>
+                    <DictateButton onResult={(t) => set({ corpo: [dia.corpo, t].filter(Boolean).join(' ') })} />
+                    <ExpandButton text={dia.corpo} onExpanded={(t) => set({ corpo: t })} />
+                  </>
+                )}
+                {!hasBlocks && (
+                  <button type="button" onClick={convertToBlocks} className="flex items-center gap-1 text-[10px] font-black" style={{ color: C.purple }}>
+                    <Sparkles size={11} /> Converter em blocos editáveis
+                  </button>
+                )}
+              </div>
             </div>
             {hasBlocks ? (
               <BlockEditor blocks={dia.corpo} onChange={(corpo) => set({ corpo })} />
@@ -162,6 +262,14 @@ function DayEditor({ dia, index, onUpdate }) {
               <textarea className={fieldCls} rows={4} value={dia.corpo || ''} onChange={(e) => set({ corpo: e.target.value })} />
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => { if (window.confirm(`Remover o Dia ${dia.numero ?? index + 1}?`)) onDelete(index); }}
+            className="flex items-center gap-1 text-[10px] font-black text-red-400"
+          >
+            <X size={11} /> Remover este dia
+          </button>
         </div>
       )}
     </div>
@@ -177,6 +285,10 @@ export default function AdminProtocolEditor() {
   const [access, setAccess] = useState({ status: 'DRAFT', requiresFounder: false, entitlementProductId: '', summary: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [createError, setCreateError] = useState('');
 
   const loadList = () => {
     setLoadingList(true);
@@ -206,6 +318,38 @@ export default function AdminProtocolEditor() {
     });
   };
 
+  const addDay = () => {
+    setSpec((s) => {
+      const dias = [...(s?.dias || [])];
+      dias.push({ numero: dias.length + 1, titulo: '', tarefa: '', porque: '', corpo: '' });
+      return { ...s, dias };
+    });
+  };
+
+  const deleteDay = (index) => {
+    setSpec((s) => {
+      const dias = (s?.dias || []).filter((_, i) => i !== index).map((dia, i) => ({ ...dia, numero: i + 1 }));
+      return { ...s, dias };
+    });
+  };
+
+  const createProtocol = async () => {
+    if (!newTitle.trim() || creating) return;
+    setCreating(true);
+    setCreateError('');
+    try {
+      const res = await api.post('/admin/content/protocols', { title: newTitle.trim() });
+      setNewTitle('');
+      setShowCreateForm(false);
+      await loadList();
+      await openEdit(res.data.slug);
+    } catch (e) {
+      setCreateError(e?.response?.data?.message || 'Não foi possível criar o protocolo.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const save = async () => {
     setSaving(true);
     setError('');
@@ -226,9 +370,10 @@ export default function AdminProtocolEditor() {
   const filtered = list.filter((p) => p.title?.toLowerCase().includes(search.toLowerCase()));
 
   if (editingSlug) {
-    const dias = Array.isArray(spec?.dias) ? spec.dias : [];
+    const hasDiasArray = Array.isArray(spec?.dias);
+    const dias = hasDiasArray ? spec.dias : [];
     return (
-      <div className="max-w-2xl">
+      <div>
         <button onClick={() => setEditingSlug(null)} className="flex items-center gap-1.5 text-[12px] font-black text-gray-400 mb-4">
           <ChevronLeft size={15} /> Voltar
         </button>
@@ -238,16 +383,28 @@ export default function AdminProtocolEditor() {
 
         <AccessEditor spec={spec} setSpec={setSpec} access={access} setAccess={setAccess} slug={editingSlug} />
 
-        {dias.length === 0 ? (
+        {!hasDiasArray ? (
           <p className="text-[12px] text-gray-400 font-bold mb-4">
             Este protocolo não tem a estrutura de "dias" esperada — não é possível editar por aqui ainda.
           </p>
         ) : (
-          <div className="space-y-2.5 mb-5">
-            {dias.map((dia, i) => (
-              <DayEditor key={dia.numero ?? i} dia={dia} index={i} onUpdate={updateDay} />
-            ))}
-          </div>
+          <>
+            {dias.length === 0 && (
+              <p className="text-[12px] text-gray-400 font-bold mb-3">
+                Nenhum dia ainda — clique em "Adicionar dia" pra começar a montar o protocolo.
+              </p>
+            )}
+            <div className="space-y-2.5 mb-3">
+              {dias.map((dia, i) => (
+                <DayEditor key={i} dia={dia} index={i} onUpdate={updateDay} onDelete={deleteDay} />
+              ))}
+            </div>
+            <button type="button" onClick={addDay}
+              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl font-black text-[12px] mb-5 border border-dashed"
+              style={{ borderColor: `${C.purple}55`, color: C.purple }}>
+              <Plus size={14} /> Adicionar dia
+            </button>
+          </>
         )}
 
         {error && <p className="text-[12px] font-bold text-red-500 mb-3">{error}</p>}
@@ -263,11 +420,36 @@ export default function AdminProtocolEditor() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <div className="mb-5">
-        <h2 className="text-lg font-black text-gray-800">Protocolos</h2>
-        <p className="text-[11px] font-bold text-gray-400">{list.length} protocolos</p>
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <div>
+          <h2 className="text-lg font-black text-gray-800">Protocolos</h2>
+          <p className="text-[11px] font-bold text-gray-400">{list.length} protocolos</p>
+        </div>
+        <button type="button" onClick={() => setShowCreateForm((v) => !v)}
+          className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-black text-[12px] text-white"
+          style={{ background: C.purple }}>
+          <Plus size={14} /> Novo protocolo
+        </button>
       </div>
+
+      {showCreateForm && (
+        <div className="rounded-[20px] border border-gray-100 bg-white shadow-sm p-4 mb-4 space-y-2.5">
+          <label className={labelCls}>Título do novo protocolo</label>
+          <div className="flex items-center gap-2">
+            <input className={fieldCls} placeholder="ex.: Xixi Fora da Caixa" value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') createProtocol(); }} autoFocus />
+            <button type="button" onClick={createProtocol} disabled={creating || !newTitle.trim()}
+              className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-black text-[12px] text-white disabled:opacity-50"
+              style={{ background: C.purple }}>
+              {creating ? <Loader2 size={13} className="animate-spin" /> : 'Criar'}
+            </button>
+          </div>
+          {createError && <p className="text-[11px] font-bold text-red-500">{createError}</p>}
+          <p className={helpCls}>Cria o protocolo em rascunho, sem dias — você adiciona os dias na tela seguinte.</p>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 bg-white rounded-2xl px-4 py-2.5 border border-gray-100 shadow-sm mb-4">
         <Search size={15} className="text-gray-300" />

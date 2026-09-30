@@ -59,6 +59,12 @@ export class AdminContentController {
     return this.service.getProtocol(slug);
   }
 
+  @Post('protocols')
+  createProtocol(@Body() body: { title: string; slug?: string; summary?: string }, @Req() req: any) {
+    this.ensureAdmin(req.user);
+    return this.service.createProtocol(body);
+  }
+
   @Patch('protocols/:slug/spec')
   updateProtocolSpec(@Param('slug') slug: string, @Body() body: { spec: any }, @Req() req: any) {
     this.ensureAdmin(req.user);
@@ -69,5 +75,12 @@ export class AdminContentController {
   updateProtocolAccess(@Param('slug') slug: string, @Body() body: any, @Req() req: any) {
     this.ensureAdmin(req.user);
     return this.service.updateProtocolAccess(slug, body);
+  }
+
+  // ── Assistente de texto (ditado -> expandir) ───────────────────────────────
+  @Post('expand')
+  expandContent(@Body() body: { text: string }, @Req() req: any) {
+    this.ensureAdmin(req.user);
+    return this.service.expandContent(body?.text);
   }
 }
