@@ -32,6 +32,7 @@ import { SettingsModule } from './settings/settings.module';
 import { EventsModule } from './events/events.module';
 import { PushModule } from './push/push.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { ClubeModule } from './clube/clube.module';
 
@@ -90,6 +91,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     EventsModule,
     PushModule,
     RemindersModule,
+    SchedulerModule,
     FeedbackModule,
     ClubeModule,
   ],
