@@ -4,6 +4,8 @@ import { GamificationIntegration } from '../gamification/gamification.integratio
 import { EventsService } from '../events/events.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { assertOwnsPet } from '../common/ownership.util';
+import { SIGNAL_BY_KEY } from '../diary/diary-signals';
+import { buildPetJournal } from '../diary/diary-journal';
 
 @Controller('diary-entries')
 @UseGuards(JwtAuthGuard)
@@ -24,10 +26,14 @@ export class DiaryController {
           petId: data.petId,
           title: data.title,
           content: data.content,
-          type: data.type, // 'happy', 'lazy', etc.
+          // Humor é opcional — sem ele o registro é um check-in de sinais.
+          type: typeof data.type === 'string' && data.type ? data.type : 'checkin',
           date: new Date(data.date),
           photos: data.photos || [],
-          occurrences: Array.isArray(data.occurrences) ? data.occurrences : [],
+          // Só chaves conhecidas — é isso que o motor de ofertas e o iGentVet leem.
+          occurrences: Array.isArray(data.occurrences)
+            ? [...new Set<string>(data.occurrences.filter((k: unknown) => typeof k === 'string' && SIGNAL_BY_KEY.has(k)))]
+            : [],
         },
       });
 
@@ -47,6 +53,17 @@ export class DiaryController {
       console.error("Erro ao salvar diário:", error);
       throw new HttpException('Erro ao salvar diário', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  // DIÁRIO UNIFICADO (GET /diary-entries/journal?petId=...&days=90)
+  // Check-ins + dias de protocolo + "Aconteceu de novo" numa linha do tempo,
+  // o resumo de sinais dos últimos 30 dias e os protocolos em andamento.
+  @Get('journal')
+  async journal(@Req() req: any, @Query('petId') petId: string, @Query('days') days?: string) {
+    if (!petId) throw new HttpException('Pet ID obrigatório', HttpStatus.BAD_REQUEST);
+    await assertOwnsPet(this.prisma, petId, req.user);
+    const n = Math.min(Math.max(parseInt(days || '90', 10) || 90, 7), 365);
+    return buildPetJournal(this.prisma, petId, n);
   }
 
   // LISTAR DIÁRIO (GET /diary-entries?petId=...)

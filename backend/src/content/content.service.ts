@@ -268,7 +268,16 @@ export class ContentService {
       include: {
         // spec vem junto pra home poder montar o card com titulo_curto/
         // acao_do_dia/tempo_estimado do dia atual sem outra chamada.
-        protocol: { select: { title: true, slug: true, totalDays: true, spec: true } },
+        // steps: protocolos sem spec (antigos) só têm o texto do dia aqui.
+        protocol: {
+          select: {
+            title: true,
+            slug: true,
+            totalDays: true,
+            spec: true,
+            steps: { select: { dayNumber: true, title: true, taskShort: true } },
+          },
+        },
         // Seleção enxuta — só o suficiente pra saber se o dia atual já abriu
         // (usado pelo "O que precisa de você hoje" da Home).
         logs: { select: { dayNumber: true, unlockedAt: true, completedAt: true } },

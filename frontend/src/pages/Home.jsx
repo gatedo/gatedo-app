@@ -147,17 +147,18 @@ function CatsRail({ cats, loading, onAdd, tutorBadge, selectedCatId, onSelect })
   );
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+    // -m-1 p-1: o overflow-x-auto também corta no eixo Y, então sem essa folga
+    // o outline (2px + offset 2px) do card selecionado sumia nas bordas.
+    <div className="flex gap-3 overflow-x-auto -m-1 p-1 pb-2" style={{ scrollbarWidth: 'none' }}>
       {active.map((cat, i) => {
         const skinColor = resolveCatThemeHex(cat.themeColor);
         const isSelected = selectedCatId === cat.id;
         return (
           <motion.button key={cat.id}
             initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
-            whileHover={{ y: -5, scale: 1.035, transition: { type: 'spring', stiffness: 380, damping: 24 } }}
             whileTap={{ scale: 0.96, transition: { type: 'spring', stiffness: 380, damping: 24 } }}
             onClick={() => { touch(); navigate(`/cat/${cat.id}`); }}
-            className="flex-shrink-0 w-28 rounded-[22px] overflow-hidden relative cursor-pointer"
+            className="group flex-shrink-0 w-28 rounded-[22px] overflow-hidden relative cursor-pointer"
             style={{
               height: 140,
               boxShadow: isSelected ? `0 8px 22px ${skinColor}55` : '0 2px 8px rgba(0,0,0,0.08)',
@@ -171,8 +172,8 @@ function CatsRail({ cats, loading, onAdd, tutorBadge, selectedCatId, onSelect })
             }}>
             <div className="w-full h-full">
               {cat.photoUrl
-                ? <img src={cat.photoUrl} className="w-full h-full object-cover" alt={cat.name} />
-                : <div className="w-full h-full flex items-center justify-center text-5xl" style={{ background: `${C.purple}12` }}>🐱</div>}
+                ? <img src={cat.photoUrl} className="w-full h-full object-cover transition-[transform,filter] duration-500 ease-out group-hover:scale-[1.09] group-hover:brightness-110 group-hover:saturate-[1.2]" alt={cat.name} />
+                : <div className="w-full h-full flex items-center justify-center text-5xl transition-transform duration-500 ease-out group-hover:scale-[1.09]" style={{ background: `${C.purple}12` }}>🐱</div>}
             </div>
             <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.35) 40%,transparent 100%)' }} />
 
@@ -337,6 +338,26 @@ function buildTodayItems(cats, enrollments, onboardingDone) {
     }
   }
 
+  // Check-in do diário — o hábito diário que alimenta os sinais de saúde.
+  // Urgência mínima: só aparece quando sobra espaço nos 3 itens, e só pro
+  // primeiro gato que ainda não teve check-in hoje (nunca um por gato).
+  const today = new Date().toDateString();
+  const noCheckin = active.find((c) => {
+    const last = c.diaryEntries?.[0]?.date;
+    return !last || new Date(last).toDateString() !== today;
+  });
+  if (noCheckin) {
+    items.push({
+      key: `checkin-${noCheckin.id}`,
+      urgency: 0, catId: noCheckin.id, catName: noCheckin.name, catPhoto: noCheckin.photoUrl,
+      icon: Stethoscope,
+      label: `Como ${noCheckin.name} está hoje?`,
+      deadline: 'check-in de 30 segundos',
+      ctaLabel: 'Check-in',
+      kind: 'open-diary',
+    });
+  }
+
   // Já fez os dois passos reais (tem gato, já pesou) mas nunca voltou pro
   // tour pra fechar — oferece o selo direto, sem repetir os passos 2 e 3.
   if (!onboardingDone && active.length > 0 && !anyNeverWeighed) {
@@ -372,6 +393,8 @@ function buildProtocolCards(cats, enrollments) {
     if (!cat) continue;
     const spec = enr.protocol?.spec;
     const dia = (spec?.dias || []).find((d) => d.numero === enr.currentDay);
+    // Protocolos sem spec (antigos) só têm o texto do dia em steps.
+    const step = (enr.protocol?.steps || []).find((st) => st.dayNumber === enr.currentDay);
 
     cards.push({
       key: `protocol-${enr.id}`,
@@ -384,7 +407,8 @@ function buildProtocolCards(cats, enrollments) {
       tituloCurto: spec?.titulo_curto || enr.protocol?.title || 'Protocolo',
       dayNumber: enr.currentDay,
       totalDays: enr.protocol?.totalDays,
-      acaoDoDia: dia?.acao_do_dia || dia?.tarefa || '',
+      acaoDoDia: dia?.acao_do_dia || dia?.tarefa || step?.taskShort || step?.title || '',
+      hasAvulso: !!spec?.registro_avulso,
     });
   }
 
@@ -410,18 +434,20 @@ function ProtocolTodayCard({ card, onOpen, onAvulso }) {
           <p className="text-[10px] font-bold text-gray-400">Dia {card.dayNumber} de {card.totalDays}</p>
         </div>
       </div>
-      <p className="text-[13px] font-bold text-gray-800 mb-3 leading-snug">{card.acaoDoDia}</p>
+      {card.acaoDoDia && <p className="text-[13px] font-bold text-gray-800 mb-3 leading-snug">{card.acaoDoDia}</p>}
       <div className="flex gap-2">
         <button onClick={onOpen}
           className="flex-1 py-2.5 rounded-xl font-black text-[11px] text-white"
           style={{ background: `linear-gradient(135deg, ${C.purple} 0%, #4B40C6 100%)` }}>
           Abrir dia
         </button>
-        <button onClick={onAvulso}
-          className="px-3.5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-1"
-          style={{ background: '#FEF2F2', color: '#DC2626' }}>
-          <PlusCircle size={13} /> Aconteceu de novo
-        </button>
+        {card.hasAvulso && (
+          <button onClick={onAvulso}
+            className="px-3.5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-1"
+            style={{ background: '#FEF2F2', color: '#DC2626' }}>
+            <PlusCircle size={13} /> {card.spec?.registro_avulso?.nome || 'Aconteceu de novo'}
+          </button>
+        )}
       </div>
     </motion.div>
   );
@@ -459,6 +485,10 @@ function NeedsTodaySection({ cats, enrollments, onOpenWeight }) {
     }
     if (item.kind === 'open-tab') {
       navigate(`/cat/${item.catId}`, { state: { restoreTab: item.targetTab } });
+      return;
+    }
+    if (item.kind === 'open-diary') {
+      navigate(`/cat/${item.catId}/diary?view=new`);
       return;
     }
     if (item.kind === 'onboarding-cat') {
@@ -628,15 +658,16 @@ function QuickRecordSection({ cats, onOpenWeight }) {
       >
         {loopedActions.map((action, idx) => (
           <button key={`${action.type}-${idx}`} onClick={() => handleTap(action)}
-            className="flex flex-col items-center gap-1.5 shrink-0" style={{ width: 62 }}>
+            className="group flex flex-col items-center gap-1.5 shrink-0" style={{ width: 62 }}>
+            {/* O quadrado não cresce no hover (o overflow-x-auto da faixa cortava
+                ele em cima) — só o ícone de dentro dá zoom com um leve giro. */}
             <motion.div
-              whileHover={{ scale: 1.18 }}
               whileTap={{ scale: 0.9 }}
               transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm transition-shadow duration-300 group-hover:shadow-md"
               style={{ background: action.color }}
             >
-              <action.icon size={19} className="text-white" />
+              <action.icon size={19} className="text-white transition-transform duration-300 ease-out group-hover:scale-[1.3] group-hover:-rotate-12" />
             </motion.div>
             <span className="text-[8px] font-black text-gray-500 uppercase text-center leading-tight">{action.label}</span>
           </button>
@@ -729,7 +760,7 @@ function QuickWeightModal({ cat, onClose, onSaved }) {
           <input type="number" inputMode="decimal" step="0.01" autoFocus
             value={value} onChange={(e) => setValue(e.target.value)} placeholder="0.0"
             className="flex-1 min-w-0 bg-transparent text-2xl font-black text-gray-800 outline-none" />
-          <span className="font-black text-gray-400 text-sm">kg</span>
+          <span className="font-black text-gray-400 text-sm shrink-0">kg</span>
         </div>
         {error && <p className="text-[11px] font-bold text-red-500 mb-2">{error}</p>}
         <button onClick={save} disabled={saving}

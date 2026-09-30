@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
 import pdfParse from 'pdf-parse';
 import { buildFelineClinicalAlmanacPrompt } from './feline-clinical-almanac';
+import { loadPetSignalContext } from '../diary/diary-journal';
+import { formatSignalsForPrompt } from '../diary/diary-signals';
 const sharp = require('sharp');
 
 // Teto de caracteres do texto extraído do PDF de exame que entra no prompt —
@@ -594,12 +596,28 @@ ${sp.triageQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 `.trim();
   }
 
+  // ─── DIÁRIO → CONTEXTO ─────────────────────────────────────────────────────
+  // Sinais que o tutor marcou no diário + protocolos recentes. Falha aqui
+  // nunca derruba a consulta — só sai sem o bloco.
+  private async buildDiaryBlock(petId: string): Promise<string | null> {
+    try {
+      const ctx = await loadPetSignalContext(this.prisma, petId, 30);
+      const signals = formatSignalsForPrompt(ctx.summary, 30, ctx.checkinCount);
+      const protocols = ctx.protocols.length ? `Protocolos guiados:\n${ctx.protocols.join('\n')}` : null;
+      return [signals, protocols].filter(Boolean).join('\n') || null;
+    } catch (err) {
+      this.logger.warn(`buildDiaryBlock falhou para ${petId}: ${err}`);
+      return null;
+    }
+  }
+
   // ─── CONTEXTO CLÍNICO COMPLETO ──────────────────────────────────────────────
   private buildFocusedContext(
     pet: any,
     clinicalContext: any,
     symptomId: string,
     symptomLabel: string,
+    diaryBlock?: string | null,
   ): string {
     const gender = pet.gender === 'FEMALE' ? 'Fêmea' : 'Macho';
     const neutered = pet.neutered
@@ -727,6 +745,8 @@ ${sp.triageQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
       `\n=== HISTORICO CLINICO RELACIONADO A "${symptomLabel}" ===`,
       clinicalHistory,
+
+      diaryBlock ? `\n=== DIARIO DO TUTOR (ultimos 30 dias) ===\n${diaryBlock}` : null,
 
       adminAlmanac ? `\n=== ALMANAQUE FELINO ADMIN - TRECHOS RELEVANTES ===\n${adminAlmanac}` : null,
       adminVisualAtlas ? `\n=== ATLAS VISUAL FELINO ADMIN - PADROES PARA IMAGEM ===\n${adminVisualAtlas}` : null,
@@ -856,7 +876,8 @@ O que você observou depois disso em ${petName}?`;
     }
 
     const sid = symptomId || 'other';
-    const focusedCtx = this.buildFocusedContext(pet, clinicalContext, sid, symptom);
+    const diaryBlock = await this.buildDiaryBlock(pet.id);
+    const focusedCtx = this.buildFocusedContext(pet, clinicalContext, sid, symptom, diaryBlock);
     const symptomInstruction = this.buildSymptomPrompt(sid, pet, symptom);
     const felineAlmanac = buildFelineClinicalAlmanacPrompt({
       symptomId: sid,
@@ -973,8 +994,9 @@ Responda APENAS com este JSON valido:
 
     const sid = symptomId || 'other';
     const symptomLabel = symptom || 'dúvida geral';
+    const diaryBlock = pet ? await this.buildDiaryBlock(pet.id) : null;
     const focusedCtx = pet
-      ? this.buildFocusedContext(pet, clinicalContext, sid, symptomLabel)
+      ? this.buildFocusedContext(pet, clinicalContext, sid, symptomLabel, diaryBlock)
       : 'PRONTUARIO: nenhum gato especifico anexado a esta pergunta. Responda de forma geral, sem inventar nome, raca ou historico de nenhum paciente.';
     const symptomInstruction = this.buildSymptomPrompt(sid, pet || {}, symptomLabel);
     const felineAlmanac = buildFelineClinicalAlmanacPrompt({

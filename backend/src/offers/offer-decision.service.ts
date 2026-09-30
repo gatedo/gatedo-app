@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IgentCreditsService } from '../igent/igent-credits.service';
+import { DIARY_SIGNALS, SIGNAL_BY_KEY, signalForProtocol } from '../diary/diary-signals';
 
 const PROTOCOL_XIXI_SLUG = 'xixi-fora-da-caixa';
-const URINARY_OCCURRENCE_KEY = 'URINARY_ACCIDENT';
 
 // Mesma régua fixa de leitura de padrão usada na Linha do tempo/Saúde do
 // frontend (utils/weightAlerts.js) — portada aqui pro backend ser dono de
@@ -139,18 +139,6 @@ export class OfferDecisionService {
     return !!found;
   }
 
-  async hasRecentUrinaryOccurrence(userId: string, days = 14): Promise<boolean> {
-    const cutoff = new Date(Date.now() - days * 86400000);
-    const count = await this.prisma.diaryEntry.count({
-      where: {
-        pet: { ownerId: userId },
-        date: { gte: cutoff },
-        occurrences: { has: URINARY_OCCURRENCE_KEY },
-      },
-    });
-    return count > 0;
-  }
-
   async youngestCatUnder12Months(userId: string) {
     const pets = await this.prisma.pet.findMany({
       where: { ownerId: userId, isMemorial: false, isArchived: false },
@@ -192,6 +180,87 @@ export class OfferDecisionService {
     return hasRabies && hasPolyvalent;
   }
 
+  // ─── Sinal do diário → protocolo publicado ─────────────────────────────────
+  // Conta os sinais dos últimos 14 dias (de um gato ou de todos do tutor) e
+  // devolve o primeiro que passou do limiar e tem um protocolo publicado que
+  // casa com ele. Pula protocolo já em andamento ou feito há menos de 30 dias
+  // pro mesmo gato — ninguém quer ser vendido o que acabou de fazer.
+  async findSignalProtocolOffer(userId: string, opts: { petId?: string; onlySignal?: string } = {}): Promise<OfferPayload | null> {
+    const since = new Date(Date.now() - 14 * 86400000);
+    const entries = await this.prisma.diaryEntry.findMany({
+      where: {
+        pet: { ownerId: userId, isMemorial: false, isArchived: false },
+        ...(opts.petId ? { petId: opts.petId } : {}),
+        date: { gte: since },
+        NOT: { occurrences: { isEmpty: true } },
+      },
+      select: { petId: true, occurrences: true, pet: { select: { name: true } } },
+    });
+    if (entries.length === 0) return null;
+
+    // chave → petId → { count, name }
+    const tally = new Map<string, Map<string, { count: number; name: string }>>();
+    for (const e of entries) {
+      for (const key of e.occurrences) {
+        if (opts.onlySignal && key !== opts.onlySignal) continue;
+        const byPet = tally.get(key) || new Map();
+        const cur = byPet.get(e.petId) || { count: 0, name: e.pet.name };
+        cur.count += 1;
+        byPet.set(e.petId, cur);
+        tally.set(key, byPet);
+      }
+    }
+
+    const candidates: { key: string; petId: string; name: string; count: number }[] = [];
+    for (const sig of DIARY_SIGNALS) {
+      if (sig.alarm || !sig.protocolHint) continue;
+      for (const [petId, v] of tally.get(sig.key) || []) {
+        if (v.count >= (sig.offerThreshold ?? 2)) candidates.push({ key: sig.key, petId, name: v.name, count: v.count });
+      }
+    }
+    if (candidates.length === 0) return null;
+
+    const protocols = await this.prisma.protocol.findMany({
+      where: { status: 'PUBLISHED' },
+      select: { id: true, slug: true, title: true, summary: true, entitlementProductId: true },
+    });
+    const recentCutoff = new Date(Date.now() - 30 * 86400000);
+
+    for (const c of candidates.sort((a, b) => b.count - a.count)) {
+      const protocol = protocols.find((p) => signalForProtocol(p)?.key === c.key);
+      if (!protocol) continue;
+
+      const recent = await this.prisma.protocolEnrollment.findFirst({
+        where: {
+          protocolId: protocol.id,
+          petId: c.petId,
+          OR: [{ status: 'EM_ANDAMENTO' }, { startedAt: { gte: recentCutoff } }],
+        },
+        select: { id: true },
+      });
+      if (recent) continue;
+
+      const owned = protocol.entitlementProductId
+        ? !!(await this.prisma.productEntitlement.findUnique({
+            where: { userId_productId: { userId, productId: protocol.entitlementProductId } },
+          }))
+        : false;
+
+      const label = SIGNAL_BY_KEY.get(c.key)?.label.toLowerCase() || 'esse sinal';
+      const vezes = c.count === 1 ? 'nos últimos dias' : `${c.count}x nos últimos 14 dias`;
+      return {
+        offerKey: `protocol-${protocol.slug}`,
+        type: 'PROTOCOL',
+        title: protocol.title,
+        description: protocol.summary || 'Um passo a passo guiado, dia a dia, pra investigar e resolver.',
+        ctaLabel: owned ? 'Começar o protocolo' : 'Conhecer o protocolo',
+        ctaPath: `/protocolos/${protocol.slug}`,
+        reason: `${c.name} teve ${label} ${vezes}.`,
+      };
+    }
+    return null;
+  }
+
   private buildProtocolOffer(): OfferPayload {
     return {
       offerKey: 'protocol-xixi',
@@ -231,11 +300,8 @@ export class OfferDecisionService {
       }
     }
 
-    const hasEntitlement = await this.hasProtocolXixiEntitlement(userId);
-    if (!hasEntitlement) {
-      const hasUrinary = await this.hasRecentUrinaryOccurrence(userId);
-      if (hasUrinary) return { offer: this.buildProtocolOffer(), alert: null };
-    }
+    const signalOffer = await this.findSignalProtocolOffer(userId);
+    if (signalOffer) return { offer: signalOffer, alert: null };
 
     const youngCat = await this.youngestCatUnder12Months(userId);
     if (youngCat) {
@@ -312,7 +378,15 @@ export class OfferDecisionService {
         return this.decideGeneralOffer(userId);
       }
 
-      case 'PAIN_DIARY':
+      case 'PAIN_DIARY': {
+        // trigger = chave do sinal que o tutor acabou de marcar no diário.
+        if (trigger && SIGNAL_BY_KEY.has(trigger)) {
+          const offer = await this.findSignalProtocolOffer(userId, { petId, onlySignal: trigger });
+          return { offer, alert: null };
+        }
+        return this.decideProtocolPainOffer(userId);
+      }
+
       case 'PAIN_IGENT':
       case 'PAIN_ALMANAC':
         return this.decideProtocolPainOffer(userId);
