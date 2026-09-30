@@ -249,7 +249,7 @@ export default function NotificationCenter({
 
       case 'IGENT_ALERT':
       case 'IGENT_PREDICTIVE':
-        if (!goCat('SAUDE', 'health-predictive')) navigate('/igentvet');
+        if (!goCat('SAUDE', 'health-predictive')) navigate('/igent-vet');
         break;
 
       case 'VACCINE_DUE':

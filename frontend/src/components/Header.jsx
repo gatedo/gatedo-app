@@ -282,7 +282,7 @@ export default function Header() {
             text: `Você já realizou ${stats.consultCount} consulta${stats.consultCount > 1 ? 's' : ''} no iGentVet. Continue registrando sinais para evoluir mais rápido.`,
             icon: Sparkles,
             urgent: false,
-            cta: { label: 'Abrir iGentVet', path: '/igentvet' },
+            cta: { label: 'Abrir iGentVet', path: '/igent-vet' },
           });
         }
       } catch {}

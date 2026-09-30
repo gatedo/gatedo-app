@@ -173,7 +173,7 @@ export default function NotificationsPage() {
         navigate(petId ? `/cat/${petId}?tab=SAUDE` : '/cats'); break;
       case 'IGENT_ALERT':
       case 'IGENT_PREDICTIVE':
-        navigate(petId ? `/cat/${petId}?tab=SAUDE` : '/igentvet'); break;
+        navigate(petId ? `/cat/${petId}?tab=SAUDE` : '/igent-vet'); break;
       case 'VACCINE_DUE':
       case 'VACCINE_OVERDUE':
         navigate(petId ? `/cat/${petId}?tab=IMUNIZANTES` : '/cats'); break;
