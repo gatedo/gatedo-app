@@ -270,7 +270,15 @@ async getPoints(@Req() req: any, @Param('id') id: string) {
     if (body.city  !== undefined) dataToUpdate.city  = body.city  || null;
     if (body.phone !== undefined) dataToUpdate.phone = body.phone || null;
     if (body.tutorTitle !== undefined && String(body.tutorTitle).trim()) dataToUpdate.tutorTitle = this.normalizeTutorTitle(body.tutorTitle);
-    if (body.email !== undefined && String(body.email).trim()) dataToUpdate.email = String(body.email).trim().toLowerCase();
+    if (body.email !== undefined && String(body.email).trim()) {
+      dataToUpdate.email = String(body.email).trim().toLowerCase();
+      // E-mail novo precisa ser provado de novo — senão trocar o e-mail pro de
+      // quem comprou na Kiwify reivindicava a compra pendente dele.
+      if (!isAdmin) {
+        const current = await this.prisma.user.findUnique({ where: { id }, select: { email: true } });
+        if (current?.email?.toLowerCase() !== dataToUpdate.email) dataToUpdate.emailVerified = false;
+      }
+    }
 
     if (isAdmin) {
       if (body.status !== undefined && String(body.status).trim()) dataToUpdate.status = String(body.status).trim();

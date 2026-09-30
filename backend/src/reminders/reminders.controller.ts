@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { RemindersService } from './reminders.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CronSecretGuard } from '../common/cron-secret.guard';
 
 @Controller('reminders')
 export class RemindersController {
@@ -29,11 +30,13 @@ export class RemindersController {
 
   // ── Chamado pelo cron externo (mesmo padrão de vaccine-check/protocol-check) ──
   @Post('run-daily-push')
+  @UseGuards(CronSecretGuard)
   async runDailyPush() {
     return this.reminders.runDailyPush();
   }
 
   @Post('run-weekly-email')
+  @UseGuards(CronSecretGuard)
   async runWeeklyEmail() {
     return this.reminders.runWeeklyEmail();
   }

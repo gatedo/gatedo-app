@@ -8,8 +8,8 @@ import {
   Logger,
   Patch,
   Post,
+  Query,
   Req,
-  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
@@ -28,20 +28,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { EmailService } from '../email/email.service';
 import { EventsService } from '../events/events.service';
 
-function verificarAssinaturaKiwify(
-  payload: string,
-  signature: string,
-  secret: string,
-): boolean {
-  if (!secret) return true;
-
-  const expected = crypto
-    .createHmac('sha1', secret)
-    .update(payload)
-    .digest('hex');
-
-  return expected === signature;
-}
+import { assertKiwifySignature } from '../common/kiwify-signature';
 
 function firstValue(...values: any[]) {
   for (const value of values) {
@@ -427,24 +414,9 @@ export class KiwifyController {
     @Body() body: any,
     @Headers('x-kiwify-event') event: string,
     @Headers('x-kiwify-signature') signature: string,
+    @Query('signature') querySignature?: string,
   ) {
-    const secret = process.env.KIWIFY_TOKEN ?? '';
-    const requireSignature = process.env.KIWIFY_REQUIRE_SIGNATURE === 'true';
-    const raw = JSON.stringify(body);
-
-    if (secret && signature && !verificarAssinaturaKiwify(raw, signature, secret)) {
-      this.logger.warn('Assinatura invalida');
-      throw new UnauthorizedException();
-    }
-
-    if (secret && !signature && requireSignature) {
-      this.logger.warn('Assinatura ausente');
-      throw new UnauthorizedException();
-    }
-
-    if (secret && !signature && !requireSignature) {
-      this.logger.warn('Webhook sem assinatura Kiwify; aceito porque KIWIFY_REQUIRE_SIGNATURE nao esta ativo.');
-    }
+    assertKiwifySignature(body, signature, querySignature);
 
     const data = body.data ?? body.payload ?? body;
     const detectedEvent = firstValue(

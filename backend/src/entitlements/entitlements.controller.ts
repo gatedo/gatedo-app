@@ -17,11 +17,7 @@ import { EntitlementsService } from './entitlements.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { EventsService } from '../events/events.service';
 
-function verifyKiwifySignature(payload: string, signature: string, secret: string): boolean {
-  if (!secret) return true;
-  const expected = crypto.createHmac('sha1', secret).update(payload).digest('hex');
-  return expected === signature;
-}
+import { assertKiwifySignature } from '../common/kiwify-signature';
 
 function firstValue(...values: any[]) {
   for (const value of values) {
@@ -89,18 +85,9 @@ export class EntitlementsController {
     @Body() body: any,
     @Headers('x-kiwify-event') event: string,
     @Headers('x-kiwify-signature') signature: string,
+    @Query('signature') querySignature?: string,
   ) {
-    const secret = process.env.KIWIFY_TOKEN ?? '';
-    const raw = JSON.stringify(body);
-
-    if (secret && signature && !verifyKiwifySignature(raw, signature, secret)) {
-      this.logger.warn('Assinatura Kiwify inválida — webhook rejeitado.');
-      throw new UnauthorizedException();
-    }
-    if (secret && !signature && process.env.KIWIFY_REQUIRE_SIGNATURE === 'true') {
-      this.logger.warn('Assinatura Kiwify ausente — webhook rejeitado.');
-      throw new UnauthorizedException();
-    }
+    assertKiwifySignature(body, signature, querySignature);
 
     const data = body?.data ?? body?.payload ?? body ?? {};
     const detectedEvent = normalizeEventName(

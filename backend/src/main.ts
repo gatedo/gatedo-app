@@ -3,9 +3,18 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import * as express from 'express';
 import { join } from 'path';
+import { StripSecretsInterceptor } from './common/strip-secrets.interceptor';
+import { SignUploadsInterceptor, verifySignedUpload } from './common/signed-uploads';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Vários módulos têm um segredo fixo de reserva no JwtModule.register —
+  // sem JWT_SECRET no ambiente, tokens poderiam ser forjados com ele.
+  // Checado depois do create: a essa altura o .env já foi carregado.
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET não definido — o backend não sobe sem ele.');
+  }
 
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
@@ -41,12 +50,20 @@ async function bootstrap() {
   );
 
   /**
-   * SERVIR ARQUIVOS ESTÁTICOS (UPLOADS)
-   *
-   * ISSO RESOLVE O PROBLEMA DO PDF 404
+   * NUNCA devolver senha/tokens do usuário, em rota nenhuma
+   */
+  /**
+   * + assina todo caminho /uploads/... que sai numa resposta (link com validade)
+   */
+  app.useGlobalInterceptors(new StripSecretsInterceptor(), new SignUploadsInterceptor());
+
+  /**
+   * SERVIR ARQUIVOS ESTÁTICOS (UPLOADS) — só com link assinado
+   * (exames e fotos de saúde; ver common/signed-uploads.ts)
    */
   app.use(
     '/uploads',
+    verifySignedUpload,
     express.static(join(process.cwd(), 'uploads')),
   );
 

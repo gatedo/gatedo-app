@@ -11,6 +11,37 @@ import { isProfileComplete } from '../gamification/xp.config';
 import { EventsService } from '../events/events.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { assertOwnsPet } from '../common/ownership.util';
+import { PUBLIC_PET_SELECT } from '../common/public-select';
+
+// Campos do tutor que podem sair junto com o gato. Nunca `owner: true`:
+// isso traz password, resetPasswordToken e emailVerifyToken.
+const PET_OWNER_PUBLIC_SELECT = {
+  id: true,
+  name: true,
+  photoUrl: true,
+  tutorTitle: true,
+  plan: true,
+  badges: true,
+} as const;
+
+// O próprio tutor vê o contato dele (carteirinha/Feline ID usam o telefone).
+const PET_OWNER_PRIVATE_SELECT = {
+  ...PET_OWNER_PUBLIC_SELECT,
+  email: true,
+  phone: true,
+  city: true,
+  role: true,
+} as const;
+
+// Campos do gato que não saem pra quem não é o tutor.
+const PET_PRIVATE_FIELDS = [
+  'microchip',
+  'ongInternalNotes',
+  'traumaHistory',
+  'behaviorIssues',
+  'healthSummary',
+  'preExistingConditions',
+] as const;
 
 @Controller('pets')
 export class PetsController {
@@ -96,41 +127,70 @@ export class PetsController {
           },
         },
         healthRecords: healthRecordsStatusSelect,
+        // Só o último — a Home usa pra saber se já teve check-in hoje.
+        diaryEntries: { select: { date: true }, orderBy: { date: 'desc' }, take: 1 },
       },
       orderBy: { createdAt: 'asc' },
     });
   }
 
- @Get(':id')
- @UseGuards(JwtAuthGuard)
-findOne(@Param('id') id: string) {
-  return this.prisma.pet.findUnique({
-    where: { id },
-    include: {
-      owner: true,
-      healthRecords: { orderBy: { date: 'desc' } },
-      diaryEntries:  { orderBy: { date: 'desc' } },
-      protocolEnrollments: {
-        select: {
-          id: true,
-          protocol: { select: { title: true } },
-          logs: {
-            where: {
-              OR: [{ note: { not: null } }, { entries: { some: {} } }],
-            },
+  // Dono/admin recebe o gato completo; qualquer outro usuário logado (perfil
+  // social, Comunigato) recebe só a vitrine pública. Antes isto devolvia tudo
+  // pra qualquer um — inclusive `owner: true`, com hash de senha e tokens de
+  // reset/verificação do tutor.
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  async findOne(@Req() req: any, @Param('id') id: string) {
+    const found = await this.prisma.pet.findUnique({ where: { id }, select: { ownerId: true } });
+    if (!found) return null;
+
+    const isOwner = req.user?.role === 'ADMIN' || found.ownerId === req.user?.id;
+    if (isOwner) {
+      return this.prisma.pet.findUnique({
+        where: { id },
+        include: {
+          owner: { select: PET_OWNER_PRIVATE_SELECT },
+          healthRecords: { orderBy: { date: 'desc' } },
+          diaryEntries:  { orderBy: { date: 'desc' } },
+          protocolEnrollments: {
             select: {
               id: true,
-              dayNumber: true,
-              note: true,
-              completedAt: true,
-              entries: { select: { id: true, data: true, createdAt: true } },
+              protocol: { select: { title: true } },
+              logs: {
+                where: {
+                  OR: [{ note: { not: null } }, { entries: { some: {} } }],
+                },
+                select: {
+                  id: true,
+                  dayNumber: true,
+                  note: true,
+                  completedAt: true,
+                  entries: { select: { id: true, data: true, createdAt: true } },
+                },
+              },
             },
           },
         },
+      });
+    }
+
+    const pet = await this.prisma.pet.findUnique({
+      where: { id },
+      include: {
+        owner: { select: PET_OWNER_PUBLIC_SELECT },
+        // Só preventivos (o selo de carteira em dia do perfil social) —
+        // consultas, exames e tratamentos ficam só pro tutor.
+        healthRecords: {
+          where: { type: { in: ['VACCINE', 'VERMIFUGE', 'PARASITE'] } },
+          select: { id: true, type: true, title: true, date: true, nextDueDate: true },
+          orderBy: { date: 'desc' },
+        },
       },
-    },
-  });
-}
+    });
+    if (!pet) return null;
+    for (const key of PET_PRIVATE_FIELDS) delete (pet as any)[key];
+    return pet;
+  }
 
 @Get('memorial/public')
 async getPublicMemorialPets() {
@@ -142,7 +202,10 @@ async getPublicMemorialPets() {
         { deathDate: { not: null } },
       ],
     },
-    include: {
+    // Rota sem login — só campos de vitrine, nunca microchip/notas da ONG.
+    select: {
+      ...PUBLIC_PET_SELECT,
+      isArchived: true,
       owner: {
         select: {
           id: true,

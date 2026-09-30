@@ -3,6 +3,7 @@ import { NotificationService } from './notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { assertIsSelfOrAdmin } from '../common/ownership.util';
+import { CronSecretGuard } from '../common/cron-secret.guard';
 
 @Controller()
 export class NotificationController {
@@ -52,18 +53,18 @@ export class NotificationController {
   }
 
   // POST /notifications/vaccine-check
-  // Chamado pelo cron ou manualmente para gerar alertas de vacinas — SEM
-  // guard de proposito: comentario confirma que e cron-only, sem chamador
-  // no frontend, e nao manda token de usuario nenhum.
+  // Chamado pelo cron para gerar alertas de vacinas — sem token de usuário,
+  // protegido pelo segredo do cron (ver common/cron-secret.guard.ts).
   @Post('notifications/vaccine-check')
+  @UseGuards(CronSecretGuard)
   async vaccineCheck() {
     return this.notifService.generateVaccineReminders();
   }
 
   // POST /notifications/protocol-check
-  // Chamado pelo cron (1x de manhã) — mesma razão do vaccine-check acima,
-  // fica sem guard.
+  // Chamado pelo cron (1x de manhã) — mesmo esquema do vaccine-check acima.
   @Post('notifications/protocol-check')
+  @UseGuards(CronSecretGuard)
   async protocolCheck() {
     return this.notifService.generateProtocolReminders();
   }
@@ -79,11 +80,12 @@ export class NotificationController {
   }
 
   // POST /gamification/points
-  // Chamado internamente por outros services (igent, health, community)
+  // Pontos são creditados pelos próprios services (igent, health, community).
+  // Pela API, só admin — antes o tutor podia se dar pontos à vontade.
   @Post('gamification/points')
   @UseGuards(JwtAuthGuard)
   async addPoints(@Req() req: any, @Body() body: { userId: string; action: string; context?: any }) {
-    assertIsSelfOrAdmin(body.userId, req.user);
+    if (req.user?.role !== 'ADMIN') throw new ForbiddenException('Apenas ADMIN.');
     return this.notifService.addPoints(body.userId, body.action as any, body.context);
   }
 
@@ -100,7 +102,8 @@ export class NotificationController {
     riskCondition: string;
     deceasedPetNames: string[];
   }) {
-    assertIsSelfOrAdmin(body.userId, req.user);
+    // Sem chamador no app; o corpo é texto livre que vira notificação — só admin.
+    if (req.user?.role !== 'ADMIN') throw new ForbiddenException('Apenas ADMIN.');
     return this.notifService.sendPredictiveAlert(body);
   }
   // GET /gamification/stats/:userId

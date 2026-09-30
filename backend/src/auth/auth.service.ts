@@ -1117,6 +1117,11 @@ export class AuthService {
     return this.generateToken(user);
   }
 
+  async findUserByVerifyToken(token: string): Promise<{ id: string; email: string } | null> {
+    if (!token) return null;
+    return this.prisma.user.findFirst({ where: { emailVerifyToken: token }, select: { id: true, email: true } });
+  }
+
   async verifyEmail(token: string) {
     const users = await this.prisma.$queryRawUnsafe<any[]>(
       `

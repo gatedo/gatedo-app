@@ -1,7 +1,7 @@
 import {
   Controller, Get, Post, Patch, Delete, Param, Body, Query,
   Req, NotFoundException, HttpCode, BadRequestException,
-  UnauthorizedException, UseGuards
+  UnauthorizedException, UseGuards, ForbiddenException
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Caminho baseado no seu print
@@ -15,6 +15,12 @@ const STORE_SHARE_XPT_REWARD = XP_TIERS.ZERO.tutorXp;
 @Controller('products')
 export class ProductsController {
   constructor(private prisma: PrismaService) {}
+
+  // Criar/editar/apagar produto é do painel admin. Antes era aberto a
+  // qualquer um, sem login.
+  private assertAdmin(req: any) {
+    if (req.user?.role !== 'ADMIN') throw new ForbiddenException('Apenas ADMIN.');
+  }
  
   // ── GET /products ─────────────────────────────────────────────────────────
   @Get()
@@ -128,7 +134,9 @@ export class ProductsController {
  
   // ── POST /products ────────────────────────────────────────────────────────
   @Post()
-  async create(@Body() dto: any) {
+  @UseGuards(JwtAuthGuard)
+  async create(@Req() req: any, @Body() dto: any) {
+    this.assertAdmin(req);
     const categoryId = await this.resolveCategoryId(dto.categoryName || dto.categoryId || 'Geral');
     return this.prisma.product.create({
       data: {
@@ -149,7 +157,9 @@ export class ProductsController {
 
   // ── PATCH /products/:id ───────────────────────────────────────────────────
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: any) {
+  @UseGuards(JwtAuthGuard)
+  async update(@Req() req: any, @Param('id') id: string, @Body() dto: any) {
+    this.assertAdmin(req);
     const categoryId = await this.resolveCategoryId(dto.categoryName || dto.categoryId || 'Geral');
     return this.prisma.product.update({
       where: { id },
@@ -172,7 +182,9 @@ export class ProductsController {
   // ── DELETE /products/:id ──────────────────────────────────────────────────
   @Delete(':id')
   @HttpCode(204)
-  async remove(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard)
+  async remove(@Req() req: any, @Param('id') id: string) {
+    this.assertAdmin(req);
     await this.prisma.product.delete({ where: { id } });
   }
  

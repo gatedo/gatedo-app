@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PostVisibility, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PUBLIC_PET_SELECT, PUBLIC_USER_SELECT } from '../common/public-select';
 import { XP_TIERS } from '../gamification/xp.config';
 import { hasClubeAccess } from '../membership/membership.constants';
 
@@ -19,12 +20,17 @@ const COST_SAVE = 0;
 export class SocialService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Poder de admin (ver post privado, mexer em gato/post alheio, buscar
+  // usuários, ajustar saldo) — só ADMIN. Antes TESTER_VIP entrava aqui e
+  // podia ajustar o saldo de qualquer usuário.
   private isAdmin(user: any) {
-    return (
-      user?.role === Role.ADMIN ||
-      user?.role === 'ADMIN' ||
-      user?.role === 'TESTER_VIP'
-    );
+    return user?.role === Role.ADMIN || user?.role === 'ADMIN';
+  }
+
+  // Não gastar GPTS ao publicar/curtir/salvar — perk de teste, vale pra
+  // ADMIN e TESTER_VIP.
+  private skipsPointsCost(user: any) {
+    return this.isAdmin(user) || user?.role === 'TESTER_VIP';
   }
 
   private normalizeFeedPost(post: any, currentUserId?: string) {
@@ -61,6 +67,32 @@ export class SocialService {
         avatar: comment?.user?.photoUrl || '/placeholder-user.png',
       },
     };
+  }
+
+  private async getFollowedPetIds(userId: string): Promise<string[]> {
+    const rows = await this.prisma.socialFollow.findMany({
+      where: { followerId: userId },
+      select: { petId: true },
+    });
+    return rows.map((r) => r.petId);
+  }
+
+  // Mesma régua do feed, pra um post só (comentários, curtir, salvar).
+  private async canSeePost(
+    currentUser: any,
+    post: { userId: string; petId: string; visibility: PostVisibility | string },
+  ): Promise<boolean> {
+    if (post.visibility === PostVisibility.PUBLIC) return true;
+    if (!currentUser?.id) return false;
+    if (post.userId === currentUser.id || this.isAdmin(currentUser)) return true;
+    if (post.visibility === PostVisibility.FOLLOWERS) {
+      const follow = await this.prisma.socialFollow.findUnique({
+        where: { followerId_petId: { followerId: currentUser.id, petId: post.petId } },
+        select: { id: true },
+      });
+      return !!follow;
+    }
+    return false;
   }
 
   private async getWalletState(userId: string) {
@@ -107,17 +139,31 @@ export class SocialService {
   async getPosts(currentUser: any, params: any = {}) {
     const visibility = params.visibility as PostVisibility | undefined;
 
+    // Público de todo mundo + tudo que é meu + "só seguidores" dos gatos que
+    // eu sigo. Antes, sem ?visibility, isto devolvia posts PRIVATE de todos.
+    const followedPetIds = currentUser?.id ? await this.getFollowedPetIds(currentUser.id) : [];
     const posts = await this.prisma.post.findMany({
       where: {
-        ...(visibility ? { visibility } : {}),
+        AND: [
+          visibility ? { visibility } : {},
+          {
+            OR: [
+              { visibility: PostVisibility.PUBLIC },
+              ...(currentUser?.id ? [{ userId: currentUser.id }] : []),
+              ...(followedPetIds.length
+                ? [{ visibility: PostVisibility.FOLLOWERS, petId: { in: followedPetIds } }]
+                : []),
+            ],
+          },
+        ],
       },
       // Destaque Clube GATEDO sobe no feed, sem sumir com a ordem cronológica
       // dentro de cada grupo (destacados primeiro, depois os mais recentes).
       orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }],
       include: {
-        user: true,
-        pet: true,
-        comments: true,
+        user: { select: PUBLIC_USER_SELECT },
+        pet: { select: PUBLIC_PET_SELECT },
+        comments: { select: { id: true } },
         ...(currentUser?.id
           ? { likedBy: { where: { userId: currentUser.id } } }
           : {}),
@@ -144,8 +190,8 @@ export class SocialService {
 
     if (onlyFollowing && currentUser?.id) {
       try {
-        const followed = await (this.prisma as any).petFollower.findMany({
-          where: { userId: currentUser.id },
+        const followed = await this.prisma.socialFollow.findMany({
+          where: { followerId: currentUser.id },
           select: { petId: true },
         });
         followedPetIds = followed.map((item: any) => item.petId);
@@ -247,7 +293,7 @@ const where: any = {
     let followersCountMap = new Map<string, number>();
     if (petIds.length) {
       try {
-        const grouped = await (this.prisma as any).petFollower.groupBy({
+        const grouped = await (this.prisma as any).socialFollow.groupBy({
           by: ['petId'],
           where: { petId: { in: petIds } },
           _count: { petId: true },
@@ -265,9 +311,9 @@ const where: any = {
     let followedByMeSet = new Set<string>();
     if (currentUser?.id && petIds.length) {
       try {
-        const followedByMe = await (this.prisma as any).petFollower.findMany({
+        const followedByMe = await this.prisma.socialFollow.findMany({
           where: {
-            userId: currentUser.id,
+            followerId: currentUser.id,
             petId: { in: petIds },
           },
           select: { petId: true },
@@ -340,9 +386,9 @@ const where: any = {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        user: true,
-        pet: true,
-        comments: true,
+        user: { select: PUBLIC_USER_SELECT },
+        pet: { select: PUBLIC_PET_SELECT },
+        comments: { select: { id: true } },
         ...(currentUser?.id
           ? { likedBy: { where: { userId: currentUser.id } } }
           : {}),
@@ -360,17 +406,20 @@ const where: any = {
       where: { id: postId },
       select: {
         id: true,
+        userId: true,
+        petId: true,
+        visibility: true,
         allowComments: true,
       },
     });
 
-    if (!post) throw new NotFoundException('Post não encontrado');
+    if (!post || !(await this.canSeePost(currentUser, post))) throw new NotFoundException('Post não encontrado');
 
     const comments = await this.prisma.comment.findMany({
       where: { postId },
       orderBy: { createdAt: 'asc' },
       include: {
-        user: true,
+        user: { select: PUBLIC_USER_SELECT },
       },
       take: 100,
     });
@@ -389,13 +438,10 @@ const where: any = {
 
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
-      include: {
-        user: true,
-        pet: true,
-      },
+      select: { id: true, userId: true, petId: true, visibility: true, allowComments: true, commentsCount: true },
     });
 
-    if (!post) throw new NotFoundException('Post não encontrado');
+    if (!post || !(await this.canSeePost(currentUser, post))) throw new NotFoundException('Post não encontrado');
     if (!post.allowComments) {
       throw new BadRequestException('Comentários desativados neste post');
     }
@@ -414,7 +460,7 @@ const where: any = {
           content,
         },
         include: {
-          user: true,
+          user: { select: PUBLIC_USER_SELECT },
         },
       });
 
@@ -453,10 +499,11 @@ const where: any = {
   async getPetProfile(currentUser: any, petId: string) {
     const pet = await this.prisma.pet.findUnique({
       where: { id: petId },
-      include: {
-        owner: true,
-        followers: true,
-      } as any,
+      select: {
+        ...PUBLIC_PET_SELECT,
+        owner: { select: PUBLIC_USER_SELECT },
+        _count: { select: { followers: true } },
+      },
     });
 
     if (!pet) throw new NotFoundException('Pet não encontrado');
@@ -466,7 +513,7 @@ const where: any = {
     return {
       ...pet,
       socialStats: {
-        followers: (pet as any).followers?.length || 0,
+        followers: pet._count.followers,
         posts: posts.length,
       },
       posts,
@@ -476,7 +523,7 @@ const where: any = {
   async getPetAssets(currentUser: any, petId: string) {
     const pet = await this.prisma.pet.findUnique({
       where: { id: petId },
-      include: { owner: true } as any,
+      select: { id: true, ownerId: true, gallery: true },
     });
 
     if (!pet) throw new NotFoundException('Pet não encontrado');
@@ -583,7 +630,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
     }
 
     const cost = this.publishCostBySource(source);
-    const isAdmin = this.isAdmin(currentUser);
+    const skipCost = this.skipsPointsCost(currentUser);
     const wallet = await this.getWalletState(currentUser.id);
     // Destaque no Comunigato/galeria é perk do Clube GATEDO — busca os campos
     // de plano frescos do banco (o JWT não carrega badges/planExpires).
@@ -593,20 +640,20 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
     });
     const isFeatured = hasClubeAccess(membershipFields);
 
-    if (!isAdmin && wallet.xp < XP_TO_PUBLISH) {
+    if (!skipCost && wallet.xp < XP_TO_PUBLISH) {
       throw new BadRequestException(
         `Você precisa de pelo menos ${XP_TO_PUBLISH} XP para publicar`,
       );
     }
 
-    if (!isAdmin && wallet.balance < cost) {
+    if (!skipCost && wallet.balance < cost) {
       throw new BadRequestException(
         `Saldo insuficiente para publicar. Necessário: ${cost} points.`,
       );
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      if (!isAdmin && cost > 0) {
+      if (!skipCost && cost > 0) {
         await tx.user.update({
           where: { id: currentUser.id },
           data: {
@@ -632,9 +679,9 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
           featured: isFeatured,
         },
         include: {
-          user: true,
-          pet: true,
-          comments: true,
+          user: { select: PUBLIC_USER_SELECT },
+          pet: { select: PUBLIC_PET_SELECT },
+          comments: { select: { id: true } },
           ...(currentUser?.id
             ? { likedBy: { where: { userId: currentUser.id } } }
             : {}),
@@ -663,7 +710,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
         },
       });
 
-      if (!isAdmin && cost > 0) {
+      if (!skipCost && cost > 0) {
         await tx.balanceAdjustmentLog.create({
           data: {
             userId: currentUser.id,
@@ -690,8 +737,8 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
 
     return {
       ok: true,
-      bypass: isAdmin,
-      chargedPoints: isAdmin ? 0 : cost,
+      bypass: skipCost,
+      chargedPoints: skipCost ? 0 : cost,
       post: this.normalizeFeedPost(result, currentUser.id),
     };
   }
@@ -726,7 +773,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
   }
 
   private async assertWalletForReaction(currentUser: any, cost: number) {
-    if (this.isAdmin(currentUser) || cost <= 0) return;
+    if (this.skipsPointsCost(currentUser) || cost <= 0) return;
 
     const wallet = await this.getWalletState(currentUser.id);
     if (wallet.balance < cost) {
@@ -751,7 +798,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
 
     await this.assertWalletForReaction(currentUser, COST_LIKE);
 
-    const isAdmin = this.isAdmin(currentUser);
+    const skipCost = this.skipsPointsCost(currentUser);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.postLike.create({
@@ -776,7 +823,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
         },
       });
 
-      if (!isAdmin && COST_LIKE > 0) {
+      if (!skipCost && COST_LIKE > 0) {
         await tx.user.update({
           where: { id: currentUser.id },
           data: {
@@ -837,7 +884,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
 
     await this.assertWalletForReaction(currentUser, COST_SAVE);
 
-    const isAdmin = this.isAdmin(currentUser);
+    const skipCost = this.skipsPointsCost(currentUser);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.postSave.create({
@@ -862,7 +909,7 @@ if (body.source === 'STUDIO_CREATION' && !body.studioCreationId) {
         },
       });
 
-      if (!isAdmin && COST_SAVE > 0) {
+      if (!skipCost && COST_SAVE > 0) {
         await tx.user.update({
           where: { id: currentUser.id },
           data: {

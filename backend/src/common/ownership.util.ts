@@ -14,6 +14,17 @@ export async function assertOwnsPet(prisma: PrismaService, petId: string, user: 
   }
 }
 
+// Inscrição de protocolo (ProtocolEnrollment) — mesma lógica do assertOwnsPet.
+export async function assertOwnsEnrollment(prisma: PrismaService, enrollmentId: string, user: AuthedUser) {
+  if (user.role === 'ADMIN') return;
+  const enr = enrollmentId
+    ? await prisma.protocolEnrollment.findUnique({ where: { id: enrollmentId }, select: { userId: true } })
+    : null;
+  if (!enr || enr.userId !== user.id) {
+    throw new ForbiddenException('Sem acesso a esta inscrição.');
+  }
+}
+
 export function assertIsSelfOrAdmin(targetUserId: string, user: AuthedUser) {
   if (user.role === 'ADMIN') return;
   if (user.id !== targetUserId) {

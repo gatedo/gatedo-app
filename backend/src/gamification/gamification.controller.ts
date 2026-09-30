@@ -7,8 +7,18 @@ import {
   Req,
   Param,
   BadRequestException,
+  ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
+import { assertIsSelfOrAdmin } from '../common/ownership.util';
+
+// XP, pontos e selos só mudam pelo próprio servidor (diário, saúde,
+// protocolos, avisos…). Pela API, escrita direta é só admin: selos definem
+// o plano (CLUBE_GATEDO, FOUNDER_EARLY…) e antes qualquer tutor podia se
+// dar assinatura, XP e GPTS com um PATCH.
+function assertAdmin(req: any) {
+  if (req.user?.role !== 'ADMIN') throw new ForbiddenException('Apenas ADMIN.');
+}
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notifications/notification.service';
 import { GamificationService } from './gamification.service';
@@ -33,7 +43,8 @@ export class GamificationController {
   }
 
   @Get('points/:userId')
-  async getPoints(@Param('userId') userId: string) {
+  async getPoints(@Req() req: any, @Param('userId') userId: string) {
+    assertIsSelfOrAdmin(userId, req.user);
     if (!userId) {
       throw new BadRequestException('userId obrigatório');
     }
@@ -118,7 +129,8 @@ export class GamificationController {
   }
 
   @Get('stats/:userId')
-  async getStats(@Param('userId') userId: string) {
+  async getStats(@Req() req: any, @Param('userId') userId: string) {
+    assertIsSelfOrAdmin(userId, req.user);
     if (!userId) {
       throw new BadRequestException('userId obrigatório');
     }
@@ -137,6 +149,7 @@ export class GamificationController {
       streak?: number;
     },
   ) {
+    assertAdmin(req);
     const userId = req.user?.id || req.user?.sub;
 
     if (!userId) {
@@ -295,6 +308,7 @@ export class GamificationController {
     @Req() req: any,
     @Body() dto: AddXpDto,
   ) {
+    assertAdmin(req);
     const actorUserId = req.user?.id || req.user?.sub || null;
 
     if (!dto?.userId) {
@@ -358,6 +372,7 @@ export class GamificationController {
       meta?: Record<string, any>;
     },
   ) {
+    assertAdmin(req);
     const actorUserId = req.user?.id || req.user?.sub || null;
 
     if (!body?.userId) {
