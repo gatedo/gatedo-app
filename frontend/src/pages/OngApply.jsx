@@ -84,7 +84,7 @@ export default function OngApply() {
             {profile?.status === 'REJECTED' && (
               <div className="rounded-[18px] p-3.5 mb-4 flex items-start gap-2" style={{ background: '#FEF2F2' }}>
                 <XCircle size={16} className="shrink-0 mt-0.5" style={{ color: '#DC2626' }} />
-                <p className="text-[11px] font-medium text-gray-600">
+                <p className="text-[12px] font-medium text-gray-600">
                   Pedido anterior não aprovado{profile.rejectionReason ? `: ${profile.rejectionReason}` : '.'} Pode reenviar com os dados corretos.
                 </p>
               </div>
@@ -105,7 +105,7 @@ export default function OngApply() {
                 { key: 'instagram', label: 'Instagram', placeholder: '@sua_ong' },
               ].map((f) => (
                 <div key={f.key} className="mb-3">
-                  <p className="text-[11px] font-bold text-gray-600 mb-1.5">{f.label}</p>
+                  <p className="text-[12px] font-bold text-gray-600 mb-1.5">{f.label}</p>
                   <input
                     type="text"
                     value={form[f.key]}
@@ -116,7 +116,7 @@ export default function OngApply() {
                 </div>
               ))}
 
-              {error && <p className="text-[11px] font-bold mt-1 mb-2" style={{ color: '#DC2626' }}>{error}</p>}
+              {error && <p className="text-[12px] font-bold mt-1 mb-2" style={{ color: '#DC2626' }}>{error}</p>}
             </div>
 
             <button

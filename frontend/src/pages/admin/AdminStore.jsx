@@ -295,7 +295,7 @@ export default function AdminStore() {
                 ${tab === t.id ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400'}`}>
               <t.icon size={13} />
               {t.label}
-              <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-[#8B4AFF] text-white' : 'bg-gray-200 text-gray-400'}`}>
+              <span className={`text-[12px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-[#8B4AFF] text-white' : 'bg-gray-200 text-gray-400'}`}>
                 {t.count}
               </span>
             </button>
@@ -423,11 +423,11 @@ export default function AdminStore() {
                       <p className="text-[10px] text-gray-400 font-bold mb-2">{kitProds.length} produto{kitProds.length !== 1 ? 's' : ''} no kit</p>
                       <div className="flex flex-wrap gap-1 mb-3">
                         {kitProds.slice(0, 4).map(p => (
-                          <span key={p.id} className="text-[11px] bg-gray-50 text-gray-500 font-bold px-2 py-0.5 rounded-full border border-gray-100 line-clamp-1 max-w-[120px]">
+                          <span key={p.id} className="text-[12px] bg-gray-50 text-gray-500 font-bold px-2 py-0.5 rounded-full border border-gray-100 line-clamp-1 max-w-[120px]">
                             {p.name}
                           </span>
                         ))}
-                        {kitProds.length > 4 && <span className="text-[11px] text-gray-400 font-bold">+{kitProds.length - 4}</span>}
+                        {kitProds.length > 4 && <span className="text-[12px] text-gray-400 font-bold">+{kitProds.length - 4}</span>}
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => openKitModal(kit)} className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
@@ -542,7 +542,7 @@ export default function AdminStore() {
                               ? prev.tags.filter((x) => x !== t.id)
                               : [...(prev.tags || []), t.id],
                           }))}
-                          className={`px-3 py-2 rounded-full text-[11px] font-black border-2 transition-all ${
+                          className={`px-3 py-2 rounded-full text-[12px] font-black border-2 transition-all ${
                             active ? 'border-transparent text-white bg-[#8B4AFF]' : 'border-gray-100 text-gray-500 bg-gray-50'
                           }`}
                         >
@@ -645,7 +645,7 @@ export default function AdminStore() {
                         {p.images?.[0] && <img src={p.images[0]} className="w-8 h-8 rounded-lg object-cover mix-blend-multiply bg-white shrink-0" alt="" />}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-black text-gray-700 line-clamp-1">{p.name}</p>
-                          <p className="text-[11px] text-[#8B4AFF] font-bold">R$ {parseFloat(p.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-[12px] text-[#8B4AFF] font-bold">R$ {parseFloat(p.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         </div>
                       </div>
                     ))}
@@ -732,7 +732,7 @@ export default function AdminStore() {
                     {users.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
                   </select>
                   {cupForm.targetUserId && (
-                    <p className="text-[11px] text-[#8B4AFF] font-bold mt-1 flex items-center gap-1">
+                    <p className="text-[12px] text-[#8B4AFF] font-bold mt-1 flex items-center gap-1">
                       <Send size={8} /> Só esse usuário pode resgatar este cupom
                     </p>
                   )}

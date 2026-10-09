@@ -259,13 +259,13 @@ export default function Onboarding() {
                 className="w-full bg-white rounded-2xl px-4 py-3.5 text-sm font-bold text-gray-800 outline-none border border-gray-100 mb-4"
               />
 
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mb-2">Sexo</p>
+              <p className="text-[12px] font-black text-gray-400 uppercase tracking-wide mb-2">Sexo</p>
               <div className="grid grid-cols-3 gap-2 mb-4">
                 {GENDER_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => { touch('light'); setGender(opt.value); }}
-                    className={`py-2.5 rounded-xl text-[11px] font-black border ${gender === opt.value ? 'text-white border-transparent' : 'text-gray-500 border-gray-100 bg-white'}`}
+                    className={`py-2.5 rounded-xl text-[12px] font-black border ${gender === opt.value ? 'text-white border-transparent' : 'text-gray-500 border-gray-100 bg-white'}`}
                     style={gender === opt.value ? { background: C.purple } : undefined}
                   >
                     {opt.label}
@@ -273,7 +273,7 @@ export default function Onboarding() {
                 ))}
               </div>
 
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mb-2">Raça</p>
+              <p className="text-[12px] font-black text-gray-400 uppercase tracking-wide mb-2">Raça</p>
               <div className="grid grid-cols-2 gap-2 mb-2">
                 {[{ v: 'SRD', label: 'SRD' }, { v: 'CUSTOM', label: 'Tenho a raça' }].map((opt) => (
                   <button
@@ -296,7 +296,7 @@ export default function Onboarding() {
                     <button
                       key={b}
                       onClick={() => { touch('light'); setBreedValue(b); }}
-                      className={`py-2.5 px-3 rounded-xl text-[11px] font-bold border text-left ${breedValue === b ? 'text-white border-transparent' : 'text-gray-500 border-gray-100 bg-white'}`}
+                      className={`py-2.5 px-3 rounded-xl text-[12px] font-bold border text-left ${breedValue === b ? 'text-white border-transparent' : 'text-gray-500 border-gray-100 bg-white'}`}
                       style={breedValue === b ? { background: C.purple } : undefined}
                     >
                       {b}
@@ -306,7 +306,7 @@ export default function Onboarding() {
               )}
               <div className="mb-4" />
 
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mb-2">Castrado?</p>
+              <p className="text-[12px] font-black text-gray-400 uppercase tracking-wide mb-2">Castrado?</p>
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {[{ v: true, label: 'Sim' }, { v: false, label: 'Não' }].map((opt) => (
                   <button
@@ -320,7 +320,7 @@ export default function Onboarding() {
                 ))}
               </div>
 
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mb-2">Idade</p>
+              <p className="text-[12px] font-black text-gray-400 uppercase tracking-wide mb-2">Idade</p>
               <div className="grid grid-cols-2 gap-2 mb-3">
                 {[{ v: 'NOW', label: 'Prefiro agora' }, { v: 'LATER', label: 'Deixo pra depois' }].map((opt) => (
                   <button
@@ -364,7 +364,7 @@ export default function Onboarding() {
                           placeholder="3"
                           className="flex-1 w-full bg-transparent text-sm font-black text-gray-800 outline-none"
                         />
-                        <span className="text-[11px] font-black text-gray-400 shrink-0">anos</span>
+                        <span className="text-[12px] font-black text-gray-400 shrink-0">anos</span>
                       </div>
                       <div className="flex-1 flex items-center gap-1.5 bg-white rounded-xl px-3 py-2.5 border border-gray-100">
                         <input
@@ -375,7 +375,7 @@ export default function Onboarding() {
                           placeholder="0"
                           className="flex-1 w-full bg-transparent text-sm font-black text-gray-800 outline-none"
                         />
-                        <span className="text-[11px] font-black text-gray-400 shrink-0">meses</span>
+                        <span className="text-[12px] font-black text-gray-400 shrink-0">meses</span>
                       </div>
                     </div>
                   )}

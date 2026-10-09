@@ -80,7 +80,7 @@ function getCreativeImage(campaign, manualThumbs = {}) {
 function Badge({ color="gray", children }) {
   const map = { gray:[C.grayLight,C.gray], green:[C.greenLight,C.green], yellow:[C.yellowLight,C.yellow], red:[C.redLight,C.red], purple:[C.purpleLight,C.purple], blue:[C.blueLight,C.blue] };
   const [bg, fg] = map[color]||map.gray;
-  return <span style={{ background: bg, color: fg, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600 }}>{children}</span>;
+  return <span style={{ background: bg, color: fg, borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 500 }}>{children}</span>;
 }
 
 function statusBadge(s) {
@@ -99,7 +99,7 @@ function SimpleBarChart({ data, metric, colorFor, formatValue }) {
         const color = typeof colorFor === "function" ? colorFor(item) : colorFor;
         return (
           <div key={`${item.name}-${index}`} title={`${item.name}: ${formatValue(value)}`} style={{flex:1, minWidth:34, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"end", gap:6}}>
-            <div style={{fontSize:10, fontWeight:700, color, minHeight:12}}>{formatValue(value)}</div>
+            <div style={{fontSize:10, fontWeight:600, color, minHeight:12}}>{formatValue(value)}</div>
             <div style={{width:"100%", height, borderRadius:"8px 8px 3px 3px", background:color, opacity:0.9}} />
             <div style={{fontSize:10, color:C.muted, maxWidth:70, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{item.name}</div>
           </div>
@@ -146,7 +146,7 @@ function AdvisorPanel({ advisor, loading, onAnalyze }) {
     }}}>
       <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, marginBottom:14}}>
         <div>
-          <div style={{fontSize:15, fontWeight:800, color:C.text}}>Assistente IA de Trafego</div>
+          <div style={{fontSize:15, fontWeight:600, color:C.text}}>Assistente IA de Trafego</div>
           <div style={{fontSize:12, color:C.muted, marginTop:2}}>
             Diagnostico de campanhas, prioridades, testes e proximas decisoes
           </div>
@@ -158,7 +158,7 @@ function AdvisorPanel({ advisor, loading, onAnalyze }) {
           borderRadius:10,
           padding:"9px 14px",
           fontSize:12,
-          fontWeight:800,
+          fontWeight:600,
           cursor:"pointer",
           opacity:loading ? .65 : 1,
         }}>
@@ -176,19 +176,19 @@ function AdvisorPanel({ advisor, loading, onAnalyze }) {
         <div style={{display:"grid", gap:14}}>
           <div style={{display:"grid", gridTemplateColumns:"1.2fr 1fr 1fr", gap:12}}>
             <div style={{background:C.purpleLight, borderRadius:12, padding:14}}>
-              <div style={{fontSize:11, fontWeight:800, color:C.purple, textTransform:"uppercase", marginBottom:5}}>Diagnostico</div>
+              <div style={{fontSize:12, fontWeight:600, color:C.purple, textTransform:"uppercase", marginBottom:5}}>Diagnostico</div>
               <div style={{fontSize:13, color:C.text, lineHeight:1.45}}>
                 {ai?.summary?.diagnosis || `Periodo com ${advisor.summary?.totalCampaigns || 0} campanhas e investimento de ${fmt.brl(advisor.summary?.spend || 0)}.`}
               </div>
             </div>
             <div style={{background:C.redLight, borderRadius:12, padding:14}}>
-              <div style={{fontSize:11, fontWeight:800, color:C.red, textTransform:"uppercase", marginBottom:5}}>Risco</div>
+              <div style={{fontSize:12, fontWeight:600, color:C.red, textTransform:"uppercase", marginBottom:5}}>Risco</div>
               <div style={{fontSize:13, color:C.text, lineHeight:1.45}}>
                 {ai?.summary?.mainRisk || priorities[0]?.reason || "Acompanhar volume antes de aumentar verba."}
               </div>
             </div>
             <div style={{background:C.greenLight, borderRadius:12, padding:14}}>
-              <div style={{fontSize:11, fontWeight:800, color:C.green, textTransform:"uppercase", marginBottom:5}}>Oportunidade</div>
+              <div style={{fontSize:12, fontWeight:600, color:C.green, textTransform:"uppercase", marginBottom:5}}>Oportunidade</div>
               <div style={{fontSize:13, color:C.text, lineHeight:1.45}}>
                 {ai?.summary?.bestOpportunity || priorities.find(p => p.title?.toLowerCase().includes("escalar"))?.action || "Identificar campanha vencedora e escalar com cautela."}
               </div>
@@ -197,7 +197,7 @@ function AdvisorPanel({ advisor, loading, onAnalyze }) {
 
           <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14}}>
             <div>
-              <div style={{fontSize:13, fontWeight:800, marginBottom:8}}>Prioridades</div>
+              <div style={{fontSize:13, fontWeight:600, marginBottom:8}}>Prioridades</div>
               <div style={{display:"grid", gap:8}}>
                 {priorities.slice(0, 4).map((item, index) => (
                   <div key={index} style={{border:"1px solid "+C.border, borderRadius:10, padding:"10px 12px"}}>
@@ -212,13 +212,13 @@ function AdvisorPanel({ advisor, loading, onAnalyze }) {
             </div>
 
             <div>
-              <div style={{fontSize:13, fontWeight:800, marginBottom:8}}>Testes sugeridos</div>
+              <div style={{fontSize:13, fontWeight:600, marginBottom:8}}>Testes sugeridos</div>
               <div style={{display:"grid", gap:8}}>
                 {experiments.slice(0, 3).map((item, index) => (
                   <div key={index} style={{border:"1px solid "+C.border, borderRadius:10, padding:"10px 12px"}}>
                     <strong style={{fontSize:13}}>{item.title}</strong>
                     <div style={{fontSize:12, color:C.gray, lineHeight:1.45, marginTop:4}}>{item.setup}</div>
-                    <div style={{fontSize:11, color:C.purple, fontWeight:700, marginTop:6}}>{item.successMetric}</div>
+                    <div style={{fontSize:12, color:C.purple, fontWeight:600, marginTop:6}}>{item.successMetric}</div>
                   </div>
                 ))}
               </div>
@@ -227,12 +227,12 @@ function AdvisorPanel({ advisor, loading, onAnalyze }) {
 
           {campaignActions.length > 0 && (
             <div>
-              <div style={{fontSize:13, fontWeight:800, marginBottom:8}}>Acoes por campanha</div>
+              <div style={{fontSize:13, fontWeight:600, marginBottom:8}}>Acoes por campanha</div>
               <div style={{display:"grid", gap:7}}>
                 {campaignActions.slice(0, 6).map((item, index) => (
                   <div key={item.campaignName || index} style={{display:"grid", gridTemplateColumns:"1fr auto", gap:10, alignItems:"center", border:"1px solid "+C.border, borderRadius:10, padding:"9px 11px"}}>
                     <div>
-                      <div style={{fontSize:12, fontWeight:800}}>{item.campaignName}</div>
+                      <div style={{fontSize:12, fontWeight:600}}>{item.campaignName}</div>
                       <div style={{fontSize:12, color:C.gray, marginTop:3}}>{item.recommendation || item.why}</div>
                     </div>
                     {item.budgetAction && <Badge color={item.budgetAction === "aumentar" ? "green" : item.budgetAction === "pausar" || item.budgetAction === "reduzir" ? "red" : "purple"}>{item.budgetAction}</Badge>}
@@ -466,9 +466,9 @@ export default function MetaAdsMonitor() {
   ];
 
   const s = { // styles obj
-    app: { fontFamily:"'Inter',system-ui,sans-serif", background:C.bg, minHeight:"100vh", color:C.text },
+    app: { fontFamily:"'Asap',system-ui,sans-serif", background:C.bg, minHeight:"100vh", color:C.text },
     header: { background:C.white, borderBottom:"1.5px solid "+C.border, padding:"0 28px", display:"flex", alignItems:"center", justifyContent:"space-between", height:58, position:"sticky", top:0, zIndex:100 },
-    logo: { display:"flex", alignItems:"center", gap:10, fontWeight:700, fontSize:16, letterSpacing:"-0.02em" },
+    logo: { display:"flex", alignItems:"center", gap:10, fontWeight:600, fontSize:16, letterSpacing:"-0.02em" },
     logoIcon: { width:32, height:32, background:C.purple, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:16 },
     nav: { display:"flex", gap:2 },
     navBtn: (active) => ({ padding:"6px 16px", borderRadius:8, border:"none", cursor:"pointer", fontSize:13, fontWeight:500, transition:"all 0.15s", background: active ? C.purpleLight : "transparent", color: active ? C.purple : C.gray }),
@@ -476,21 +476,21 @@ export default function MetaAdsMonitor() {
     card: { background:C.white, border:"1.5px solid "+C.border, borderRadius:14, padding:"18px 20px" },
     kpiGrid: { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:14, marginBottom:22 },
     kpi: { background:C.white, border:"1.5px solid "+C.border, borderRadius:12, padding:"16px 18px" },
-    kpiLabel: { fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:600, marginBottom:6 },
-    kpiVal: { fontSize:24, fontWeight:700, letterSpacing:"-0.03em", lineHeight:1, marginBottom:4 },
-    kpiSub: { fontSize:11, color:C.muted },
-    sectionTitle: { fontSize:15, fontWeight:700, marginBottom:14, color:C.text },
+    kpiLabel: { fontSize:12, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:500, marginBottom:6 },
+    kpiVal: { fontSize:24, fontWeight:600, letterSpacing:"-0.03em", lineHeight:1, marginBottom:4 },
+    kpiSub: { fontSize:12, color:C.muted },
+    sectionTitle: { fontSize:15, fontWeight:600, marginBottom:14, color:C.text },
     configBar: { background:C.white, border:"1.5px solid "+C.border, borderRadius:14, padding:"16px 20px", marginBottom:20 },
     input: { border:"1.5px solid "+C.border, borderRadius:8, padding:"8px 12px", fontSize:13, outline:"none", fontFamily:"inherit", width:"100%", color:C.text, background:C.white },
-    label: { fontSize:11, fontWeight:600, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 },
-    btnPurple: { background:C.purple, color:"#fff", border:"none", borderRadius:8, padding:"9px 20px", fontSize:13, fontWeight:600, cursor:"pointer", transition:"all 0.15s" },
+    label: { fontSize:12, fontWeight:500, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 },
+    btnPurple: { background:C.purple, color:"#fff", border:"none", borderRadius:8, padding:"9px 20px", fontSize:13, fontWeight:500, cursor:"pointer", transition:"all 0.15s" },
     btnGhost: { background:"transparent", color:C.gray, border:"1.5px solid "+C.border, borderRadius:8, padding:"8px 16px", fontSize:13, fontWeight:500, cursor:"pointer" },
     pill: (active) => ({ padding:"6px 14px", borderRadius:20, border: active ? "1.5px solid "+C.purple : "1.5px solid "+C.border, background: active ? C.purpleLight : C.white, color: active ? C.purple : C.gray, fontSize:12, fontWeight:500, cursor:"pointer" }),
     row: { display:"flex", alignItems:"center", gap:12 },
     col: { display:"flex", flexDirection:"column", gap:6 },
     divider: { height:1, background:C.border, margin:"16px 0" },
     table: { width:"100%", borderCollapse:"collapse", fontSize:13 },
-    th: { padding:"10px 14px", textAlign:"left", fontSize:11, fontWeight:600, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em", borderBottom:"1.5px solid "+C.border, whiteSpace:"nowrap" },
+    th: { padding:"10px 14px", textAlign:"left", fontSize:12, fontWeight:500, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em", borderBottom:"1.5px solid "+C.border, whiteSpace:"nowrap" },
     td: { padding:"11px 14px", borderBottom:"1px solid "+C.border, whiteSpace:"nowrap" },
     modal: { position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 },
     modalBox: { background:C.white, borderRadius:18, padding:28, width:540, maxHeight:"80vh", overflowY:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.15)" },
@@ -513,9 +513,9 @@ export default function MetaAdsMonitor() {
         <div style={{...s.row, gap:10}}>
           {connected && <div style={{...s.row, gap:6}}>
             <div style={{width:7, height:7, borderRadius:"50%", background:C.green, boxShadow:"0 0 0 3px rgba(16,185,129,0.2)"}} />
-            <span style={{fontSize:11, color:C.muted}}>{demo ? "DEMO" : "Conectado"}</span>
+            <span style={{fontSize:12, color:C.muted}}>{demo ? "DEMO" : "Conectado"}</span>
           </div>}
-          {lastUpdated && <span style={{fontSize:11, color:C.muted}}>Atualizado {lastUpdated.toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"})}</span>}
+          {lastUpdated && <span style={{fontSize:12, color:C.muted}}>Atualizado {lastUpdated.toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"})}</span>}
         </div>
       </div>
 
@@ -526,10 +526,10 @@ export default function MetaAdsMonitor() {
             <div style={s.col}>
               <span style={s.label}>Conexao Backend</span>
               <div style={{...s.input, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, minHeight:37}}>
-                <span style={{fontWeight:700, color:backendConfig?.configured ? C.green : C.yellow}}>
+                <span style={{fontWeight:600, color:backendConfig?.configured ? C.green : C.yellow}}>
                   {backendConfig?.configured ? "Meta configurado" : "Aguardando variaveis"}
                 </span>
-                <span style={{fontSize:11, color:C.muted}}>
+                <span style={{fontSize:12, color:C.muted}}>
                   {backendConfig?.graphVersion || "Graph API"}
                 </span>
               </div>
@@ -578,7 +578,7 @@ export default function MetaAdsMonitor() {
         {!connected && (
           <div style={{...s.card, textAlign:"center", padding:"60px 20px"}}>
             <div style={{fontSize:40, marginBottom:12}}>📊</div>
-            <div style={{fontSize:15, fontWeight:600, marginBottom:6}}>Conecte sua conta Meta Ads</div>
+            <div style={{fontSize:15, fontWeight:500, marginBottom:6}}>Conecte sua conta Meta Ads</div>
             <div style={{fontSize:13, color:C.muted}}>Configure as credenciais acima ou use o modo Demo para visualizar o painel</div>
           </div>
         )}
@@ -653,14 +653,14 @@ export default function MetaAdsMonitor() {
                 return (
                   <div key={c.id} style={{...s.card, borderTop:"3px solid "+color, padding:"16px 18px"}}>
                     <div style={{...s.row, justifyContent:"space-between", marginBottom:12}}>
-                      <div style={{fontSize:13, fontWeight:600, color:C.text, lineHeight:1.4, flex:1, marginRight:10}}>{c.name}</div>
+                      <div style={{fontSize:13, fontWeight:500, color:C.text, lineHeight:1.4, flex:1, marginRight:10}}>{c.name}</div>
                       {statusBadge(c.effective_status||c.status)}
                     </div>
                     <div style={{...s.row, gap:16, marginBottom:14}}>
                       <Gauge score={score} size={72} />
                       <div>
-                        <div style={{fontSize:20, fontWeight:700, color, letterSpacing:"-0.02em"}}>{scoreLabel(score)}</div>
-                        <div style={{fontSize:11, color:C.muted, marginTop:2, textTransform:"uppercase", letterSpacing:"0.06em"}}>Performance Score</div>
+                        <div style={{fontSize:20, fontWeight:600, color, letterSpacing:"-0.02em"}}>{scoreLabel(score)}</div>
+                        <div style={{fontSize:12, color:C.muted, marginTop:2, textTransform:"uppercase", letterSpacing:"0.06em"}}>Performance Score</div>
                         <div style={{marginTop:8, height:5, background:C.grayLight, borderRadius:3, width:120}}>
                           <div style={{height:"100%", width:score+"%", background:color, borderRadius:3, transition:"width 0.8s"}} />
                         </div>
@@ -676,7 +676,7 @@ export default function MetaAdsMonitor() {
                         {l:"Conv.",v:fmt.num(conv)},
                       ].map((m,i) => (
                         <div key={i} style={{textAlign:"center"}}>
-                          <div style={{fontSize:12, fontWeight:600, color:m.color||C.text}}>{m.v}</div>
+                          <div style={{fontSize:12, fontWeight:500, color:m.color||C.text}}>{m.v}</div>
                           <div style={{fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:"0.05em", marginTop:1}}>{m.l}</div>
                         </div>
                       ))}
@@ -706,7 +706,7 @@ export default function MetaAdsMonitor() {
                       const score = scoreOf(c.ins);
                       return (
                         <tr key={c.id} style={{transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=C.grayLight} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                          <td style={{...s.td, fontWeight:600, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis"}}>{c.name}</td>
+                          <td style={{...s.td, fontWeight:500, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis"}}>{c.name}</td>
                           <td style={s.td}>{statusBadge(c.effective_status||c.status)}</td>
                           <td style={s.td}>{fmt.brl(c.ins.spend||0)}</td>
                           <td style={s.td}>{fmt.num(c.ins.impressions||0)}</td>
@@ -718,9 +718,9 @@ export default function MetaAdsMonitor() {
                           <td style={s.td}>{parseFloat(c.ins.frequency||0).toFixed(2)}</td>
                           <td style={s.td}>{fmt.num(conv)}</td>
                           <td style={s.td}>{rev > 0 ? fmt.brl(rev) : "—"}</td>
-                          <td style={{...s.td, color: roas>=2?C.green:roas>=1?C.yellow:C.muted, fontWeight:600}}>{roas>0?roas.toFixed(2)+"x":"—"}</td>
+                          <td style={{...s.td, color: roas>=2?C.green:roas>=1?C.yellow:C.muted, fontWeight:500}}>{roas>0?roas.toFixed(2)+"x":"—"}</td>
                           <td style={s.td}>{cpa > 0 ? fmt.brl(cpa) : "—"}</td>
-                          <td style={{...s.td, color:scoreColor(score), fontWeight:700}}>{score}</td>
+                          <td style={{...s.td, color:scoreColor(score), fontWeight:600}}>{score}</td>
                         </tr>
                       );
                     })}
@@ -756,27 +756,27 @@ export default function MetaAdsMonitor() {
                         <div style={{position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:32}}>🖼</div>
                       )}
                       <div style={{position:"absolute", top:8, right:8}}>{statusBadge(c.effective_status||c.status)}</div>
-                      <div style={{position:"absolute", top:8, left:8, background:"rgba(0,0,0,0.6)", color:"#fff", borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:700}}>
+                      <div style={{position:"absolute", top:8, left:8, background:"rgba(0,0,0,0.6)", color:"#fff", borderRadius:20, padding:"3px 10px", fontSize:12, fontWeight:600}}>
                         Score {score}
                       </div>
                       <div style={{position:"absolute", bottom:0, left:0, right:0, height:4, background:color}} />
                     </div>
                     {/* Info */}
                     <div style={{padding:"14px 16px"}}>
-                      <div style={{fontSize:13, fontWeight:600, marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{c.name}</div>
+                      <div style={{fontSize:13, fontWeight:500, marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{c.name}</div>
                       <div style={{fontSize:12, color:C.muted, marginBottom:10, height:32, overflow:"hidden", lineHeight:1.4}}>
                         {c.creative?.body || c.objective || "—"}
                       </div>
                       <div style={{display:"grid", gridTemplateColumns:"1fr auto", gap:6, marginBottom:10}}>
                         <input
-                          style={{...s.input, padding:"7px 9px", fontSize:11}}
+                          style={{...s.input, padding:"7px 9px", fontSize:12}}
                           value={manualThumbs[c.id] || ""}
                           onChange={(event) => setManualThumb(c.id, event.target.value)}
                           placeholder={thumbUrl ? "Miniatura automatica da Meta" : "URL da miniatura"}
                         />
                         <button
                           type="button"
-                          style={{...s.btnGhost, padding:"7px 10px", fontSize:11}}
+                          style={{...s.btnGhost, padding:"7px 10px", fontSize:12}}
                           onClick={() => thumbRefs.current[c.id]?.click()}
                           disabled={thumbUploading === c.id}
                         >
@@ -800,7 +800,7 @@ export default function MetaAdsMonitor() {
                           {l:"CPM",v:fmt.brl(c.ins.cpm||0),c:C.text},
                         ].map((m,i) => (
                           <div key={i} style={{textAlign:"center"}}>
-                            <div style={{fontSize:12, fontWeight:600, color:m.c}}>{m.v}</div>
+                            <div style={{fontSize:12, fontWeight:500, color:m.c}}>{m.v}</div>
                             <div style={{fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:"0.05em"}}>{m.l}</div>
                           </div>
                         ))}
@@ -831,14 +831,14 @@ export default function MetaAdsMonitor() {
                     <div style={{...s.row, marginBottom:10}}>
                       <div style={{fontSize:24}}>{icon}</div>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:13, fontWeight:600}}>{a.name}</div>
-                        <div style={{fontSize:11, color:C.muted}}>{a.type} · {a.subtype}</div>
+                        <div style={{fontSize:13, fontWeight:500}}>{a.name}</div>
+                        <div style={{fontSize:12, color:C.muted}}>{a.type} · {a.subtype}</div>
                       </div>
                       <Badge color={a.status==="ready"?"green":"yellow"}>{a.status==="ready"?"Pronto":"Processando"}</Badge>
                     </div>
                     <div style={{...s.row, justifyContent:"space-between"}}>
                       <div style={{fontSize:12, color:C.muted}}>Tamanho estimado</div>
-                      <div style={{fontSize:13, fontWeight:600, color:C.purple}}>{a.size}</div>
+                      <div style={{fontSize:13, fontWeight:500, color:C.purple}}>{a.size}</div>
                     </div>
                     <div style={s.divider} />
                     <div style={{...s.row, gap:8}}>
@@ -860,7 +860,7 @@ export default function MetaAdsMonitor() {
                     onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.white}}
                     onClick={()=>{setNewAud({name:t.label,template:t});setShowAudienceModal(true);setAudienceStep(1)}}>
                     <div style={{fontSize:22, marginBottom:8}}>{t.icon}</div>
-                    <div style={{fontSize:13, fontWeight:600, marginBottom:4}}>{t.label}</div>
+                    <div style={{fontSize:13, fontWeight:500, marginBottom:4}}>{t.label}</div>
                     <div style={{fontSize:12, color:C.muted}}>{t.desc}</div>
                     {t.window > 0 && <div style={{marginTop:8}}><Badge color="purple">{t.window} dias</Badge></div>}
                   </div>
@@ -892,7 +892,7 @@ export default function MetaAdsMonitor() {
                 ].map(([l,v]) => (
                   <div key={l} style={{display:"flex", justifyContent:"space-between", padding:"9px 0", borderBottom:"1px solid "+C.border}}>
                     <span style={{fontSize:13, color:C.muted}}>{l}</span>
-                    <span style={{fontSize:13, fontWeight:600}}>{v}</span>
+                    <span style={{fontSize:13, fontWeight:500}}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -902,16 +902,16 @@ export default function MetaAdsMonitor() {
                   const roas = getROAS(c.ins);
                   return (
                     <div key={c.id} style={{display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"1px solid "+C.border}}>
-                      <div style={{fontSize:11, fontWeight:700, color:C.muted, width:16}}>{i+1}</div>
+                      <div style={{fontSize:12, fontWeight:600, color:C.muted, width:16}}>{i+1}</div>
                       <div style={{flex:1, fontSize:13, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{c.name}</div>
-                      <div style={{fontSize:13, fontWeight:700, color:roas>=2?C.green:roas>=1?C.yellow:C.red}}>{roas>0?roas.toFixed(2)+"x":"—"}</div>
+                      <div style={{fontSize:13, fontWeight:600, color:roas>=2?C.green:roas>=1?C.yellow:C.red}}>{roas>0?roas.toFixed(2)+"x":"—"}</div>
                     </div>
                   );
                 })}
               </div>
             </div>
             <div style={{...s.card, textAlign:"center", padding:"24px 20px"}}>
-              <div style={{fontSize:14, fontWeight:600, marginBottom:6}}>Exportar Dados</div>
+              <div style={{fontSize:14, fontWeight:500, marginBottom:6}}>Exportar Dados</div>
               <div style={{fontSize:13, color:C.muted, marginBottom:16}}>Baixe os dados completos em CSV para análise externa</div>
               <div style={{...s.row, justifyContent:"center", gap:12}}>
                 <button style={s.btnPurple} onClick={() => {
@@ -936,15 +936,15 @@ export default function MetaAdsMonitor() {
           <div style={s.modalBox}>
             {audienceStep === 0 && (
               <>
-                <div style={{fontSize:16, fontWeight:700, marginBottom:4}}>Criar Novo Público</div>
+                <div style={{fontSize:16, fontWeight:600, marginBottom:4}}>Criar Novo Público</div>
                 <div style={{fontSize:13, color:C.muted, marginBottom:20}}>Escolha um modelo para começar</div>
                 <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
                   {AUDIENCE_TEMPLATES.map(t => (
                     <div key={t.id} style={{border:"1.5px solid "+C.border, borderRadius:12, padding:"14px 16px", cursor:"pointer"}}
                       onClick={()=>{setNewAud({name:t.label,template:t});setAudienceStep(1)}}>
                       <div style={{fontSize:20, marginBottom:6}}>{t.icon}</div>
-                      <div style={{fontSize:13, fontWeight:600}}>{t.label}</div>
-                      <div style={{fontSize:11, color:C.muted}}>{t.desc}</div>
+                      <div style={{fontSize:13, fontWeight:500}}>{t.label}</div>
+                      <div style={{fontSize:12, color:C.muted}}>{t.desc}</div>
                     </div>
                   ))}
                 </div>
@@ -958,7 +958,7 @@ export default function MetaAdsMonitor() {
                 <div style={{...s.row, marginBottom:20, gap:10}}>
                   <div style={{fontSize:24}}>{newAud.template.icon}</div>
                   <div>
-                    <div style={{fontSize:16, fontWeight:700}}>{newAud.template.label}</div>
+                    <div style={{fontSize:16, fontWeight:600}}>{newAud.template.label}</div>
                     <div style={{fontSize:12, color:C.muted}}>{newAud.template.desc}</div>
                   </div>
                 </div>
@@ -993,7 +993,7 @@ export default function MetaAdsMonitor() {
                     <div style={{border:"2px dashed "+C.border, borderRadius:10, padding:"20px", textAlign:"center"}}>
                       <div style={{fontSize:20, marginBottom:6}}>📎</div>
                       <div style={{fontSize:13, fontWeight:500}}>Arraste ou selecione o arquivo CSV</div>
-                      <div style={{fontSize:11, color:C.muted, marginTop:4}}>Colunas: email, phone, fn, ln</div>
+                      <div style={{fontSize:12, color:C.muted, marginTop:4}}>Colunas: email, phone, fn, ln</div>
                     </div>
                   )}
                   <div style={s.col}>
@@ -1013,7 +1013,7 @@ export default function MetaAdsMonitor() {
             {audienceStep === 2 && (
               <div style={{textAlign:"center", padding:"20px 0"}}>
                 <div style={{fontSize:48, marginBottom:16}}>✅</div>
-                <div style={{fontSize:16, fontWeight:700, marginBottom:6}}>Público criado com sucesso!</div>
+                <div style={{fontSize:16, fontWeight:600, marginBottom:6}}>Público criado com sucesso!</div>
                 <div style={{fontSize:13, color:C.muted, marginBottom:24}}>O público <strong>{newAud.name}</strong> foi criado e estará disponível em alguns minutos.</div>
                 <div style={{...s.row, justifyContent:"center", gap:10}}>
                   <button style={s.btnGhost} onClick={()=>setShowAudienceModal(false)}>Fechar</button>

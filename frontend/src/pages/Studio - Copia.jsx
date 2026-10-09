@@ -595,7 +595,7 @@ function BannerCarousel({ tools, onPress }) {
           <div>
             <p className="text-4xl mb-2">{tool.emoji}</p>
             <h3 className="text-xl font-black text-white tracking-tight leading-tight mb-1">{tool.title}</h3>
-            <p className="text-[11px] text-white/60 font-medium mb-4">{tool.subtitle}</p>
+            <p className="text-[12px] text-white/60 font-medium mb-4">{tool.subtitle}</p>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => onPress(tool)}
@@ -945,7 +945,7 @@ export default function Studio() {
                       <p className="text-[9px] text-white/40">4 dias</p>
                     </div>
                   </div>
-                  <p className="text-[11px] text-white/50 leading-relaxed mb-4">
+                  <p className="text-[12px] text-white/50 leading-relaxed mb-4">
                     Crie 3 conteúdos diferentes usando 2 ferramentas distintas do Studio.
                   </p>
                   <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>

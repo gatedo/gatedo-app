@@ -78,7 +78,7 @@ export default function UpcomingCareBlock({ catId, onWeightFeito, limit = 3 }) {
     <div className="bg-white rounded-[24px] p-4 border border-gray-100 shadow-sm">
       <div className="flex items-center gap-1.5 mb-3">
         <CalendarClock size={13} style={{ color: C.purple }} />
-        <p className="text-[11px] font-black text-gray-700 uppercase tracking-wide">Próximos cuidados</p>
+        <p className="text-[12px] font-black text-gray-700 uppercase tracking-wide">Próximos cuidados</p>
       </div>
 
       {items.length === 0 ? (

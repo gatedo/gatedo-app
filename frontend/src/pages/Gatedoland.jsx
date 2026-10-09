@@ -438,7 +438,7 @@ export default function Gatedoland() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="pb-28 min-h-screen"
-      style={{ background: 'var(--gatedo-light-bg)', fontFamily: "'Nunito', sans-serif" }}>
+      style={{ background: 'var(--gatedo-light-bg)', fontFamily: "'Asap', sans-serif" }}>
 
       <div className="flex items-center gap-3 px-4 pt-5 mb-1">
         <button onClick={() => { touch(); navigate(-1); }}

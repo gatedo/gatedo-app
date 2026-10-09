@@ -309,12 +309,12 @@ export default function VetsDoBem() {
 
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-white rounded-[22px] border border-gray-100 p-4 shadow-sm">
-          <p className="text-[11px] font-black uppercase tracking-wide text-[#8B4AFF] mb-2">Indicações mapeadas</p>
+          <p className="text-[12px] font-black uppercase tracking-wide text-[#8B4AFF] mb-2">Indicações mapeadas</p>
           <div className="text-3xl font-black text-[#28243B] leading-none">{previewSignals.length}</div>
           <p className="text-xs text-[#7E7A8E] font-semibold mt-2">indicações salvas para futura inteligência</p>
         </div>
         <div className="bg-white rounded-[22px] border border-gray-100 p-4 shadow-sm">
-          <p className="text-[11px] font-black uppercase tracking-wide text-[#8B4AFF] mb-2">MVP+</p>
+          <p className="text-[12px] font-black uppercase tracking-wide text-[#8B4AFF] mb-2">MVP+</p>
           <div className="text-3xl font-black text-[#28243B] leading-none">{mergedVets.length}</div>
           <p className="text-xs text-[#7E7A8E] font-semibold mt-2">ranking social com validação por tutores</p>
         </div>

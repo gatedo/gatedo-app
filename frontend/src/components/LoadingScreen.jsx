@@ -50,8 +50,8 @@ export function LoadingScreen({ isVisible }) {
         style={{ width: '150px' }}
       />
       <p style={{
-        color: '#fbfbff70', marginTop: '20px', fontFamily: 'Nunito, sans-serif',
-        fontWeight: '600', fontSize: '1.1rem', letterSpacing: '0.5px'
+        color: '#fbfbff70', marginTop: '20px', fontFamily: 'Asap, sans-serif',
+        fontWeight: '500', fontSize: '1.1rem', letterSpacing: '0.5px'
       }}>
         {phrase}
       </p>

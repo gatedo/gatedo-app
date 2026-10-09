@@ -235,7 +235,7 @@ export default function Protocolo() {
         <div className="px-5">
           <div className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm mb-4">
             <p className="text-[13px] font-medium text-gray-600 leading-relaxed mb-3">{protocol.summary}</p>
-            <p className="text-[11px] font-black uppercase tracking-wide text-gray-400 mb-2">
+            <p className="text-[12px] font-black uppercase tracking-wide text-gray-400 mb-2">
               {protocol.totalDays} dias · triagem inicial + fechamento
             </p>
           </div>

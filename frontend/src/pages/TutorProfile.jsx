@@ -124,7 +124,7 @@ function CatMiniCard({ cat, tutorBadge }) {
           </div>
         )}
       </div>
-      <p className="text-[11px] font-black text-gray-800 text-center truncate">
+      <p className="text-[12px] font-black text-gray-800 text-center truncate">
         {cat?.name || 'Meu gato'}
       </p>
       <div className="mt-2 flex flex-col items-center gap-1">
@@ -279,7 +279,7 @@ export default function TutorProfile() {
             {profile?.city && (
               <div className="flex items-center gap-1 text-white/80 mt-2">
                 <MapPin size={12} />
-                <span className="text-[11px] font-bold">{profile.city}</span>
+                <span className="text-[12px] font-bold">{profile.city}</span>
               </div>
             )}
             {tutorBadge?.launchBadge ? (

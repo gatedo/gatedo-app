@@ -307,9 +307,9 @@ const urlToDataUrl = async (url) => {
 
 // ─── CSS INLINE ───────────────────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Asap:wght@400;500;600;700&display=swap');
 
-  .igent-root { font-family: 'Nunito', sans-serif; }
+  .igent-root { font-family: 'Asap', sans-serif; }
 
   /* Fundo degradê vivo da tela de seleção */
   .igent-hero-bg {
@@ -562,7 +562,7 @@ function MainCatCard({ cat, onConfirm }) {
           onError={e => e.target.src = 'https://cdn-icons-png.flaticon.com/512/1998/1998627.png'} />
       </div>
       <h3 className="font-black text-gray-800 text-lg leading-none">{cat?.name}</h3>
-      <p className="text-gray-400 text-[11px] font-bold mt-0.5">{cat?.breed || 'SRD'}</p>
+      <p className="text-gray-400 text-[12px] font-bold mt-0.5">{cat?.breed || 'SRD'}</p>
       <div className="mt-2 flex flex-wrap gap-1 justify-center">
         {cat?.neutered && (
           <span className="text-[8px] font-black rounded-full px-2 py-0.5"
@@ -2062,7 +2062,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
                   className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 rounded-full pl-1 pr-3 py-1"
                 >
                   <img src={catAvatar(c)} className="w-5 h-5 rounded-full object-cover" />
-                  <span className="text-white text-[11px] font-bold">{c.name}</span>
+                  <span className="text-white text-[12px] font-bold">{c.name}</span>
                 </button>
               ))}
             </div>
@@ -2133,7 +2133,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
 
         {/* Botão download — após salvo */}
         {saved && reportData?._report && (
-          <div className="text-center mt-3 mb-2 text-[11px] font-bold text-gray-400">Laudo da IA salvo nos documentos d{art(cat)} {cat.name}.</div>
+          <div className="text-center mt-3 mb-2 text-[12px] font-bold text-gray-400">Laudo da IA salvo nos documentos d{art(cat)} {cat.name}.</div>
         )}
 
         {saved && reportData?._report && (
@@ -2351,7 +2351,7 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
           style={{ maxWidth: 'min(920px, 100vw)', margin: '0 auto', bottom: 'calc(168px + env(safe-area-inset-bottom, 0px))' }}>
           <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: 'spring', stiffness: 300, damping: 22 }}>
-            <p className="text-center text-[11px] font-bold text-gray-400 mb-2">
+            <p className="text-center text-[12px] font-bold text-gray-400 mb-2">
               Registrar esta consulta na ficha médica d{art(cat)} {cat.name}?
             </p>
             <button onClick={handleSaveHistory} disabled={saving}
@@ -2990,7 +2990,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback,
               className="block w-full text-left rounded-2xl px-3.5 py-3 bg-[#F5F1FF] border border-[#8B4AFF]/15"
             >
               <p className="text-[13px] font-black text-gray-800">{entry.title}</p>
-              {entry.excerpt && <p className="text-[11px] font-medium text-gray-500 mt-0.5 line-clamp-2">{entry.excerpt}</p>}
+              {entry.excerpt && <p className="text-[12px] font-medium text-gray-500 mt-0.5 line-clamp-2">{entry.excerpt}</p>}
             </button>
           ))}
         </div>
@@ -3074,7 +3074,7 @@ function MsgBubble({ msg, cat, onShare, onSetMedAlert, onQuickReply, onFeedback,
         </div>
       )}
       {msg.answered && (
-        <p className="text-[11px] font-bold text-gray-400 text-center">
+        <p className="text-[12px] font-bold text-gray-400 text-center">
           {msg.answeredYes ? 'Perfeito, escolha uma opção ou me conte com suas palavras.' : 'Prontuário preparado. Confirme abaixo para salvar nos documentos.'}
         </p>
       )}

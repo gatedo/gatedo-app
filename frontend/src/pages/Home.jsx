@@ -437,13 +437,13 @@ function ProtocolTodayCard({ card, onOpen, onAvulso }) {
       {card.acaoDoDia && <p className="text-[13px] font-bold text-gray-800 mb-3 leading-snug">{card.acaoDoDia}</p>}
       <div className="flex gap-2">
         <button onClick={onOpen}
-          className="flex-1 py-2.5 rounded-xl font-black text-[11px] text-white"
+          className="flex-1 py-2.5 rounded-xl font-black text-[12px] text-white"
           style={{ background: `linear-gradient(135deg, ${C.purple} 0%, #4B40C6 100%)` }}>
           Abrir dia
         </button>
         {card.hasAvulso && (
           <button onClick={onAvulso}
-            className="px-3.5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-1"
+            className="px-3.5 py-2.5 rounded-xl font-black text-[12px] flex items-center gap-1"
             style={{ background: '#FEF2F2', color: '#DC2626' }}>
             <PlusCircle size={13} /> {card.spec?.registro_avulso?.nome || 'Aconteceu de novo'}
           </button>
@@ -762,7 +762,7 @@ function QuickWeightModal({ cat, onClose, onSaved }) {
             className="flex-1 min-w-0 bg-transparent text-2xl font-black text-gray-800 outline-none" />
           <span className="font-black text-gray-400 text-sm shrink-0">kg</span>
         </div>
-        {error && <p className="text-[11px] font-bold text-red-500 mb-2">{error}</p>}
+        {error && <p className="text-[12px] font-bold text-red-500 mb-2">{error}</p>}
         <button onClick={save} disabled={saving}
           className="w-full py-3.5 rounded-2xl font-black text-white text-sm mt-2"
           style={{ background: saving ? '#9ca3af' : `linear-gradient(135deg, ${C.purple} 0%, #4B40C6 100%)` }}>
@@ -996,7 +996,7 @@ export default function Home() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="pb-36 min-h-screen"
-      style={{ background: C.bg, fontFamily: "'Nunito', sans-serif" }}>
+      style={{ background: C.bg, fontFamily: "'Asap', sans-serif" }}>
 
       <Header />
 

@@ -4,7 +4,7 @@ import { ChevronDown, RefreshCcw, Palette, UserRound } from 'lucide-react';
 import { calculateAgeParts, formatCatAge, formatDateOnlyBR, getCatLifeStage } from '../../../utils/catAge';
 import { brandAssets } from '../../../brand/assets';
 
-const NUNITO_STACK = "'Nunito', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const NUNITO_STACK = "'Asap', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 const THEME_MAP = {
   violet: { primary: '#823fff', secondary: '#e7ff60', surface: '#ffffff', line: 'transparent', ink: '#0F172A', soft: '#823fff' },
@@ -204,7 +204,7 @@ function FelineIDFace({ cat, tutor, theme, side = 'front' }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[8px] font-black uppercase tracking-[1.8px]" style={{ color: theme.primary }}>Verso · Perfil social e responsável</p>
-            <p className="mt-1 text-[11px] font-bold text-slate-500">QR real do perfil social do gato no GATEDO.</p>
+            <p className="mt-1 text-[12px] font-bold text-slate-500">QR real do perfil social do gato no GATEDO.</p>
           </div>
           <img src={brandAssets.appLogo} alt="GATEDO" className="h-12 w-12 rounded-full bg-white p-1.5 shadow-sm ring-1 ring-black/5" />
         </div>
@@ -228,7 +228,7 @@ function FelineIDFace({ cat, tutor, theme, side = 'front' }) {
             <Info label="Moradia" value={cat?.housingType || 'Não informado'} />
             <div className="col-span-2">
               <p className="text-[9px] font-black uppercase tracking-[1.4px] text-slate-400">Observações</p>
-              <p className="mt-0.5 text-[11px] font-bold leading-snug text-slate-600">Apelidos: {cat?.nicknames || cat?.cuteNicknames || 'Não informado'} · Castrado: {cat?.neutered ? 'Sim' : 'Não informado'}.</p>
+              <p className="mt-0.5 text-[12px] font-bold leading-snug text-slate-600">Apelidos: {cat?.nicknames || cat?.cuteNicknames || 'Não informado'} · Castrado: {cat?.neutered ? 'Sim' : 'Não informado'}.</p>
             </div>
           </div>
         </div>
@@ -278,7 +278,7 @@ export default function FelineID({ cat, tutor }) {
           <button
             type="button"
             onClick={() => setFlipped((s) => !s)}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-extrabold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-800"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[12px] font-extrabold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-800"
           >
             <RefreshCcw size={14} />
             <span>{flipped ? 'Ver frente' : 'Ver verso'}</span>
@@ -286,7 +286,7 @@ export default function FelineID({ cat, tutor }) {
           <button
             type="button"
             onClick={() => setShowEditHint((s) => !s)}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-extrabold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-800"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[12px] font-extrabold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-800"
           >
             <Palette size={14} />
             <span>Editar tema</span>
@@ -296,7 +296,7 @@ export default function FelineID({ cat, tutor }) {
 
         {showEditHint ? (
           <div className="mx-auto mt-3 max-w-[400px] rounded-[18px] border border-dashed border-slate-200 bg-white px-4 py-3 text-center shadow-sm">
-            <p className="text-[11px] font-extrabold uppercase tracking-[1.5px] text-slate-400">Coleção GATEDO</p>
+            <p className="text-[12px] font-extrabold uppercase tracking-[1.5px] text-slate-400">Coleção GATEDO</p>
             <p className="mt-1 text-[13px] font-semibold leading-relaxed text-slate-600">
               Aqui entra o seletor dos seus 6 temas colecionáveis. Estrutura pronta, sem poluir a Bio agora.
             </p>

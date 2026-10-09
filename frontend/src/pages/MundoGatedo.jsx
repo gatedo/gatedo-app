@@ -109,7 +109,7 @@ export default function MundoGatedo() {
           </motion.div>
 
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[3px] mb-2" style={{ color: C.purple }}>
+            <p className="text-[12px] font-black uppercase tracking-[3px] mb-2" style={{ color: C.purple }}>
               Para tutores que amam gatos
             </p>
             <h1 className="text-2xl font-black text-gray-900 leading-tight tracking-tight">
@@ -128,7 +128,7 @@ export default function MundoGatedo() {
           initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="rounded-[28px] p-6 bg-white border border-gray-100 shadow-sm"
         >
-          <p className="text-[11px] font-black uppercase tracking-[2.5px] mb-3" style={{ color: C.purple }}>
+          <p className="text-[12px] font-black uppercase tracking-[2.5px] mb-3" style={{ color: C.purple }}>
             Nosso propósito
           </p>
           <p className="text-sm text-gray-600 font-medium leading-relaxed">
@@ -140,7 +140,7 @@ export default function MundoGatedo() {
 
         {/* ── VALORES ── */}
         <div>
-          <p className="text-[11px] font-black text-gray-400 uppercase tracking-[2.5px] mb-3">O que nos guia</p>
+          <p className="text-[12px] font-black text-gray-400 uppercase tracking-[2.5px] mb-3">O que nos guia</p>
           <div className="grid grid-cols-2 gap-3">
             {VALUES.map((v, i) => (
               <motion.div
@@ -150,7 +150,7 @@ export default function MundoGatedo() {
               >
                 <span className="text-2xl mb-2 block">{v.emoji}</span>
                 <p className="text-sm font-black text-gray-800 mb-1">{v.title}</p>
-                <p className="text-[11px] text-gray-500 font-medium leading-relaxed">{v.desc}</p>
+                <p className="text-[12px] text-gray-500 font-medium leading-relaxed">{v.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -158,7 +158,7 @@ export default function MundoGatedo() {
 
         {/* ── FASES ── */}
         <div>
-          <p className="text-[11px] font-black text-gray-400 uppercase tracking-[2.5px] mb-3">Roadmap das Fases</p>
+          <p className="text-[12px] font-black text-gray-400 uppercase tracking-[2.5px] mb-3">Roadmap das Fases</p>
           <div className="space-y-3">
             {PHASES.map((phase, i) => {
               const sc = STATUS_CONFIG[phase.status];
@@ -182,7 +182,7 @@ export default function MundoGatedo() {
                           {sc.label}
                         </span>
                       </div>
-                      <p className="text-[11px] text-gray-500 font-medium leading-tight">{phase.desc}</p>
+                      <p className="text-[12px] text-gray-500 font-medium leading-tight">{phase.desc}</p>
                     </div>
                   </div>
 
@@ -214,7 +214,7 @@ export default function MundoGatedo() {
               </div>
               <div>
                 <p className="text-sm font-black text-gray-800">Sua Sugestão</p>
-                <p className="text-[11px] text-gray-400 font-bold">O admin recebe em tempo real no painel</p>
+                <p className="text-[12px] text-gray-400 font-bold">O admin recebe em tempo real no painel</p>
               </div>
             </div>
             <p className="text-[12px] text-gray-500 font-medium leading-relaxed">
@@ -242,7 +242,7 @@ export default function MundoGatedo() {
             <div className="flex-1 text-left">
               <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">Clube GATEDO</p>
               <p className="font-black text-white text-sm">Conheça os benefícios</p>
-              <p className="text-[11px] text-white/60">Selo, comunidade e mais</p>
+              <p className="text-[12px] text-white/60">Selo, comunidade e mais</p>
             </div>
             <ChevronRight size={18} className="text-white/50 shrink-0" />
           </motion.button>

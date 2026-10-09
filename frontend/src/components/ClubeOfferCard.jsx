@@ -103,7 +103,7 @@ export default function ClubeOfferCard({ origin = 'CLUBE_PAGE' }) {
           <button
             key={option}
             onClick={() => { touch('light'); setBilling(option); }}
-            className={`relative flex-1 py-2 rounded-xl text-[11px] font-black capitalize transition-all ${
+            className={`relative flex-1 py-2 rounded-xl text-[12px] font-black capitalize transition-all ${
               billing === option ? 'bg-white shadow text-gray-900' : 'text-gray-400'
             }`}
           >
@@ -124,7 +124,7 @@ export default function ClubeOfferCard({ origin = 'CLUBE_PAGE' }) {
             <span className="text-[12px] font-bold text-gray-400">{billing === 'mensal' ? '/mês' : '/ano'}</span>
           </p>
           {billing === 'anual' && annualMonthlyEquivalent && (
-            <p className="text-[11px] font-bold text-gray-400 mb-1">equivale a {annualMonthlyEquivalent}/mês</p>
+            <p className="text-[12px] font-bold text-gray-400 mb-1">equivale a {annualMonthlyEquivalent}/mês</p>
           )}
         </>
       ) : (
@@ -141,7 +141,7 @@ export default function ClubeOfferCard({ origin = 'CLUBE_PAGE' }) {
       </ul>
 
       <div className="w-full max-w-xs mt-4 mb-6 rounded-2xl px-4 py-2.5 bg-emerald-50 border border-emerald-100">
-        <p className="text-[11px] font-black text-emerald-700">Tudo o que é grátis continua grátis.</p>
+        <p className="text-[12px] font-black text-emerald-700">Tudo o que é grátis continua grátis.</p>
       </div>
 
       {vendasAbertas ? (
@@ -178,12 +178,12 @@ export default function ClubeOfferCard({ origin = 'CLUBE_PAGE' }) {
             <Package size={14} className="text-gray-500" />
             <p className="text-[12px] font-black text-gray-700">Só precisa de mais algumas perguntas?</p>
           </div>
-          <p className="text-[11px] font-medium text-gray-500 mb-3">
+          <p className="text-[12px] font-medium text-gray-500 mb-3">
             Pacote com 30 perguntas por {packPrice || 'R$ 9,90'}, sem assinatura.
           </p>
           <button
             onClick={goPackCheckout}
-            className="w-full py-2.5 rounded-xl font-black text-[11px] text-gray-700 bg-white border border-gray-200"
+            className="w-full py-2.5 rounded-xl font-black text-[12px] text-gray-700 bg-white border border-gray-200"
           >
             Comprar pacote avulso
           </button>

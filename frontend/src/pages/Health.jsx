@@ -75,7 +75,7 @@ function CatChips({ cats, selectedId, onSelect }) {
                 ? <img src={cat.photoUrl} className="w-full h-full object-cover" alt="" />
                 : <div className="w-full h-full flex items-center justify-center text-xs bg-white">🐱</div>}
             </div>
-            <span className="text-[11px] font-black">{cat.name}</span>
+            <span className="text-[12px] font-black">{cat.name}</span>
           </button>
         );
       })}
@@ -347,7 +347,7 @@ export default function Health() {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={handlePdf}
-              className="w-1/2 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[11px] uppercase tracking-wide shadow-lg shrink-0"
+              className="w-1/2 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[12px] uppercase tracking-wide shadow-lg shrink-0"
               style={{ background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)', color: '#fff', boxShadow: '0 8px 22px rgba(22,163,74,0.4)' }}
             >
               <Download size={14} /> PDF pro vet
@@ -411,7 +411,7 @@ export default function Health() {
                         </p>
                         <button
                           onClick={() => { touch(); setQuickWeightOpen(true); }}
-                          className="mt-3 px-4 py-2 rounded-2xl font-black text-[11px] text-white"
+                          className="mt-3 px-4 py-2 rounded-2xl font-black text-[12px] text-white"
                           style={{ background: C.purple }}
                         >
                           Registrar peso agora

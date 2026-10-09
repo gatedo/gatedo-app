@@ -63,7 +63,7 @@ function MessageCard({ msg, onUpdate }) {
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0">
           <p className="text-sm font-black text-gray-800 truncate">{msg.user?.name || 'Tutor'}</p>
-          <p className="text-[11px] text-gray-400 font-medium truncate">{msg.user?.email}</p>
+          <p className="text-[12px] text-gray-400 font-medium truncate">{msg.user?.email}</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-[10px] font-black px-2 py-1 rounded-full" style={{ background: statusStyle.bg, color: statusStyle.color }}>
@@ -156,7 +156,7 @@ export default function AdminFeedback() {
           <button
             key={tab.value}
             onClick={() => setStatus(tab.value)}
-            className="px-3 py-1.5 rounded-full text-[11px] font-black"
+            className="px-3 py-1.5 rounded-full text-[12px] font-black"
             style={status === tab.value ? { background: C.purple, color: '#fff' } : { background: '#F4F3FF', color: '#6b7280' }}
           >
             {tab.label}

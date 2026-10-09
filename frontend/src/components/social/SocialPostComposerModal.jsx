@@ -657,7 +657,7 @@ export default function SocialPostComposerModal({
           </div>
 
           <div className="px-5 mb-3">
-            <p className="text-[11px] font-black text-gray-700 mb-2">Escolha o gato</p>
+            <p className="text-[12px] font-black text-gray-700 mb-2">Escolha o gato</p>
 
             {loadingPets ? (
               <div className="rounded-[16px] p-3 bg-gray-50 border border-gray-100">
@@ -786,7 +786,7 @@ export default function SocialPostComposerModal({
           {!currentPetId && (
             <div className="px-5 mb-4">
               <div className="rounded-[16px] p-3 bg-amber-50 border border-amber-200">
-                <p className="text-[11px] font-black text-amber-700">Selecione um gato antes de publicar</p>
+                <p className="text-[12px] font-black text-amber-700">Selecione um gato antes de publicar</p>
                 <p className="text-[10px] text-amber-600 font-medium mt-1">
                   O modal precisa estar vinculado a um perfil felino para carregar galeria, Studio e publicar corretamente.
                 </p>
@@ -797,7 +797,7 @@ export default function SocialPostComposerModal({
           {isCurrentPetMemorial && (
             <div className="px-5 mb-4">
               <div className="rounded-[16px] p-3 bg-rose-50 border border-rose-200">
-                <p className="text-[11px] font-black text-rose-700">
+                <p className="text-[12px] font-black text-rose-700">
                   Este perfil está em memorial
                 </p>
                 <p className="text-[10px] text-rose-600 font-medium mt-1">
@@ -810,7 +810,7 @@ export default function SocialPostComposerModal({
           {currentPetId && !isCurrentPetMemorial && tab === 'gallery' && (
             <div className="px-5 mb-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-black text-gray-700">Galeria interna do gato</p>
+                <p className="text-[12px] font-black text-gray-700">Galeria interna do gato</p>
                 <p className="text-[9px] text-gray-400 font-bold">custo normal</p>
               </div>
 
@@ -855,7 +855,7 @@ export default function SocialPostComposerModal({
           {currentPetId && !isCurrentPetMemorial && tab === 'studio' && (
             <div className="px-5 mb-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-black text-gray-700">Criações do Studio</p>
+                <p className="text-[12px] font-black text-gray-700">Criações do Studio</p>
                 <p className="text-[9px] text-gray-400 font-bold">custo normal</p>
               </div>
 
@@ -900,7 +900,7 @@ export default function SocialPostComposerModal({
           {tab === 'external' && !isCurrentPetMemorial && (
             <div className="px-5 mb-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-black text-gray-700">Foto externa do dispositivo</p>
+                <p className="text-[12px] font-black text-gray-700">Foto externa do dispositivo</p>
                 <p className="text-[9px] text-gray-400 font-bold">custo dobrado</p>
               </div>
 
@@ -971,7 +971,7 @@ export default function SocialPostComposerModal({
             <div className="px-5 mb-3">
               <div className="rounded-[16px] px-4 py-3 bg-red-50 border border-red-200 flex items-start gap-2">
                 <AlertTriangle size={15} className="text-red-500 mt-0.5 flex-shrink-0" />
-                <p className="text-[11px] font-black text-red-700">{error}</p>
+                <p className="text-[12px] font-black text-red-700">{error}</p>
               </div>
             </div>
           )}
@@ -986,7 +986,7 @@ export default function SocialPostComposerModal({
               }
             >
               <p
-                className="text-[11px] font-black"
+                className="text-[12px] font-black"
                 style={{ color: canPublish ? '#166534' : '#92400E' }}
               >
                 {!currentPetId

@@ -59,7 +59,7 @@ export default function AdocaoBoasVindas() {
             </div>
             <div>
               <p className="text-[15px] font-black text-gray-900">{pet.name}</p>
-              <p className="text-[11px] font-bold text-gray-400">{pet.breed || 'SRD'}</p>
+              <p className="text-[12px] font-bold text-gray-400">{pet.breed || 'SRD'}</p>
             </div>
           </div>
 

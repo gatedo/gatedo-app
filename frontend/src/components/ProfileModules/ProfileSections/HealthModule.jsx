@@ -568,7 +568,7 @@ function HealthSummaryCard({ records = [], treatments = [], documents = [], igen
           <p className="text-sm font-black text-gray-800">
             {lastVisit?.title || 'Ainda não há consulta presencial registrada'}
           </p>
-          <p className="text-[11px] font-bold text-gray-500 mt-1">
+          <p className="text-[12px] font-bold text-gray-500 mt-1">
             {lastVisit ? `${lastVisit.veterinarian || lastVisit.clinicName || 'Sem profissional'} · ${fmtDate(lastVisit.date)}` : 'Use o formulário de saúde para registrar a primeira consulta.'}
           </p>
         </div>
@@ -578,7 +578,7 @@ function HealthSummaryCard({ records = [], treatments = [], documents = [], igen
           <p className="text-sm font-black text-gray-800">
             {nextAlert ? fmtDate(nextAlert.scheduledAt) : 'Nenhuma dose futura programada'}
           </p>
-          <p className="text-[11px] font-bold text-gray-500 mt-1">
+          <p className="text-[12px] font-bold text-gray-500 mt-1">
             {nextAlert ? `Dose prevista para ${new Date(nextAlert.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Quando um tratamento for programado, os alertas aparecem aqui.'}
           </p>
         </div>
@@ -701,7 +701,7 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
           <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
             Clínicas e Veterinários
           </h3>
-          <p className="text-[11px] font-bold text-gray-400 mt-1">
+          <p className="text-[12px] font-bold text-gray-400 mt-1">
             Base de confiança do tutor + recorrência do histórico
           </p>
         </div>
@@ -753,7 +753,7 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
           <button
             type="button"
             onClick={handleAddTrusted}
-            className="mt-3 inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-[11px] font-black text-white"
+            className="mt-3 inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-[12px] font-black text-white"
             style={{ background: `linear-gradient(135deg, ${C.purple}, #8B5CF6)` }}
           >
             <Plus size={14} />
@@ -771,7 +771,7 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
 
           <div className="space-y-2">
             {merged.clinics.length === 0 ? (
-              <p className="text-[11px] font-bold text-gray-400">Nenhuma clínica vinculada ainda.</p>
+              <p className="text-[12px] font-bold text-gray-400">Nenhuma clínica vinculada ainda.</p>
             ) : (
               merged.clinics.map((clinic) => (
                 <div key={clinic.id || clinic.name} className="rounded-[18px] bg-white border border-gray-100 p-3">
@@ -807,7 +807,7 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
 
           <div className="space-y-2">
             {merged.vets.length === 0 ? (
-              <p className="text-[11px] font-bold text-gray-400">Nenhum veterinário vinculado ainda.</p>
+              <p className="text-[12px] font-bold text-gray-400">Nenhum veterinário vinculado ainda.</p>
             ) : (
               merged.vets.map((vet) => (
                 <div key={vet.id || vet.name} className="rounded-[18px] bg-white border border-gray-100 p-3">
@@ -841,7 +841,7 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
             <p className="text-[10px] font-black uppercase tracking-wider text-[#5A7000]">
               Ponte futura · Rede CatFriendly GATEDO
             </p>
-            <p className="text-[11px] font-bold text-[#657411] mt-1 leading-relaxed">
+            <p className="text-[12px] font-bold text-[#657411] mt-1 leading-relaxed">
               Esse bloco já deixa amarrado o futuro guia veterinário. Os contatos mais confiáveis poderão ser indicados
               pelo tutor para a Rede do Bem GATEDO e camada B2B do app.
             </p>
@@ -900,7 +900,7 @@ function SymptomsSection({ igentRecords = [], records = [] }) {
 
       {symptoms.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-gray-200 p-5 text-center">
-          <p className="text-[11px] font-bold text-gray-400">
+          <p className="text-[12px] font-bold text-gray-400">
             Ainda não há sintomas recorrentes mapeados no histórico.
           </p>
         </div>
@@ -952,7 +952,7 @@ function LinkedDocumentsSection({ catId, documents = [] }) {
 
       {recentDocs.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-gray-200 p-5 text-center">
-          <p className="text-[11px] font-bold text-gray-400">
+          <p className="text-[12px] font-bold text-gray-400">
             Nenhum documento clínico recente. As receitas anexadas no formulário já cairão aqui e na aba Documentos.
           </p>
         </div>
@@ -1052,7 +1052,7 @@ function VisitsTimeline({ records = [], igentRecords = [], activeFilter, setActi
               className="text-center py-8"
             >
               <p className="text-3xl mb-2">🐱</p>
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
                 {activeFilter === 'igent'
                   ? 'Nenhuma consulta iGentVet ainda'
                   : activeFilter === 'vet'
@@ -1190,7 +1190,7 @@ export default function HealthModule({ cat }) {
               Tratamento vindo da consulta
             </p>
           </div>
-          <p className="text-[11px] font-bold text-gray-600 mt-1">
+          <p className="text-[12px] font-bold text-gray-600 mt-1">
             O tracker foi preparado com a medicação prescrita e os dados da consulta.
           </p>
         </motion.div>
@@ -1298,7 +1298,7 @@ export default function HealthModule({ cat }) {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
         {loadingDocuments ? (
           <div className="bg-white rounded-[28px] p-5 shadow-sm border border-gray-50">
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Carregando documentos clínicos...</p>
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">Carregando documentos clínicos...</p>
           </div>
         ) : (
           <LinkedDocumentsSection catId={cat?.id} documents={documents} />
@@ -1312,7 +1312,7 @@ export default function HealthModule({ cat }) {
           transition={{ delay: 0.15 }}
           className="bg-white rounded-[28px] p-5 shadow-sm border border-gray-50"
         >
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+          <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
             Carregando histórico...
           </p>
         </motion.div>

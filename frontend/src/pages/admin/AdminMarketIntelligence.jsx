@@ -118,16 +118,16 @@ function CompanyCard({ name, country, flag, desc, tags = [], link, badge, fundin
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black text-gray-900 truncate">{name}</p>
-            <p className="text-[11px] text-gray-400">{flag} {country}</p>
+            <p className="text-[12px] text-gray-400">{flag} {country}</p>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           {badge && (
-            <span className="text-[11px] font-black px-2 py-0.5 rounded-full whitespace-nowrap"
+            <span className="text-[12px] font-black px-2 py-0.5 rounded-full whitespace-nowrap"
               style={{ backgroundColor: A, color: P }}>{badge}</span>
           )}
           {funding && (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 whitespace-nowrap">{funding}</span>
+            <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 whitespace-nowrap">{funding}</span>
           )}
         </div>
       </div>
@@ -139,7 +139,7 @@ function CompanyCard({ name, country, flag, desc, tags = [], link, badge, fundin
       </div>
       {link && (
         <a href={link} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1 text-[11px] font-bold mt-1 hover:opacity-70 transition-opacity"
+          className="flex items-center gap-1 text-[12px] font-bold mt-1 hover:opacity-70 transition-opacity"
           style={{ color: P }}>
           Acessar <ExternalLink size={11} />
         </a>
@@ -202,7 +202,7 @@ function InfluencerCard({ name, platform, followers, niche, badge, color = '#E91
             <p className="text-[10px] text-gray-400">{platform}</p>
           </div>
         </div>
-        {badge && <span className="text-[11px] font-black px-2 py-0.5 rounded-full"
+        {badge && <span className="text-[12px] font-black px-2 py-0.5 rounded-full"
           style={{ backgroundColor: A, color: P }}>{badge}</span>}
       </div>
       <div className="flex items-center justify-between">
@@ -331,7 +331,7 @@ export default function AdminMarketIntelligence() {
                 ].map(s => (
                   <div key={s.label} className="bg-gray-50 rounded-xl p-2 text-center">
                     <p className="text-[10px] font-black" style={{ color: P }}>{s.share}</p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">{s.label}</p>
+                    <p className="text-[12px] text-gray-500 mt-0.5">{s.label}</p>
                   </div>
                 ))}
               </div>
@@ -531,7 +531,7 @@ export default function AdminMarketIntelligence() {
                 <div key={s.title} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                   <span className="text-xl">{s.icon}</span>
                   <p className="text-xs font-black text-gray-900 mt-2">{s.title}</p>
-                  <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{s.desc}</p>
+                  <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{s.desc}</p>
                 </div>
               ))}
             </div>
@@ -720,7 +720,7 @@ export default function AdminMarketIntelligence() {
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                         style={{ backgroundColor: A, color: P }}>{s.range}</span>
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{s.desc}</p>
+                    <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{s.desc}</p>
                   </div>
                 </div>
               ))}
@@ -793,7 +793,7 @@ export default function AdminMarketIntelligence() {
                 ].map(s => (
                   <div key={s.t} className="bg-white/10 rounded-2xl p-3 border border-white/20">
                     <p className="text-xs font-black text-white mb-1">{s.t}</p>
-                    <p className="text-[11px] text-white/70 leading-relaxed">{s.d}</p>
+                    <p className="text-[12px] text-white/70 leading-relaxed">{s.d}</p>
                   </div>
                 ))}
               </div>
@@ -823,7 +823,7 @@ export default function AdminMarketIntelligence() {
                 <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 p-2 rounded-xl hover:bg-gray-50 transition-colors group">
                   <ExternalLink size={12} className="flex-shrink-0 text-gray-400 group-hover:text-purple-500 transition-colors" />
-                  <span className="text-[11px] text-gray-600 group-hover:text-purple-700 transition-colors leading-tight">{s.name}</span>
+                  <span className="text-[12px] text-gray-600 group-hover:text-purple-700 transition-colors leading-tight">{s.name}</span>
                 </a>
               ))}
             </div>

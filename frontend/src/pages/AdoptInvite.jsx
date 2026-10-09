@@ -42,7 +42,7 @@ function InlineLogin({ onLoggedIn }) {
           {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
         </button>
       </div>
-      {error && <p className="text-[11px] font-bold mb-2" style={{ color: C.red }}>{error}</p>}
+      {error && <p className="text-[12px] font-bold mb-2" style={{ color: C.red }}>{error}</p>}
       <button onClick={submit} disabled={loading}
         className="w-full py-3 rounded-2xl font-black text-white text-[13px]"
         style={{ background: loading ? '#9ca3af' : `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}>
@@ -134,7 +134,7 @@ export default function AdoptInvite() {
         {error && (
           <div className="rounded-[18px] p-3.5 flex items-start gap-2" style={{ background: '#FEF2F2' }}>
             <XCircle size={15} className="shrink-0 mt-0.5" style={{ color: C.red }} />
-            <p className="text-[11px] font-medium text-gray-600">{error}</p>
+            <p className="text-[12px] font-medium text-gray-600">{error}</p>
           </div>
         )}
 

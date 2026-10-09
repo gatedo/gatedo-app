@@ -144,7 +144,7 @@ function ImpactCard({ icon: Icon, label, value, detail, color }) {
         </div>
         <span className="text-[9px] font-black uppercase tracking-[0.16em] text-gray-300">simulacao</span>
       </div>
-      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 mt-5">{label}</p>
+      <p className="text-[12px] font-black uppercase tracking-[0.16em] text-gray-400 mt-5">{label}</p>
       <p className="text-2xl md:text-[28px] font-black text-gray-950 mt-1 leading-tight">{value}</p>
       <p className="text-xs text-gray-500 mt-1 leading-relaxed">{detail}</p>
     </div>
@@ -264,7 +264,7 @@ function CommissionSimulator({ profile }) {
             <div className="space-y-3">
               {bars.map((bar) => (
                 <div key={bar.label}>
-                  <div className="flex justify-between text-[11px] font-black text-gray-500 mb-1">
+                  <div className="flex justify-between text-[12px] font-black text-gray-500 mb-1">
                     <span>{bar.label}</span>
                     <span>{fmtMoney(bar.value)}</span>
                   </div>
@@ -297,7 +297,7 @@ function CommissionSimulator({ profile }) {
               <p className="text-2xl font-black mt-4" style={{ color: scenario.color }}>{fmtMoney(scenario.monthly)}</p>
               <p className="text-xs text-gray-500">por campanha</p>
               <div className="mt-3 rounded-2xl bg-gray-50 px-3 py-2">
-                <p className="text-[11px] font-black" style={{ color: scenario.color }}>{fmtMoney(scenario.monthly * 12)}/ano</p>
+                <p className="text-[12px] font-black" style={{ color: scenario.color }}>{fmtMoney(scenario.monthly * 12)}/ano</p>
               </div>
               <p className="text-[10px] text-gray-400 mt-3">{scenario.subscribers.toLocaleString('pt-BR')} assinantes ativos</p>
             </div>
@@ -360,7 +360,7 @@ function VideoPitch({ profile }) {
             ].map((item) => (
               <div key={item.label} className="rounded-2xl border bg-white/[0.06] p-3" style={{ borderColor: `${item.color}75` }}>
                 <item.icon size={14} style={{ color: item.color }} />
-                <p className="text-[11px] font-black mt-2">{item.label}</p>
+                <p className="text-[12px] font-black mt-2">{item.label}</p>
               </div>
             ))}
           </div>
@@ -478,7 +478,7 @@ export default function GatedoEmbaixadoras() {
           </div>
           <div className="flex flex-wrap gap-2 mt-5">
             {profile.highlights.map((item) => (
-              <span key={item} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black" style={{ background: `${profile.color}12`, color: profile.color }}>
+              <span key={item} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-black" style={{ background: `${profile.color}12`, color: profile.color }}>
                 <CheckCircle2 size={13} /> {item}
               </span>
             ))}
@@ -524,7 +524,7 @@ export default function GatedoEmbaixadoras() {
             <div key={label} className="flex items-center gap-3 py-3 border-t border-gray-100">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black text-gray-700">{label}</p>
-                <p className="text-[11px] text-gray-400 truncate">{url}</p>
+                <p className="text-[12px] text-gray-400 truncate">{url}</p>
               </div>
               <CopyButton text={url} />
             </div>

@@ -5,7 +5,7 @@ import BlockEditor from '../../components/content/BlockEditor';
 
 const C = { purple: '#8B4AFF' };
 const fieldCls = 'w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] font-medium text-gray-700 outline-none focus:border-[#8B4AFF]';
-const labelCls = 'text-[11px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
+const labelCls = 'text-[12px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
 
 const EMPTY = {
   slug: '', title: '', theme: '', categoryId: '', excerpt: '', body: '',
@@ -86,7 +86,7 @@ export default function AdminGuideEditor() {
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black text-gray-800">{editing === 'new' ? 'Novo verbete' : form.title}</h2>
           {editing !== 'new' && (
-            <a href={`/guia/${form.slug}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-black" style={{ color: C.purple }}>
+            <a href={`/guia/${form.slug}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[12px] font-black" style={{ color: C.purple }}>
               Ver no app <ExternalLink size={12} />
             </a>
           )}
@@ -169,9 +169,9 @@ export default function AdminGuideEditor() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-lg font-black text-gray-800">Guia / Biblioteca</h2>
-          <p className="text-[11px] font-bold text-gray-400">{list.length} verbetes</p>
+          <p className="text-[12px] font-bold text-gray-400">{list.length} verbetes</p>
         </div>
-        <button onClick={openNew} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[11px] font-black text-white" style={{ background: C.purple }}>
+        <button onClick={openNew} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[12px] font-black text-white" style={{ background: C.purple }}>
           <Plus size={14} /> Novo verbete
         </button>
       </div>

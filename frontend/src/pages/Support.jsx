@@ -120,7 +120,7 @@ export default function Support() {
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="px-5 pb-5 text-[11px] font-bold text-gray-400 leading-relaxed border-t border-gray-50 pt-3">
+                  <div className="px-5 pb-5 text-[12px] font-bold text-gray-400 leading-relaxed border-t border-gray-50 pt-3">
                     {item.a}
                   </div>
                 </motion.div>

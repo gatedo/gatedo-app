@@ -35,12 +35,12 @@ export default function PWAInstallBanner() {
           <img src={brandAssets.gatedoSymbol} alt="Gatedo" className="w-10 h-10 rounded-2xl flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-black text-gray-800 text-sm leading-none">Instalar o Gatedo</p>
-            <p className="text-[11px] text-gray-400 font-bold mt-0.5">Acesso rápido, funciona offline</p>
+            <p className="text-[12px] text-gray-400 font-bold mt-0.5">Acesso rápido, funciona offline</p>
           </div>
           <motion.button
             whileTap={{ scale: 0.92 }}
             onClick={handleInstallClick}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-[14px] font-black text-[11px] text-white flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-[14px] font-black text-[12px] text-white flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #8B4AFF, #6B30E0)' }}
           >
             <Download size={13} /> Instalar
@@ -83,7 +83,7 @@ export default function PWAInstallBanner() {
               { step: '3', text: <>Toque em <strong>"Adicionar"</strong> no canto superior direito</> },
             ].map(({ step, text }) => (
               <div key={step} className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-white"
+                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[12px] text-white"
                   style={{ background: '#8B4AFF' }}>
                   {step}
                 </div>

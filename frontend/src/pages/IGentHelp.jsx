@@ -167,7 +167,7 @@ function SintomaCard({ s }) {
               {s.alerta && (
                 <div className="flex items-start gap-2 bg-red-50 rounded-xl px-3 py-2.5 border border-red-100">
                   <AlertTriangle size={13} className="text-red-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-black text-red-700 leading-snug">{s.alerta}</p>
+                  <p className="text-[12px] font-black text-red-700 leading-snug">{s.alerta}</p>
                 </div>
               )}
             </div>
@@ -193,7 +193,7 @@ export default function IGentHelp() {
   const [tab, setTab] = useState('sintomas');
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: C.bg, fontFamily: "'Nunito', sans-serif" }}>
+    <div className="min-h-screen pb-28" style={{ background: C.bg, fontFamily: "'Asap', sans-serif" }}>
 
       {/* ── Header ── */}
       <div className="pt-10 pb-8 px-5 relative overflow-hidden"

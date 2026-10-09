@@ -189,7 +189,7 @@ function CenterModal({ open, onClose, title, children, ctaLabel = 'Entendi, segu
         >
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pink-50 text-pink-500 text-[11px] font-black mb-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pink-50 text-pink-500 text-[12px] font-black mb-3">
                 <Heart className="w-3.5 h-3.5 fill-pink-500" /> MVP progressivo da comunidade
               </div>
               <h3 className="text-[22px] leading-[1.05] font-black text-gray-900">{title}</h3>
@@ -376,7 +376,7 @@ export default function Ongs() {
             Marque este gatinho como adotado para atualizar o contador da comunidade e registrar quem concluiu a adoção responsável.
           </p>
           <div className="bg-gray-50 rounded-[18px] p-3 border border-gray-100">
-            <div className="text-[11px] font-black text-pink-500 mb-1">ID do gatinho</div>
+            <div className="text-[12px] font-black text-pink-500 mb-1">ID do gatinho</div>
             <div className="text-sm font-black text-gray-800">{adoptionToMark?.id}</div>
           </div>
           <input
@@ -448,7 +448,7 @@ export default function Ongs() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-black text-gray-900">Nova indicação da comunidade</div>
-                    <div className="text-[11px] text-gray-500">Esses dados já ficam prontos para alimentar o guia inteligente depois do MVP.</div>
+                    <div className="text-[12px] text-gray-500">Esses dados já ficam prontos para alimentar o guia inteligente depois do MVP.</div>
                   </div>
                   <button onClick={() => setShowSupportForm(false)} className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center">
                     <X size={16} />
@@ -484,7 +484,7 @@ export default function Ongs() {
                       {item.recommenders.length} indicação{item.recommenders.length > 1 ? 'ões' : ''}
                     </div>
                   </div>
-                  <div className="text-[11px] text-gray-400 flex items-center gap-1 mb-2"><MapPin size={11} /> {item.city}, {item.state}</div>
+                  <div className="text-[12px] text-gray-400 flex items-center gap-1 mb-2"><MapPin size={11} /> {item.city}, {item.state}</div>
                   {item.notes ? <p className="text-xs text-gray-600 leading-relaxed mb-3">{item.notes}</p> : null}
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center -space-x-2">
@@ -492,12 +492,12 @@ export default function Ongs() {
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {item.whatsapp ? (
-                        <a href={`https://wa.me/${item.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full inline-flex items-center gap-1">
+                        <a href={`https://wa.me/${item.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-[12px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full inline-flex items-center gap-1">
                           <MessageCircle size={12} /> WhatsApp
                         </a>
                       ) : null}
                       {item.email ? (
-                        <a href={`mailto:${item.email}`} className="text-[11px] font-black text-pink-500 bg-pink-50 px-3 py-1.5 rounded-full inline-flex items-center gap-1">
+                        <a href={`mailto:${item.email}`} className="text-[12px] font-black text-pink-500 bg-pink-50 px-3 py-1.5 rounded-full inline-flex items-center gap-1">
                           <Mail size={12} /> Email
                         </a>
                       ) : null}
@@ -527,7 +527,7 @@ export default function Ongs() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-black text-gray-900">Novo cadastro de adoção responsável</div>
-                    <div className="text-[11px] text-gray-500">Com esse registro, o tutor já pode receber interessados por WhatsApp e email.</div>
+                    <div className="text-[12px] text-gray-500">Com esse registro, o tutor já pode receber interessados por WhatsApp e email.</div>
                   </div>
                   <button onClick={() => setShowAdoptionForm(false)} className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center">
                     <X size={16} />
@@ -586,13 +586,13 @@ export default function Ongs() {
                     <span className="text-[9px] font-black text-pink-500 bg-pink-50 px-2 py-1 rounded-full">{cat.id}</span>
                   </div>
                   <p className="text-[10px] text-gray-400 mb-2">{cat.gender} • {cat.city}, {cat.state}</p>
-                  <p className="text-[11px] text-gray-600 leading-relaxed min-h-[48px]">{cat.temperament || 'Sem observações adicionais por enquanto.'}</p>
+                  <p className="text-[12px] text-gray-600 leading-relaxed min-h-[48px]">{cat.temperament || 'Sem observações adicionais por enquanto.'}</p>
                   <div className="mt-3 mb-3 flex items-center gap-2 text-[10px] text-gray-500">
                     <MiniAvatar name={cat.tutorName} avatar={cat.tutorAvatar} />
                     <span>{cat.tutorName || 'Tutor responsável'}</span>
                   </div>
                   {cat.status === 'adotado' ? (
-                    <div className="rounded-[16px] bg-emerald-50 border border-emerald-100 p-3 text-[11px] text-emerald-700 leading-relaxed mb-3">
+                    <div className="rounded-[16px] bg-emerald-50 border border-emerald-100 p-3 text-[12px] text-emerald-700 leading-relaxed mb-3">
                       <div className="font-black mb-1">Adoção confirmada</div>
                       <div>Adotado por: {cat.adoptedBy}</div>
                       <div>Registrado em: {formatDate(cat.adoptedAt)}</div>
@@ -601,12 +601,12 @@ export default function Ongs() {
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       {cat.whatsapp ? (
-                        <a href={`https://wa.me/${cat.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex-1 h-10 rounded-[14px] bg-emerald-500 text-white text-[11px] font-black inline-flex items-center justify-center gap-1">
+                        <a href={`https://wa.me/${cat.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex-1 h-10 rounded-[14px] bg-emerald-500 text-white text-[12px] font-black inline-flex items-center justify-center gap-1">
                           <MessageCircle size={12} /> WhatsApp
                         </a>
                       ) : null}
                       {cat.email ? (
-                        <a href={`mailto:${cat.email}`} className="flex-1 h-10 rounded-[14px] bg-pink-50 text-pink-500 text-[11px] font-black inline-flex items-center justify-center gap-1 border border-pink-100">
+                        <a href={`mailto:${cat.email}`} className="flex-1 h-10 rounded-[14px] bg-pink-50 text-pink-500 text-[12px] font-black inline-flex items-center justify-center gap-1 border border-pink-100">
                           <Mail size={12} /> Email
                         </a>
                       ) : null}
@@ -617,7 +617,7 @@ export default function Ongs() {
                           touch?.('success');
                           setAdoptionToMark(cat);
                         }}
-                        className="w-full h-10 rounded-[14px] bg-gray-900 text-white text-[11px] font-black inline-flex items-center justify-center gap-2"
+                        className="w-full h-10 rounded-[14px] bg-gray-900 text-white text-[12px] font-black inline-flex items-center justify-center gap-2"
                       >
                         <CheckCircle2 size={12} /> Marcar como adotado
                       </button>

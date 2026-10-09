@@ -88,7 +88,7 @@ export default function StoreGatedoBlock() {
                   <BookOpen size={44} className="absolute -right-1 -bottom-2 text-white/15 rotate-12" />
                 )}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent px-2.5 pt-4 pb-1.5">
-                  <p className="text-[11px] font-black text-white leading-tight line-clamp-1 drop-shadow-sm">{item.title}</p>
+                  <p className="text-[12px] font-black text-white leading-tight line-clamp-1 drop-shadow-sm">{item.title}</p>
                 </div>
                 {item.owned && (
                   <span className="absolute top-1.5 right-1.5 bg-white text-[8px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{ color: C.green }}>

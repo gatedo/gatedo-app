@@ -104,7 +104,7 @@ function ProtocolBanners({ onOpenVaccine, onOpenParasite }) {
             <Syringe size={16} />
             Vacinação Felina
           </h3>
-          <p className="text-[11px] text-white/85 mt-2 leading-relaxed max-w-[90%]">
+          <p className="text-[12px] text-white/85 mt-2 leading-relaxed max-w-[90%]">
             Calendário essencial, reforços e atenção à FeLV.
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 bg-white/15 border border-white/15 rounded-full px-3 py-1.5">
@@ -129,7 +129,7 @@ function ProtocolBanners({ onOpenVaccine, onOpenParasite }) {
             <Shield size={16} />
             Vermifugação & Antiparasitário
           </h3>
-          <p className="text-[11px] text-white/85 mt-2 leading-relaxed max-w-[90%]">
+          <p className="text-[12px] text-white/85 mt-2 leading-relaxed max-w-[90%]">
             Orientação preventiva para vermífugo, pulgas e proteção contínua.
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 bg-white/15 border border-white/15 rounded-full px-3 py-1.5">

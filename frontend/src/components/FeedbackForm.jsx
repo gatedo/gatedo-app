@@ -54,7 +54,7 @@ export default function FeedbackForm({ source, defaultCategory = 'FEATURE', plac
             <button
               key={cat.id}
               onClick={() => { touch('light'); setCategory(cat.id); }}
-              className="px-3 py-1.5 rounded-full text-[11px] font-black"
+              className="px-3 py-1.5 rounded-full text-[12px] font-black"
               style={
                 category === cat.id
                   ? { background: C.purple, color: '#fff' }
@@ -81,7 +81,7 @@ export default function FeedbackForm({ source, defaultCategory = 'FEATURE', plac
         </div>
       </div>
 
-      {error && <p className="text-[11px] text-red-500 font-bold">{error}</p>}
+      {error && <p className="text-[12px] text-red-500 font-bold">{error}</p>}
 
       <AnimatePresence mode="wait">
         {sent ? (
@@ -111,7 +111,7 @@ export default function FeedbackForm({ source, defaultCategory = 'FEATURE', plac
         )}
       </AnimatePresence>
 
-      <p className="text-center text-[11px] text-gray-400 font-bold">
+      <p className="text-center text-[12px] text-gray-400 font-bold">
         {user?.name ? `Enviando como ${user.name}` : 'Faça login para enviar com seu perfil'}
       </p>
     </div>

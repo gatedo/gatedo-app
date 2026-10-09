@@ -101,11 +101,11 @@ export default function WikiWildFelines() {
                 <div className="p-4">
                   <h3 className="font-black text-gray-800 text-lg leading-tight">{item.name}</h3>
                   <p className="text-xs italic text-gray-400 font-bold mt-0.5">{item.scientificName}</p>
-                  <div className="flex items-center gap-2 mt-3 text-[11px] font-bold text-gray-500">
+                  <div className="flex items-center gap-2 mt-3 text-[12px] font-bold text-gray-500">
                     <Globe2 size={14} className="text-emerald-500" />
                     <span className="line-clamp-1">{item.region}</span>
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-[11px] font-bold text-gray-500">
+                  <div className="flex items-center gap-2 mt-1 text-[12px] font-bold text-gray-500">
                     <ShieldAlert size={14} className="text-orange-500" />
                     <span className="line-clamp-1">{statusMeta.label}</span>
                   </div>

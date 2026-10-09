@@ -41,7 +41,7 @@ function Badge({ children, color = 'slate' }) {
     red: 'bg-red-50 text-red-700 border-red-100',
     purple: 'bg-violet-50 text-violet-700 border-violet-100',
   };
-  return <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-black ${map[color] || map.slate}`}>{children}</span>;
+  return <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[12px] font-black ${map[color] || map.slate}`}>{children}</span>;
 }
 
 function Card({ children, className = '' }) {
@@ -270,7 +270,7 @@ export default function AdminInstagramOutreach() {
                       <p className="text-xs font-bold text-slate-400">{leadSubLabel(lead)}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${status[1]}`}>{status[0]}</span>
+                      <span className={`rounded-full border px-2.5 py-1 text-[12px] font-black ${status[1]}`}>{status[0]}</span>
                       <Badge color={allowed ? 'green' : 'amber'}>{allowed ? 'Janela ativa' : 'Manual/campanha'}</Badge>
                     </div>
                   </div>
@@ -280,7 +280,7 @@ export default function AdminInstagramOutreach() {
                       Ultima mensagem: {lead.messages[0].body}
                     </p>
                   )}
-                  <p className="mt-1 text-[11px] font-bold text-slate-400">Janela ate: {formatDate(lead.conversationWindowUntil)}</p>
+                  <p className="mt-1 text-[12px] font-bold text-slate-400">Janela ate: {formatDate(lead.conversationWindowUntil)}</p>
                 </button>
               );
             })}
@@ -375,7 +375,7 @@ export default function AdminInstagramOutreach() {
                   <p className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-slate-700">{preview.text}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <Badge color={preview.policy?.allowed ? 'green' : 'amber'}>{preview.policy?.reason}</Badge>
-                    <button onClick={copyPreview} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[11px] font-black text-slate-600 shadow-sm">
+                    <button onClick={copyPreview} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[12px] font-black text-slate-600 shadow-sm">
                       <Copy size={12} /> Copiar
                     </button>
                   </div>

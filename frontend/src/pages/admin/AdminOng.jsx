@@ -77,7 +77,7 @@ export default function AdminOng() {
       <div className="flex gap-2 mb-4">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className="px-4 py-2 rounded-full text-[11px] font-black"
+            className="px-4 py-2 rounded-full text-[12px] font-black"
             style={tab === t.id ? { background: C.purple, color: '#fff' } : { background: '#F3F4F6', color: '#6B7280' }}>
             {t.label}
           </button>
@@ -94,7 +94,7 @@ export default function AdminOng() {
             <div key={app.id} className="bg-white rounded-2xl p-4 border border-gray-100 flex items-center gap-4">
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-black text-gray-800">{app.name}</p>
-                <p className="text-[11px] font-medium text-gray-500">{app.cnpjOuResponsavel} · {app.city || 'sem cidade'} · {app.instagram || 'sem instagram'}</p>
+                <p className="text-[12px] font-medium text-gray-500">{app.cnpjOuResponsavel} · {app.city || 'sem cidade'} · {app.instagram || 'sem instagram'}</p>
                 <p className="text-[10px] font-bold text-gray-400 mt-0.5">Conta: {app.user?.email} · pedido em {new Date(app.requestedAt).toLocaleDateString('pt-BR')}</p>
                 {app.status === 'REJECTED' && app.rejectionReason && (
                   <p className="text-[10px] font-bold mt-1" style={{ color: '#DC2626' }}>Motivo: {app.rejectionReason}</p>

@@ -105,7 +105,7 @@ export default function ProfileFAB({
                         onClick={() => handleAction(action)}
                         className="flex items-center gap-3 mb-2.5 pointer-events-auto"
                       >
-                        <span className="bg-white/95 px-3 py-1.5 rounded-2xl text-[11px] font-black shadow-lg text-gray-700 uppercase tracking-wide border border-gray-100">
+                        <span className="bg-white/95 px-3 py-1.5 rounded-2xl text-[12px] font-black shadow-lg text-gray-700 uppercase tracking-wide border border-gray-100">
                           {action.label}
                         </span>
 
@@ -154,7 +154,7 @@ export default function ProfileFAB({
                     <span
                       style={{
                         fontSize: 28,
-                        fontWeight: 900,
+                        fontWeight: 700,
                         lineHeight: 1,
                         marginTop: -2,
                         display: 'block',

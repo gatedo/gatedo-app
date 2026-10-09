@@ -286,7 +286,7 @@ function SocialHealthBanner({ cat, summary, themeHex }) {
   return (
     <div
       className="relative overflow-hidden rounded-[28px] p-4 shadow-[0_8px_26px_rgba(15,12,35,0.08)] border border-white bg-white"
-      style={{ fontFamily: "'Nunito', sans-serif" }}
+      style={{ fontFamily: "'Asap', sans-serif" }}
     >
       <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: tone.color }} />
       <div className="flex items-center gap-3 pt-1">
@@ -322,7 +322,7 @@ function SocialHealthBanner({ cat, summary, themeHex }) {
                   </span>
                 )}
               </div>
-              <p className="text-[11px] font-bold text-gray-400 truncate">
+              <p className="text-[12px] font-bold text-gray-400 truncate">
                 {cat?.breed || 'SRD'} {cat?.weight ? `• ${cat.weight} kg` : ''}
               </p>
             </div>
@@ -420,7 +420,7 @@ function BioProfileInsights({ cat, themeHex }) {
       {cat?.arrivalNotes ? (
         <div className="mt-3 rounded-[18px] bg-[var(--gatedo-light-bg)] border border-gray-100 px-3.5 py-3">
           <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">História de chegada</p>
-          <p className="text-[11px] font-medium text-gray-500 leading-relaxed line-clamp-3">{cat.arrivalNotes}</p>
+          <p className="text-[12px] font-medium text-gray-500 leading-relaxed line-clamp-3">{cat.arrivalNotes}</p>
         </div>
       ) : null}
     </div>
@@ -560,7 +560,7 @@ function SocialClinicalPanel({ records = [], treatments = [], documents = [], ig
           <p className="text-sm font-black text-gray-800">
             {lastVisit?.title || 'Ainda não há consulta presencial registrada'}
           </p>
-          <p className="text-[11px] font-bold text-gray-500 mt-1">
+          <p className="text-[12px] font-bold text-gray-500 mt-1">
             {lastVisit ? `${lastVisit.veterinarian || lastVisit.clinicName || 'Sem profissional'} · ${fmtDate(lastVisit.date)}` : 'Quando novas consultas entrarem, o painel clínico passa a resumir aqui.'}
           </p>
         </div>
@@ -570,7 +570,7 @@ function SocialClinicalPanel({ records = [], treatments = [], documents = [], ig
           <p className="text-sm font-black text-gray-800">
             {nextAlert ? fmtDate(nextAlert.scheduledAt) : 'Nenhuma dose futura programada'}
           </p>
-          <p className="text-[11px] font-bold text-gray-500 mt-1">
+          <p className="text-[12px] font-bold text-gray-500 mt-1">
             {nextAlert ? `Dose prevista para ${new Date(nextAlert.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Os próximos lembretes de tratamento aparecem aqui quando houver agenda ativa.'}
           </p>
         </div>
@@ -662,7 +662,7 @@ function TimelineList({ timeline }) {
             <div className="bg-white rounded-[18px] p-3.5 shadow-[0_2px_12px_rgba(0,0,0,0.05)] border border-gray-50">
               <p className="text-[13px] font-black text-gray-900 leading-tight">{item?.title || item?.label || 'Registro'}</p>
               {(item?.description || item?.summary) && (
-                <p className="text-[11px] text-gray-500 font-medium mt-1 leading-relaxed">{item?.description || item?.summary}</p>
+                <p className="text-[12px] text-gray-500 font-medium mt-1 leading-relaxed">{item?.description || item?.summary}</p>
               )}
               {item?.date && (
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-2">
@@ -707,7 +707,7 @@ function AchievementsPanel({ cat, themeHex }) {
                 <span className="text-[14px] font-bold text-gray-400 mb-1.5">XPG</span>
               </div>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[11px] font-black px-2.5 py-1 rounded-full text-white"
+                <span className="text-[12px] font-black px-2.5 py-1 rounded-full text-white"
                   style={{ background: themeHex }}>Nível {level}</span>
                 <span className="text-[10px] font-bold text-gray-400">{displayAchievements.length} conquistas</span>
               </div>
@@ -737,7 +737,7 @@ function AchievementsPanel({ cat, themeHex }) {
                 {a?.emoji || '🏅'}
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-black text-gray-900 truncate">{a?.name || 'Conquista'}</p>
+                <p className="text-[12px] font-black text-gray-900 truncate">{a?.name || 'Conquista'}</p>
                 {a?.desc && <p className="text-[9px] font-medium text-gray-400 truncate mt-0.5">{a.desc}</p>}
               </div>
             </motion.div>
@@ -801,7 +801,7 @@ function ShareSheet({ open, onClose, cat, themeHex }) {
       <div className="p-6 pt-3">
         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Compartilhar perfil</p>
         <p className="text-[22px] font-black text-gray-900 mb-5">{cat?.name}</p>
-        <p className="text-[11px] text-gray-400 font-medium mb-4 break-all bg-gray-50 rounded-2xl p-3">{url}</p>
+        <p className="text-[12px] text-gray-400 font-medium mb-4 break-all bg-gray-50 rounded-2xl p-3">{url}</p>
         <div className="grid grid-cols-2 gap-3">
           <button onClick={nativeShare}
             className="h-14 rounded-[18px] text-white font-black text-[13px]"
@@ -1007,7 +1007,7 @@ export default function CatSocialProfile() {
 
   return (
     <div className="h-dvh overflow-y-auto overflow-x-hidden bg-[var(--gatedo-light-bg)]"
-      style={{ fontFamily: "'Nunito', sans-serif", WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'auto' }}>
+      style={{ fontFamily: "'Asap', sans-serif", WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'auto' }}>
 
       {/* ── HERO PHOTO — full bleed ── */}
       <div className="relative overflow-hidden" style={{ height: 236 }}>
@@ -1137,11 +1137,11 @@ export default function CatSocialProfile() {
                 {viewerIsOwner ? (
                   <>
                     <button onClick={() => setShowEdit(true)}
-                      className="h-9 px-3 rounded-full font-black text-[11px] border border-gray-200 text-gray-600 bg-gray-50">
+                      className="h-9 px-3 rounded-full font-black text-[12px] border border-gray-200 text-gray-600 bg-gray-50">
                       Editar
                     </button>
                     <button onClick={() => setShowComposer(true)}
-                      className="h-9 px-4 rounded-full font-black text-[11px] text-white shadow-sm"
+                      className="h-9 px-4 rounded-full font-black text-[12px] text-white shadow-sm"
                       style={{ background: themeHex, boxShadow: `0 4px 16px ${themeHex}50` }}>
                       + Post
                     </button>
@@ -1172,7 +1172,7 @@ export default function CatSocialProfile() {
               const active = activeTab === key;
               return (
                 <button key={key} onClick={() => setActiveTab(key)}
-                  className="relative flex-1 h-12 flex items-center justify-center gap-1.5 text-[11px] font-black transition-colors"
+                  className="relative flex-1 h-12 flex items-center justify-center gap-1.5 text-[12px] font-black transition-colors"
                   style={{ color: active ? themeHex : '#9ca3af' }}>
                   <Icon size={14} />
                   {label}

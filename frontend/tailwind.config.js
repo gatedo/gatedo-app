@@ -30,7 +30,16 @@ export default {
       },
 
       fontFamily: {
-        sans: ['"Nunito"', 'sans-serif'],
+        sans: ['"Asap"', 'sans-serif'],
+      },
+
+      // Asap fica mais pesada que a Nunito no mesmo número: cada peso desce
+      // um degrau (testado como "Asap leve").
+      fontWeight: {
+        black: '700',
+        extrabold: '600',
+        bold: '600',
+        semibold: '500',
       },
 
       fontSize: {

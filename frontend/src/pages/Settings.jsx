@@ -247,7 +247,7 @@ export default function Settings() {
         </button>
         <div>
           <h1 className="text-xl font-black text-gray-800">Configurações</h1>
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.18em] mt-1">
+          <p className="text-[12px] font-bold text-gray-400 uppercase tracking-[0.18em] mt-1">
             Preferências deste dispositivo
           </p>
         </div>
@@ -279,10 +279,10 @@ export default function Settings() {
         >
           <StatusIcon size={18} style={{ color: notificationState.color }} className="mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.16em]" style={{ color: notificationState.color }}>
+            <p className="text-[12px] font-black uppercase tracking-[0.16em]" style={{ color: notificationState.color }}>
               {notificationState.title}
             </p>
-            <p className="text-[11px] font-bold leading-relaxed mt-1" style={{ color: notificationState.color }}>
+            <p className="text-[12px] font-bold leading-relaxed mt-1" style={{ color: notificationState.color }}>
               {notificationState.text}
             </p>
           </div>
@@ -316,14 +316,14 @@ export default function Settings() {
             <div className="flex gap-2">
               <button
                 onClick={() => { touch(); patchReminderPrefs({ reminderPreferredTime: 'MORNING' }); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[11px]"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[12px]"
                 style={reminderPrefs.reminderPreferredTime === 'MORNING' ? { background: '#8B4AFF', color: '#fff' } : { background: '#F4F3FF', color: '#6b7280' }}
               >
                 <Sun size={13} /> Manhã
               </button>
               <button
                 onClick={() => { touch(); patchReminderPrefs({ reminderPreferredTime: 'AFTERNOON' }); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[11px]"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl font-black text-[12px]"
                 style={reminderPrefs.reminderPreferredTime === 'AFTERNOON' ? { background: '#8B4AFF', color: '#fff' } : { background: '#F4F3FF', color: '#6b7280' }}
               >
                 <Moon size={13} /> Tarde
@@ -371,7 +371,7 @@ export default function Settings() {
               className="mt-3 rounded-[20px] border border-emerald-100 bg-emerald-50 px-4 py-3 flex items-start gap-3"
             >
               <ShieldCheck size={16} className="text-emerald-600 mt-0.5 flex-shrink-0" />
-              <p className="text-[11px] font-black text-emerald-700 leading-relaxed">{clearFeedback}</p>
+              <p className="text-[12px] font-black text-emerald-700 leading-relaxed">{clearFeedback}</p>
             </motion.div>
           ) : null}
         </AnimatePresence>

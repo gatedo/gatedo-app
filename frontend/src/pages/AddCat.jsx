@@ -965,7 +965,7 @@ export default function AddCat() {
                 </div>
               </motion.button>
 
-              <p className="text-[11px] text-gray-400 font-bold mt-4">
+              <p className="text-[12px] text-gray-400 font-bold mt-4">
                 Toque para definir a foto destaque
               </p>
             </div>

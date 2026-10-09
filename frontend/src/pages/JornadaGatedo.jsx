@@ -332,7 +332,7 @@ function AchievementItem({ achievement, unlocked }) {
       </div>
 
       {/* Título */}
-      <p className="text-[11px] font-black leading-tight mb-0.5"
+      <p className="text-[12px] font-black leading-tight mb-0.5"
         style={{ color: unlocked ? C.text : C.textMute }}>
         {isSecret ? '???' : achievement.title}
       </p>
@@ -539,7 +539,7 @@ function LevelCarousel({ levels, currentLevel, xp }) {
                 <h2 className="text-[26px] font-black text-white leading-none mb-1">
                   {item.emoji} {item.name}
                 </h2>
-                <p className="text-white/70 text-[11px] font-bold">{visual.subtitle}</p>
+                <p className="text-white/70 text-[12px] font-bold">{visual.subtitle}</p>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-[8px] text-white/50 font-black uppercase tracking-wider">min XPT</p>

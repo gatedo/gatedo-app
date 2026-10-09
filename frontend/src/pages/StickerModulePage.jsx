@@ -558,7 +558,7 @@ export default function StickerModulePage() {
           <div className="relative z-10 p-5">
             <span className="text-[8px] font-black uppercase tracking-[3px] text-white/60 block mb-1">Módulo criativo</span>
             <h1 className="text-xl font-black text-white leading-tight mb-0.5">🎨 Sticker Pack</h1>
-            <p className="text-[11px] text-white/70 font-medium leading-relaxed max-w-xs">
+            <p className="text-[12px] text-white/70 font-medium leading-relaxed max-w-xs">
               Transforme seu gato em stickers fofos prontos para usar no app e compartilhar.
             </p>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
@@ -673,7 +673,7 @@ export default function StickerModulePage() {
               className="flex items-start gap-3 p-3.5 rounded-[18px]"
               style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.25)' }}>
               <AlertTriangle size={15} className="text-red-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-red-300 font-bold leading-snug flex-1">{error}</p>
+              <p className="text-[12px] text-red-300 font-bold leading-snug flex-1">{error}</p>
               <button onClick={() => setError('')}><X size={13} className="text-red-400/60" /></button>
             </motion.div>
           )}

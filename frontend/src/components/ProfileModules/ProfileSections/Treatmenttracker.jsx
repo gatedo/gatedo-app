@@ -73,7 +73,7 @@ function XPSuccessPill({ text }) {
     >
       <div className="flex items-center gap-2">
         <Zap size={13} className="text-[#DFFF40]" />
-        <span className="text-[11px] font-black text-white">{text}</span>
+        <span className="text-[12px] font-black text-white">{text}</span>
       </div>
     </motion.div>
   );

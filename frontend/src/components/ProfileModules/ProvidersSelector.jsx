@@ -72,7 +72,7 @@ function SectionTitle({ icon: Icon, title, subtitle }) {
       <div>
         <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{title}</p>
         {subtitle ? (
-          <p className="text-[11px] font-bold text-gray-400 mt-0.5">{subtitle}</p>
+          <p className="text-[12px] font-bold text-gray-400 mt-0.5">{subtitle}</p>
         ) : null}
       </div>
     </div>
@@ -212,7 +212,7 @@ function QuickCreateCard({
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">
               Novo {isVet ? 'Veterinário' : 'Clínica'}
             </p>
-            <p className="text-[11px] font-bold text-gray-400 mt-0.5">
+            <p className="text-[12px] font-bold text-gray-400 mt-0.5">
               Salva na base de confiança do tutor
             </p>
           </div>
@@ -269,7 +269,7 @@ function QuickCreateCard({
           <button
             type="button"
             onClick={handleSubmit}
-            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[11px] font-black text-white"
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[12px] font-black text-white"
             style={{ background: `linear-gradient(135deg, ${C.purple}, ${C.purpleDark})` }}
           >
             <Plus size={14} />
@@ -474,7 +474,7 @@ export default function ProvidersSelector({
               <p className="text-[9px] font-black uppercase tracking-wider text-[#5A7000]">
                 Futuro guia veterinário
               </p>
-              <p className="text-[11px] font-bold text-[#657411] mt-1 leading-relaxed">
+              <p className="text-[12px] font-bold text-[#657411] mt-1 leading-relaxed">
                 Essa base já prepara a futura Rede CatFriendly GATEDO e a camada B2B com clínicas e veterinários indicados pelo tutor.
               </p>
             </div>
@@ -509,7 +509,7 @@ export default function ProvidersSelector({
                 <div className="space-y-2 mt-3">
                   {filtered.vets.length === 0 ? (
                     <div className="rounded-[20px] border border-dashed border-gray-200 p-4 text-center">
-                      <p className="text-[11px] font-bold text-gray-400">
+                      <p className="text-[12px] font-bold text-gray-400">
                         Nenhum veterinário encontrado ainda.
                       </p>
                     </div>
@@ -531,7 +531,7 @@ export default function ProvidersSelector({
                       setShowNewVet((s) => !s);
                       if (!showNewVet) setShowNewClinic(false);
                     }}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[11px] font-black border border-dashed border-gray-200 text-gray-600 bg-[#FCFCFF]"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[12px] font-black border border-dashed border-gray-200 text-gray-600 bg-[#FCFCFF]"
                   >
                     <Plus size={14} />
                     Novo veterinário
@@ -582,7 +582,7 @@ export default function ProvidersSelector({
                 <div className="space-y-2 mt-3">
                   {filtered.clinics.length === 0 ? (
                     <div className="rounded-[20px] border border-dashed border-gray-200 p-4 text-center">
-                      <p className="text-[11px] font-bold text-gray-400">
+                      <p className="text-[12px] font-bold text-gray-400">
                         Nenhuma clínica encontrada ainda.
                       </p>
                     </div>
@@ -604,7 +604,7 @@ export default function ProvidersSelector({
                       setShowNewClinic((s) => !s);
                       if (!showNewClinic) setShowNewVet(false);
                     }}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[11px] font-black border border-dashed border-gray-200 text-gray-600 bg-[#FCFCFF]"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[12px] font-black border border-dashed border-gray-200 text-gray-600 bg-[#FCFCFF]"
                   >
                     <Plus size={14} />
                     Nova clínica

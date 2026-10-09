@@ -180,22 +180,22 @@ export default function AdminNoticeManager() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="rounded-[24px] bg-white border border-gray-100 p-5 shadow-sm">
-          <p className="text-[11px] font-black text-gray-400 uppercase">Total</p>
+          <p className="text-[12px] font-black text-gray-400 uppercase">Total</p>
           <p className="text-2xl font-black text-gray-800 mt-2">{notices.length}</p>
         </div>
 
         <div className="rounded-[24px] bg-white border border-gray-100 p-5 shadow-sm">
-          <p className="text-[11px] font-black text-gray-400 uppercase">Ativos</p>
+          <p className="text-[12px] font-black text-gray-400 uppercase">Ativos</p>
           <p className="text-2xl font-black text-emerald-700 mt-2">{stats.active}</p>
         </div>
 
         <div className="rounded-[24px] bg-white border border-gray-100 p-5 shadow-sm">
-          <p className="text-[11px] font-black text-gray-400 uppercase">Inativos</p>
+          <p className="text-[12px] font-black text-gray-400 uppercase">Inativos</p>
           <p className="text-2xl font-black text-gray-700 mt-2">{stats.inactive}</p>
         </div>
 
         <div className="rounded-[24px] bg-white border border-gray-100 p-5 shadow-sm">
-          <p className="text-[11px] font-black text-gray-400 uppercase">XP Total</p>
+          <p className="text-[12px] font-black text-gray-400 uppercase">XP Total</p>
           <p className="text-2xl font-black text-violet-700 mt-2">{stats.totalXp}</p>
         </div>
       </div>
@@ -204,7 +204,7 @@ export default function AdminNoticeManager() {
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div>
             <h2 className="text-xl font-black text-gray-800">Official Notice Engine</h2>
-            <p className="text-[11px] font-bold text-gray-400 mt-1">
+            <p className="text-[12px] font-bold text-gray-400 mt-1">
               Gerencie avisos oficiais, onboarding progressivo e campanhas com XP
             </p>
           </div>
@@ -288,7 +288,7 @@ export default function AdminNoticeManager() {
                           {notice.content}
                         </p>
 
-                        <div className="flex items-center gap-4 flex-wrap mt-4 text-[11px] font-bold text-gray-500">
+                        <div className="flex items-center gap-4 flex-wrap mt-4 text-[12px] font-bold text-gray-500">
                           <span className="inline-flex items-center gap-1.5">
                             <Calendar size={13} />
                             {formatDate(notice.expiresAt)}

@@ -18,7 +18,7 @@ function Section({ icon: Icon, title, subtitle, children }) {
           <Icon size={16} style={{ color: C.purple }} />
           <h2 className="text-sm font-black text-gray-800">{title}</h2>
         </div>
-        {subtitle && <p className="text-[11px] font-medium text-gray-400 mt-1">{subtitle}</p>}
+        {subtitle && <p className="text-[12px] font-medium text-gray-400 mt-1">{subtitle}</p>}
       </div>
       {children}
     </div>
@@ -93,7 +93,7 @@ export default function AdminFunil() {
           <button
             key={p.value}
             onClick={() => setDays(p.value)}
-            className="px-3 py-1.5 rounded-full text-[11px] font-black"
+            className="px-3 py-1.5 rounded-full text-[12px] font-black"
             style={days === p.value ? { background: C.purple, color: '#fff' } : { background: '#F4F3FF', color: '#6b7280' }}
           >
             {p.label}
@@ -103,13 +103,13 @@ export default function AdminFunil() {
           value={utmSource}
           onChange={(e) => setUtmSource(e.target.value)}
           placeholder="utm_source"
-          className="px-3 py-1.5 rounded-full text-[11px] font-bold border border-gray-100 outline-none"
+          className="px-3 py-1.5 rounded-full text-[12px] font-bold border border-gray-100 outline-none"
         />
         <input
           value={utmCampaign}
           onChange={(e) => setUtmCampaign(e.target.value)}
           placeholder="utm_campaign"
-          className="px-3 py-1.5 rounded-full text-[11px] font-bold border border-gray-100 outline-none"
+          className="px-3 py-1.5 rounded-full text-[12px] font-bold border border-gray-100 outline-none"
         />
       </div>
 
@@ -165,7 +165,7 @@ export default function AdminFunil() {
             </div>
           </div>
         )}
-        <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mb-2">Cliques na loja por bloco</p>
+        <p className="text-[12px] font-black text-gray-400 uppercase tracking-wide mb-2">Cliques na loja por bloco</p>
         <Table
           columns={[
             { key: 'block', label: 'Bloco' },
@@ -225,13 +225,13 @@ export default function AdminFunil() {
               </div>
             </div>
 
-            <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mb-2">Por plano</p>
+            <p className="text-[12px] font-black text-gray-400 uppercase tracking-wide mb-2">Por plano</p>
             <Table columns={[{ key: 'plan', label: 'Plano' }, { key: 'count', label: 'Assinaturas' }]} rows={clube.byPlan} />
 
-            <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mt-4 mb-2">Por origem</p>
+            <p className="text-[12px] font-black text-gray-400 uppercase tracking-wide mt-4 mb-2">Por origem</p>
             <Table columns={[{ key: 'origem', label: 'Origem' }, { key: 'count', label: 'Visualizações' }]} rows={clube.byOrigin} />
 
-            <p className="text-[11px] font-medium text-gray-400 mt-3">{clube.waitlist} pessoa(s) na lista de espera.</p>
+            <p className="text-[12px] font-medium text-gray-400 mt-3">{clube.waitlist} pessoa(s) na lista de espera.</p>
           </>
         )}
       </Section>

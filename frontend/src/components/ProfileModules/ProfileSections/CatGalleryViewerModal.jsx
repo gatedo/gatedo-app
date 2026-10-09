@@ -142,7 +142,7 @@ export default function CatGalleryViewerModal({
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-[16px] font-black text-[11px]"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-[16px] font-black text-[12px]"
             style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
             onClick={() => onShare?.(current, currentIndex)}
           >
@@ -150,7 +150,7 @@ export default function CatGalleryViewerModal({
           </button>
 
           <button
-            className="flex-[2] py-3 rounded-[16px] font-black text-[11px] text-white"
+            className="flex-[2] py-3 rounded-[16px] font-black text-[12px] text-white"
             style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}CC)` }}
             onClick={onOpenSocialProfile}
           >

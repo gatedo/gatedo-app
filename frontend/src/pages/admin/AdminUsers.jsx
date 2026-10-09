@@ -113,7 +113,7 @@ function BadgePill({ badge, user }) {
   if (meta) {
     return (
       <span
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black border shadow-sm"
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[12px] font-black border shadow-sm"
         style={{
           background: meta.pillBg || meta.color || '#8B4AFF',
           color: meta.pillText || '#ebfc66',
@@ -127,7 +127,7 @@ function BadgePill({ badge, user }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black border bg-yellow-50 text-yellow-700 border-yellow-200">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[12px] font-black border bg-yellow-50 text-yellow-700 border-yellow-200">
       <Crown size={9} /> {badge}
     </span>
   );
@@ -665,7 +665,7 @@ export default function AdminUsers() {
                         <Avatar name={user.name} photoUrl={user.photoUrl} />
                         <div className="min-w-0">
                           <p className="font-black text-gray-800 truncate">{user.name || 'Sem nome'}</p>
-                          <p className="text-[11px] text-gray-400 flex items-center gap-1 truncate">
+                          <p className="text-[12px] text-gray-400 flex items-center gap-1 truncate">
                             <Mail size={9} /> {user.email}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
@@ -723,7 +723,7 @@ export default function AdminUsers() {
                           <p className="text-[10px] font-black text-gray-500 uppercase">
                             {tutorBadge?.label || user.subscription?.planType || user.plan || 'FREE'}
                           </p>
-                          <p className="text-[11px] text-gray-400">
+                          <p className="text-[12px] text-gray-400">
                             Proximo venc.: {formatDate(nextDue)}
                           </p>
                         </div>
@@ -736,7 +736,7 @@ export default function AdminUsers() {
                           <Zap size={10} />
                           Nivel {levelMeta.rank}
                         </InfoChip>
-                        <p className="text-[11px] font-black text-gray-700">
+                        <p className="text-[12px] font-black text-gray-700">
                           {levelMeta.emoji} {levelMeta.name}
                         </p>
                         <div className="flex flex-wrap gap-1.5">

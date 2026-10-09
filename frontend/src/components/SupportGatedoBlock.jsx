@@ -75,7 +75,7 @@ export default function SupportGatedoBlock({ className = '' }) {
         <Heart size={15} style={{ color: C.red }} />
         <p className="text-[12px] font-black text-gray-800">Apoie o GATEDO</p>
       </div>
-      <p className="text-[11px] font-medium text-gray-500 leading-relaxed mb-4">
+      <p className="text-[12px] font-medium text-gray-500 leading-relaxed mb-4">
         O app é gratuito. O que sustenta hoje são os protocolos e a lojinha — se quiser ajudar além disso,
         uma doação livre mantém a IA, o banco de dados e a segurança dos seus dados no ar. Sem contrapartida, sem selo, só se quiser.
       </p>
@@ -86,7 +86,7 @@ export default function SupportGatedoBlock({ className = '' }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[9px] font-black uppercase tracking-wide text-gray-400 mb-1">Chave Pix</p>
-          <p className="text-[11px] font-medium text-gray-600 truncate mb-2">{pixKey}</p>
+          <p className="text-[12px] font-medium text-gray-600 truncate mb-2">{pixKey}</p>
           <button
             onClick={copy}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black"

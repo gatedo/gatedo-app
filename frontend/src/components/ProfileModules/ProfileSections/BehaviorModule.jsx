@@ -110,7 +110,7 @@ function SectionTitle({ icon: Icon, title, subtitle, color = C.purple }) {
         <Icon size={18} style={{ color }} />
       </div>
       <div>
-        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-700 leading-none">
+        <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-gray-700 leading-none">
           {title}
         </h3>
         {subtitle ? (
@@ -285,7 +285,7 @@ function SkillBar({ skill, value }) {
           </span>
         </div>
 
-        <span className="text-[11px] font-black" style={{ color: skill.hex }}>
+        <span className="text-[12px] font-black" style={{ color: skill.hex }}>
           {safeValue}%
         </span>
       </div>
@@ -308,7 +308,7 @@ function TogglePill({ active, children, onClick, color = C.purple }) {
     <button
       type="button"
       onClick={onClick}
-      className="px-3 py-2 rounded-full text-[11px] font-black border transition-all"
+      className="px-3 py-2 rounded-full text-[12px] font-black border transition-all"
       style={{
         background: active ? color : '#F8FAFC',
         borderColor: active ? 'transparent' : '#EEF2F7',
@@ -333,7 +333,7 @@ function SkillEditor({ skill, value, onChange }) {
             {skill.label}
           </span>
         </div>
-        <span className="text-[11px] font-black" style={{ color: skill.hex }}>
+        <span className="text-[12px] font-black" style={{ color: skill.hex }}>
           {safeValue}%
         </span>
       </div>
@@ -643,7 +643,7 @@ export default function BehaviorModule({ cat, refreshCat }) {
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="h-10 px-3 rounded-full bg-[#8B4AFF]/10 text-[#8B4AFF] border border-[#8B4AFF]/15 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.08em] shadow-sm"
+            className="h-10 px-3 rounded-full bg-[#8B4AFF]/10 text-[#8B4AFF] border border-[#8B4AFF]/15 flex items-center gap-2 text-[12px] font-black uppercase tracking-[0.08em] shadow-sm"
           >
             <Edit3 size={14} />
             Editar
@@ -651,7 +651,7 @@ export default function BehaviorModule({ cat, refreshCat }) {
         </div>
 
         <div className="rounded-[24px] bg-[#F4F3FF] border border-[#8B4AFF18] px-4 py-4">
-          <p className="text-[11px] font-bold text-gray-700 leading-relaxed">
+          <p className="text-[12px] font-bold text-gray-700 leading-relaxed">
             {behaviorSummary}
           </p>
         </div>

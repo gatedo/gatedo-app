@@ -237,7 +237,7 @@ const OnboardingPopup = ({ name, type, phase, onClose }) => {
                     </div>
 
                     <div>
-                      <p className="text-[11px] font-black text-gray-800 uppercase tracking-tight">
+                      <p className="text-[12px] font-black text-gray-800 uppercase tracking-tight">
                         {item.t}
                       </p>
                       <p className="text-[10px] text-gray-400 font-bold">{item.d}</p>

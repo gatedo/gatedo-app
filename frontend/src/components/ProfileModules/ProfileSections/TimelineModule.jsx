@@ -327,7 +327,7 @@ export function QuickWeightModal({ cat, onClose, onSaved }) {
               />
               <span className="font-black text-gray-400 text-sm shrink-0">kg</span>
             </div>
-            {error && <p className="text-[11px] font-bold text-red-500 mb-2">{error}</p>}
+            {error && <p className="text-[12px] font-bold text-red-500 mb-2">{error}</p>}
             <button
               onClick={save}
               disabled={saving}
@@ -373,7 +373,7 @@ function WeightBlock({ cat, weightSeries, onOpenQuickWeight }) {
     <div>
       <div className="flex items-center justify-between mb-2 px-1">
         <p className="text-[10px] font-black uppercase tracking-[3px] text-[#8B4AFF]">Curva de peso</p>
-        <button onClick={onOpenQuickWeight} className="text-[11px] font-black" style={{ color: C.purple }}>
+        <button onClick={onOpenQuickWeight} className="text-[12px] font-black" style={{ color: C.purple }}>
           + Pesar
         </button>
       </div>
@@ -500,7 +500,7 @@ export function MarcosBlock({ marcos, onOpenTab }) {
           {remaining > 0 && (
             <button
               onClick={() => setVisibleCount((c) => c + MARCOS_PAGE_SIZE)}
-              className="w-full mt-2 py-2.5 rounded-xl text-[11px] font-black text-center"
+              className="w-full mt-2 py-2.5 rounded-xl text-[12px] font-black text-center"
               style={{ background: '#F4F3FF', color: C.purple }}
             >
               Ver mais {Math.min(remaining, MARCOS_PAGE_SIZE)} ({remaining} restantes)
@@ -545,7 +545,7 @@ export function PatternBlock({ alerts }) {
                 <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color }}>
                   {a.rule}
                 </p>
-                <p className="text-[11px] font-medium text-gray-500 leading-relaxed flex items-start gap-1.5">
+                <p className="text-[12px] font-medium text-gray-500 leading-relaxed flex items-start gap-1.5">
                   <AlertTriangle size={12} className="shrink-0 mt-0.5 text-gray-400" />
                   Isso não é diagnóstico — vale comentar com o veterinário na próxima consulta.
                 </p>
@@ -647,7 +647,7 @@ function NutritionBlock({ cat }) {
       ) : (
         <div className="mt-3 rounded-[18px] bg-amber-50 border border-amber-100 px-4 py-3 flex items-start gap-2">
           <Utensils size={13} className="text-amber-500 mt-0.5 shrink-0" />
-          <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
+          <p className="text-[12px] font-bold text-amber-700 leading-relaxed">
             Ainda não há observações nutricionais detalhadas registradas.
           </p>
         </div>

@@ -171,7 +171,7 @@ export default function AdminAnalytics() {
             </div>
           </div>
         )}
-        <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide mt-4 mb-2">Top 10 por consumo</p>
+        <p className="text-[12px] font-black text-gray-400 uppercase tracking-wide mt-4 mb-2">Top 10 por consumo</p>
         <Table
           columns={[
             { key: 'name', label: 'Tutor' },

@@ -647,7 +647,7 @@ function CopyCard({ item }) {
           <Icon size={16} style={{ color:item.formatColor }}/>
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-[11px] font-black px-2 py-0.5 rounded-full border inline-block mb-1"
+          <span className="text-[12px] font-black px-2 py-0.5 rounded-full border inline-block mb-1"
             style={{ backgroundColor:`${item.formatColor}12`, color:item.formatColor, borderColor:`${item.formatColor}30` }}>
             {item.format}
           </span>
@@ -730,7 +730,7 @@ export default function AdminCampaignGenese() {
               style={isActive?{ borderColor:p.color, background:`linear-gradient(135deg, ${p.color}18, ${p.color}06)` }:{ borderColor:'#f0f0f0' }}>
               <div className="flex items-center gap-1.5 mb-1">
                 <PIco size={13} style={{ color:p.color }}/>
-                <span className="text-[11px] font-black uppercase tracking-wider" style={{ color:p.color }}>
+                <span className="text-[12px] font-black uppercase tracking-wider" style={{ color:p.color }}>
                   {p.label.includes(' ')?p.label.split(' ')[1]:p.label}
                 </span>
               </div>
@@ -778,7 +778,7 @@ export default function AdminCampaignGenese() {
               <div key={s.t} className="rounded-2xl p-4 border border-white/15"
                 style={{ backgroundColor:'rgba(255,255,255,0.07)' }}>
                 <p className="text-xs font-black text-white mb-1">{s.t}</p>
-                <p className="text-[11px] leading-relaxed" style={{ color:'rgba(255,255,255,0.6)' }}>{s.d}</p>
+                <p className="text-[12px] leading-relaxed" style={{ color:'rgba(255,255,255,0.6)' }}>{s.d}</p>
               </div>
             ))}
           </div>

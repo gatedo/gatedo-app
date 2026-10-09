@@ -73,7 +73,7 @@ function SeloChip({ code, user }) {
           <span className="text-sm" style={{ color: meta.color }}>{meta.emoji}</span>
         )}
       </span>
-      <span className="text-[11px] font-black uppercase tracking-[1px]" style={{ color: meta.color }}>
+      <span className="text-[12px] font-black uppercase tracking-[1px]" style={{ color: meta.color }}>
         {formatTutorBadgeLabel(meta, user)}
       </span>
     </div>
@@ -255,7 +255,7 @@ export default function Clube() {
             {user && (
               <div className="mt-5 inline-flex flex-wrap items-center gap-2.5 rounded-[20px] border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-md">
                 <Trophy size={14} className="text-[#edff61]" />
-                <span className="text-[11px] font-black uppercase tracking-[2px] text-white/70">
+                <span className="text-[12px] font-black uppercase tracking-[2px] text-white/70">
                   Status
                 </span>
                 <span className="text-[13px] font-black text-[#edff61]">
@@ -301,7 +301,7 @@ export default function Clube() {
                 <p className="text-[14px] font-black" style={{ color: primaryBadge.color }}>
                   {primaryBadge.label}
                 </p>
-                <p className="text-[11px] font-semibold text-gray-500 mt-0.5">
+                <p className="text-[12px] font-semibold text-gray-500 mt-0.5">
                   {primaryBadge.title}
                 </p>
               </div>
@@ -328,7 +328,7 @@ export default function Clube() {
               <span className="w-7 h-7 rounded-full flex items-center justify-center bg-white shrink-0">
                 <Lock size={12} className="text-gray-300" />
               </span>
-              <span className="text-[11px] font-black uppercase tracking-[1px] text-gray-400">Selo do Clube GATEDO</span>
+              <span className="text-[12px] font-black uppercase tracking-[1px] text-gray-400">Selo do Clube GATEDO</span>
             </button>
           )}
         </div>
@@ -375,11 +375,11 @@ export default function Clube() {
             {aiCredits && (
               <div className="grid grid-cols-2 gap-2.5 mb-1">
                 <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                  <p className="text-lg font-black">{aiCredits.questionRemaining ?? '—'}<span className="text-[11px] font-bold text-white/50">/{aiCredits.questionLimit ?? '—'}</span></p>
+                  <p className="text-lg font-black">{aiCredits.questionRemaining ?? '—'}<span className="text-[12px] font-bold text-white/50">/{aiCredits.questionLimit ?? '—'}</span></p>
                   <p className="text-[9px] font-black uppercase tracking-wide text-white/50">Perguntas restantes</p>
                 </div>
                 <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                  <p className="text-lg font-black">{aiCredits.examRemaining ?? '—'}<span className="text-[11px] font-bold text-white/50">/{aiCredits.examLimit ?? '—'}</span></p>
+                  <p className="text-lg font-black">{aiCredits.examRemaining ?? '—'}<span className="text-[12px] font-bold text-white/50">/{aiCredits.examLimit ?? '—'}</span></p>
                   <p className="text-[9px] font-black uppercase tracking-wide text-white/50">Exames restantes</p>
                 </div>
               </div>
@@ -393,7 +393,7 @@ export default function Clube() {
                 href={manageUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-block mt-4 text-[11px] font-black underline text-white/70"
+                className="inline-block mt-4 text-[12px] font-black underline text-white/70"
               >
                 Gerenciar assinatura
               </a>
@@ -422,7 +422,7 @@ export default function Clube() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-black text-gray-800">Grupo exclusivo do Clube</p>
-                <p className="text-[11px] font-medium text-gray-400">Comunidade fechada dos assinantes</p>
+                <p className="text-[12px] font-medium text-gray-400">Comunidade fechada dos assinantes</p>
               </div>
             </a>
           )
@@ -436,7 +436,7 @@ export default function Clube() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-black text-gray-800">Grupo exclusivo do Clube</p>
-              <p className="text-[11px] font-medium text-gray-400">Exclusivo pra assinantes do Clube GATEDO</p>
+              <p className="text-[12px] font-medium text-gray-400">Exclusivo pra assinantes do Clube GATEDO</p>
             </div>
           </button>
         )}

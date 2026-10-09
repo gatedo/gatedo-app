@@ -275,7 +275,7 @@ export default function ViewDocModal({
         >
           <button
             type="button"
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-[16px] font-black text-[11px]"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-[16px] font-black text-[12px]"
             style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
             onClick={handleDownload}
           >
@@ -285,7 +285,7 @@ export default function ViewDocModal({
 
           <button
             type="button"
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-[16px] font-black text-[11px]"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-[16px] font-black text-[12px]"
             style={{ background: '#8B4AFF', color: 'white' }}
             onClick={handleOpenExternal}
             disabled={!previewUrl}

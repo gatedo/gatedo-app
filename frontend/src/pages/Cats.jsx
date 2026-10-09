@@ -385,7 +385,7 @@ export default function Cats() {
             <motion.button
               whileTap={{ scale: 0.92 }}
               onClick={() => { touch(); navigate('/cat-new'); }}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] font-black text-[11px] text-[#8B4AFF] border border-white/20"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] font-black text-[12px] text-[#8B4AFF] border border-white/20"
               style={{ background: '#ebfc66', boxShadow: '0 4px 14px rgba(235,252,102,0.35)' }}>
               <Plus size={16} strokeWidth={3} />
               Novo gato

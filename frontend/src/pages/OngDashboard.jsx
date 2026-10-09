@@ -128,7 +128,7 @@ function InviteModal({ pet, onClose }) {
 
             <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-3">
               <Link2 size={14} className="text-gray-400 shrink-0" />
-              <p className="text-[11px] font-medium text-gray-600 truncate flex-1">{link}</p>
+              <p className="text-[12px] font-medium text-gray-600 truncate flex-1">{link}</p>
             </div>
             <button onClick={copy}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-black text-[12px] mb-2"
@@ -268,7 +268,7 @@ function BulkAddModal({ onClose, onDone }) {
           ))}
         </div>
 
-        <button onClick={addRow} className="w-full py-2.5 rounded-xl font-black text-[11px] mb-4" style={{ background: '#F4F3FF', color: C.purple }}>
+        <button onClick={addRow} className="w-full py-2.5 rounded-xl font-black text-[12px] mb-4" style={{ background: '#F4F3FF', color: C.purple }}>
           + Adicionar linha
         </button>
 
@@ -327,7 +327,7 @@ function BulkHealthModal({ pets, onClose, onDone }) {
         <div className="flex gap-2 mb-3">
           {PREVENTIVE_TYPES.map((t) => (
             <button key={t.value} onClick={() => setType(t.value)}
-              className="flex-1 py-2 rounded-xl text-[11px] font-black"
+              className="flex-1 py-2 rounded-xl text-[12px] font-black"
               style={type === t.value ? { background: C.purple, color: '#fff' } : { background: '#F3F4F6', color: '#6B7280' }}>
               {t.label}
             </button>
@@ -404,7 +404,7 @@ function PetRow({ pet, onInvite, onStatusChange }) {
       </div>
 
       <button onClick={() => onInvite(pet)} disabled={pet.adoptionStatus === 'ADOTADO'}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-[11px]"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-[12px]"
         style={pet.adoptionStatus === 'ADOTADO'
           ? { background: '#F3F4F6', color: '#9CA3AF' }
           : { background: '#F1E9FF', color: C.purple }}>
@@ -473,7 +473,7 @@ export default function OngDashboard() {
             <h1 className="text-xl font-black text-gray-900 leading-none mt-1">Meus gatos</h1>
           </div>
           <button onClick={() => { touch(); setSuggestionOpen(true); }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-black text-[11px] shrink-0"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-black text-[12px] shrink-0"
             style={{ background: '#F1E9FF', color: C.purple }}>
             <Megaphone size={14} /> Sugerir
           </button>
@@ -490,11 +490,11 @@ export default function OngDashboard() {
 
         <div className="flex gap-2 mb-5">
           <button onClick={() => { touch(); setBulkAddOpen(true); }}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-[11px]" style={{ background: '#F1E9FF', color: C.purple }}>
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-[12px]" style={{ background: '#F1E9FF', color: C.purple }}>
             <Plus size={14} /> Cadastrar gatos
           </button>
           <button onClick={() => { touch(); setBulkHealthOpen(true); }}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-[11px]" style={{ background: '#F1E9FF', color: C.purple }}>
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-[12px]" style={{ background: '#F1E9FF', color: C.purple }}>
             <Syringe size={14} /> Preventivo em lote
           </button>
         </div>

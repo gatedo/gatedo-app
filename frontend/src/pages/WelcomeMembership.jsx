@@ -145,7 +145,7 @@ export default function WelcomeMembership({ variant = 'prime' }) {
             {data.eyebrow}{variant === 'founder' && phase ? ` · Fase ${phase}` : ''}
           </div>
 
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/45">Olá, {name}</p>
+          <p className="text-[12px] font-black uppercase tracking-[0.22em] text-white/45">Olá, {name}</p>
           <h1 className="mt-2 text-[24px] font-black leading-tight text-white md:text-[26px]">{data.title}</h1>
           <p className="mx-auto mt-3 max-w-[320px] text-sm font-semibold leading-relaxed text-white/68">{data.lead}</p>
 
@@ -156,7 +156,7 @@ export default function WelcomeMembership({ variant = 'prime' }) {
                   <Icon size={19} />
                 </div>
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-tight">{title}</p>
+                  <p className="text-[12px] font-black uppercase tracking-tight">{title}</p>
                   <p className="mt-0.5 text-[10px] font-bold leading-snug text-gray-500">{desc}</p>
                 </div>
               </div>

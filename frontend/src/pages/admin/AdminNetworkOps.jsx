@@ -94,7 +94,7 @@ function StatusBadge({ status }) {
 function TierBadge({ tier }) {
   const map = { Mega: [P,'#fff'], Macro: ['#6366f1','#fff'], Mid: ['#f59e0b','#fff'], Micro: ['#10b981','#fff'], Nano: ['#6b7280','#fff'] };
   const [bg, fg] = map[tier] || ['#ccc','#333'];
-  return <span className="text-[11px] font-black px-2 py-0.5 rounded-full" style={{ backgroundColor: bg, color: fg }}>{tier}</span>;
+  return <span className="text-[12px] font-black px-2 py-0.5 rounded-full" style={{ backgroundColor: bg, color: fg }}>{tier}</span>;
 }
 
 function PriorityDot({ priority }) {
@@ -227,7 +227,7 @@ export default function AdminNetworkOps() {
               <div key={k.label} className="rounded-2xl p-3 text-center border border-white/10 min-w-[80px]"
                 style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
                 <p className="text-xl font-black text-white">{k.value}</p>
-                <p className="text-[11px] text-white/40 mt-0.5 font-medium">{k.label}</p>
+                <p className="text-[12px] text-white/40 mt-0.5 font-medium">{k.label}</p>
               </div>
             ))}
           </div>
@@ -283,7 +283,7 @@ export default function AdminNetworkOps() {
                         <TierBadge tier={inf.tier} />
                         <StatusBadge status={inf.status} />
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">{inf.platform} · {inf.followers} · {inf.city} · eng {inf.engRate}</p>
+                      <p className="text-[12px] text-gray-400 mt-0.5">{inf.platform} · {inf.followers} · {inf.city} · eng {inf.engRate}</p>
                     </div>
                     <div className="flex-shrink-0 text-right hidden md:block">
                       <p className="text-[10px] text-gray-400">receita est.</p>
@@ -366,7 +366,7 @@ export default function AdminNetworkOps() {
                         <StatusBadge status={c.status} />
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{c.porte}</span>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
+                      <p className="text-[12px] text-gray-400 mt-0.5">
                         <MapPin size={9} className="inline mr-0.5" />{c.city} · {c.type}
                       </p>
                     </div>
@@ -444,7 +444,7 @@ export default function AdminNetworkOps() {
                         <StatusBadge status={b.status} />
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{b.segment}</span>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">{b.type} · {b.potentialRevenue}</p>
+                      <p className="text-[12px] text-gray-400 mt-0.5">{b.type} · {b.potentialRevenue}</p>
                     </div>
                     <ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${expandedId === b.id ? 'rotate-180' : ''}`} />
                   </button>
@@ -500,7 +500,7 @@ export default function AdminNetworkOps() {
                         <StatusBadge status={exp.status} />
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">{exp.category}</span>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5 truncate">Hipótese: {exp.hypothesis}</p>
+                      <p className="text-[12px] text-gray-400 mt-0.5 truncate">Hipótese: {exp.hypothesis}</p>
                     </div>
                     <span className="text-[10px] text-gray-400 flex-shrink-0">{exp.startDate}</span>
                     <ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${expandedId === exp.id ? 'rotate-180' : ''}`} />
@@ -559,11 +559,11 @@ export default function AdminNetworkOps() {
                         <StatusBadge status={c.status} />
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{c.type}</span>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">📅 {c.date} · 👤 {c.owner}</p>
+                      <p className="text-[12px] text-gray-400 mt-0.5">📅 {c.date} · 👤 {c.owner}</p>
                     </div>
                     <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end max-w-[140px]">
                       {c.channels.slice(0,3).map(ch => (
-                        <span key={ch} className="text-[11px] px-1.5 py-0.5 rounded-md bg-gray-50 text-gray-500 border border-gray-100 font-medium">{ch}</span>
+                        <span key={ch} className="text-[12px] px-1.5 py-0.5 rounded-md bg-gray-50 text-gray-500 border border-gray-100 font-medium">{ch}</span>
                       ))}
                     </div>
                     <ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${expandedId === c.id ? 'rotate-180' : ''}`} />
@@ -642,9 +642,9 @@ export default function AdminNetworkOps() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white whitespace-nowrap"
+                    <span className="text-[12px] font-black px-2 py-0.5 rounded-full text-white whitespace-nowrap"
                       style={{ backgroundColor: op.color }}>{op.urgency}</span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">esforço {op.effort}</span>
+                    <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">esforço {op.effort}</span>
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed mb-3">{op.desc}</p>
@@ -652,7 +652,7 @@ export default function AdminNetworkOps() {
                   {op.actions.map(a => (
                     <div key={a} className="flex items-start gap-2">
                       <ArrowRight size={11} className="mt-0.5 flex-shrink-0" style={{ color: op.color }} />
-                      <p className="text-[11px] text-gray-500 leading-relaxed">{a}</p>
+                      <p className="text-[12px] text-gray-500 leading-relaxed">{a}</p>
                     </div>
                   ))}
                 </div>

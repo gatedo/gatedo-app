@@ -144,7 +144,7 @@ function BlockFields({ block, onUpdate }) {
               ))}
             </div>
             <button type="button" onClick={() => set({ items: [...items, ''] })}
-              className="mt-1.5 text-[11px] font-black" style={{ color: C.purple }}>
+              className="mt-1.5 text-[12px] font-black" style={{ color: C.purple }}>
               + Adicionar item
             </button>
           </div>

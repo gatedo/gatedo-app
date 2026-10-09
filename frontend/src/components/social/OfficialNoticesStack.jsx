@@ -121,7 +121,7 @@ function NoticeCard({ notice, onConfirm, loading = false }) {
             style={{ background: '#EEFDF3', border: '1px solid #86EFAC' }}
           >
             <CheckCircle size={14} className="text-emerald-600" />
-            <span className="text-[11px] font-black text-emerald-700">
+            <span className="text-[12px] font-black text-emerald-700">
               +{Number(notice.xpReward || 0)} XP
             </span>
           </div>

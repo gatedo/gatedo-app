@@ -603,7 +603,7 @@ export default function Header() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-bold leading-snug">
+                  <p className="text-[12px] font-bold leading-snug">
                     {firstName ? <span className="opacity-70">Oi, {firstName} — </span> : null}
                     {TIPS[tipIndex]?.text}
                   </p>

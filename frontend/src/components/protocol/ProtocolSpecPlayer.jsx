@@ -80,7 +80,7 @@ function PerguntasToqueBlock({ perguntas, respostas, onToggle }) {
         return (
           <div key={q.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
             <p className="text-[13px] font-bold text-gray-800 mb-0.5">{q.pergunta}</p>
-            {q.exemplo && <p className="text-[11px] font-medium text-gray-400 mb-2">{q.exemplo}</p>}
+            {q.exemplo && <p className="text-[12px] font-medium text-gray-400 mb-2">{q.exemplo}</p>}
             <div className="flex gap-2 mt-2">
               <button
                 onClick={() => onToggle(q.id, true)}
@@ -98,7 +98,7 @@ function PerguntasToqueBlock({ perguntas, respostas, onToggle }) {
               </button>
             </div>
             {val === false && q.se_nao && (
-              <p className="text-[11px] font-medium mt-2 p-2.5 rounded-xl" style={{ background: '#FFFBEB', color: '#92400E' }}>
+              <p className="text-[12px] font-medium mt-2 p-2.5 rounded-xl" style={{ background: '#FFFBEB', color: '#92400E' }}>
                 {q.se_nao}
               </p>
             )}
@@ -162,7 +162,7 @@ function EscolhaMultiplaBlock({ escolha, respostas, onToggle }) {
                 <span className="text-[12px] font-bold text-gray-700 flex-1">{op.rotulo}</span>
               </button>
               {checked && op.dica && (
-                <p className="text-[11px] font-medium mt-1.5 px-3.5 py-2 rounded-xl" style={{ background: '#F1E9FF', color: C.purpleDark }}>
+                <p className="text-[12px] font-medium mt-1.5 px-3.5 py-2 rounded-xl" style={{ background: '#F1E9FF', color: C.purpleDark }}>
                   {op.dica}
                 </p>
               )}
@@ -182,7 +182,7 @@ function EntenderMelhor({ explicacao, porque, petId }) {
     <div>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between py-1.5 text-[11px] font-black"
+        className="w-full flex items-center justify-between py-1.5 text-[12px] font-black"
         style={{ color: C.purple }}
       >
         <span>Entender melhor</span>
@@ -205,7 +205,7 @@ function EntenderMelhor({ explicacao, porque, petId }) {
               {porque && (
                 <div className="rounded-[16px] p-3.5" style={{ background: '#F1E9FF' }}>
                   <p className="text-[10px] font-black uppercase tracking-wide mb-1" style={{ color: C.purple }}>Por quê</p>
-                  <p className="text-[11px] font-medium leading-relaxed" style={{ color: C.purpleDark }}>{porque}</p>
+                  <p className="text-[12px] font-medium leading-relaxed" style={{ color: C.purpleDark }}>{porque}</p>
                 </div>
               )}
             </div>
@@ -239,7 +239,7 @@ function EmergencyChecklist({ itens, onConfirmNone, onFlagged, submitting }) {
             )}
             <div>
               <p className="text-[13px] font-bold text-gray-800">{item.rotulo}</p>
-              {item.detalhe && <p className="text-[11px] font-medium text-gray-400 mt-0.5">{item.detalhe}</p>}
+              {item.detalhe && <p className="text-[12px] font-medium text-gray-400 mt-0.5">{item.detalhe}</p>}
             </div>
           </button>
         ))}
@@ -329,7 +329,7 @@ function EmergencyScreen({ telaUrgencia, catId, navigate, onVoltar, onReconsider
           <button
             onClick={handleReconsiderClick}
             disabled={reconsidering}
-            className="w-full mt-4 pt-4 border-t border-gray-100 text-[11px] font-bold text-gray-400"
+            className="w-full mt-4 pt-4 border-t border-gray-100 text-[12px] font-bold text-gray-400"
           >
             {reconsidering ? 'Reconsiderando...' : 'Marquei sem querer — reconsiderar'}
           </button>
@@ -468,7 +468,7 @@ export default function ProtocolSpecPlayer({ slug, initialCatId, onBack }) {
         <div className="px-5">
           <div className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm mb-4">
             <p className="text-[13px] font-medium text-gray-600 leading-relaxed mb-3">{spec.abertura}</p>
-            <p className="text-[11px] font-bold text-gray-400">{spec.escopo_nota}</p>
+            <p className="text-[12px] font-bold text-gray-400">{spec.escopo_nota}</p>
           </div>
           <button
             onClick={start}
@@ -774,13 +774,13 @@ function DayFlow({ spec, enrollment, slug, onReload, onBack, onTriggerEmergency,
             <ShieldAlert size={16} className="shrink-0 mt-0.5" style={{ color: C.amber }} />
             <div className="flex-1">
               <p className="text-[12px] font-black text-gray-800">{tarefaFixa.titulo}</p>
-              <p className="text-[11px] font-medium text-gray-500 mt-0.5">{tarefaFixa.descricao}</p>
+              <p className="text-[12px] font-medium text-gray-500 mt-0.5">{tarefaFixa.descricao}</p>
               <button
                 onClick={async () => {
                   await api.post(`/content/protocol-spec/${slug}/fixed-task/complete`, { enrollmentId: enrollment.id });
                   onReload();
                 }}
-                className="mt-2 text-[11px] font-black"
+                className="mt-2 text-[12px] font-black"
                 style={{ color: C.purple }}
               >
                 Marcar como feita
@@ -840,7 +840,7 @@ function DayFlow({ spec, enrollment, slug, onReload, onBack, onTriggerEmergency,
 
         {dia.dica_fixa && (
           <div className="rounded-[18px] p-3.5" style={{ background: '#ECFDF5' }}>
-            <p className="text-[11px] font-medium leading-relaxed" style={{ color: '#065F46' }}>{dia.dica_fixa}</p>
+            <p className="text-[12px] font-medium leading-relaxed" style={{ color: '#065F46' }}>{dia.dica_fixa}</p>
           </div>
         )}
 
@@ -895,7 +895,7 @@ function DayFlow({ spec, enrollment, slug, onReload, onBack, onTriggerEmergency,
             style={{ background: '#FEF2F2' }}
           >
             <AlertOctagon size={16} style={{ color: C.red }} className="shrink-0" />
-            <span className="text-[11px] font-bold text-gray-600 flex-1">{spec.lembrete_permanente.texto}</span>
+            <span className="text-[12px] font-bold text-gray-600 flex-1">{spec.lembrete_permanente.texto}</span>
           </button>
         )}
       </div>
@@ -1002,7 +1002,7 @@ function ClosingScreen({ spec, closing, catId, navigate, onBack, touch }) {
             </div>
           </div>
           {closing.comparativo.locaisRepetidos.length > 0 && (
-            <p className="text-[11px] font-medium text-gray-500">
+            <p className="text-[12px] font-medium text-gray-500">
               Locais que se repetiram: {closing.comparativo.locaisRepetidos.join(', ')}
             </p>
           )}
@@ -1032,7 +1032,7 @@ function ClosingScreen({ spec, closing, catId, navigate, onBack, touch }) {
         {closing.upsell && (
           <div className="rounded-[20px] p-4 flex items-start gap-2.5" style={{ background: '#FFF7ED' }}>
             <Sparkles size={16} className="shrink-0 mt-0.5" style={{ color: '#F97316' }} />
-            <p className="text-[11px] font-medium text-gray-600 leading-relaxed">{closing.upsell.texto}</p>
+            <p className="text-[12px] font-medium text-gray-600 leading-relaxed">{closing.upsell.texto}</p>
           </div>
         )}
       </div>

@@ -205,7 +205,7 @@ export default function AdminIgentAlmanac() {
                   <p className="font-black text-sm text-gray-800 line-clamp-1">{section.title}</p>
                   {section.active !== false ? <CheckCircle size={14} className="text-emerald-500" /> : <ShieldAlert size={14} className="text-gray-300" />}
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">{section.excerpt}</p>
+                <p className="text-[12px] text-gray-400 mt-1 line-clamp-2">{section.excerpt}</p>
               </button>
             ))}
           </div>
@@ -371,7 +371,7 @@ function compressImageToDataUrl(file) {
 function Stat({ label, value }) {
   return (
     <div className="rounded-2xl bg-white/12 px-4 py-3">
-      <p className="text-[11px] font-black uppercase tracking-widest text-white/55">{label}</p>
+      <p className="text-[12px] font-black uppercase tracking-widest text-white/55">{label}</p>
       <p className="text-2xl font-black">{value}</p>
     </div>
   );
@@ -398,7 +398,7 @@ function ScopeButton({ active, icon: Icon, label, description, onClick }) {
       </span>
       <span>
         <span className="block text-sm font-black text-gray-900">{label}</span>
-        <span className="block text-[11px] text-gray-400">{description}</span>
+        <span className="block text-[12px] text-gray-400">{description}</span>
       </span>
     </button>
   );

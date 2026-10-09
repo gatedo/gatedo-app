@@ -16,7 +16,7 @@ export function StatusPage() {
   useEffect(() => { checkStatus(); }, []);
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Nunito, sans-serif', textAlign: 'center' }}>
+    <div style={{ padding: '20px', fontFamily: 'Asap, sans-serif', textAlign: 'center' }}>
       <h2>Status do Sistema 🐾</h2>
       <div style={{ margin: '20px', padding: '15px', borderRadius: '10px', backgroundColor: '#f4f3ff' }}>
         <p><strong>API Backend:</strong> {health.api === 'online' ? '🟢 Operacional' : '🔴 Fora do Ar'}</p>

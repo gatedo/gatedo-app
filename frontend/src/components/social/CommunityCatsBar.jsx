@@ -340,7 +340,7 @@ export default function CommunityCatsBar({
           <select
             value={raceFilter}
             onChange={(e) => setRaceFilter(e.target.value)}
-            className="rounded-[14px] px-3 py-2 text-[11px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
+            className="rounded-[14px] px-3 py-2 text-[12px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
           >
             <option value="all">Todas as raças</option>
             {races.filter((r) => r !== 'all').map((race) => (
@@ -351,7 +351,7 @@ export default function CommunityCatsBar({
           <select
             value={cityFilter}
             onChange={(e) => setCityFilter(e.target.value)}
-            className="rounded-[14px] px-3 py-2 text-[11px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
+            className="rounded-[14px] px-3 py-2 text-[12px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
           >
             <option value="all">Todas as cidades</option>
             {cities.filter((c) => c !== 'all').map((city) => (
@@ -362,7 +362,7 @@ export default function CommunityCatsBar({
           <select
             value={sexFilter}
             onChange={(e) => setSexFilter(e.target.value)}
-            className="rounded-[14px] px-3 py-2 text-[11px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
+            className="rounded-[14px] px-3 py-2 text-[12px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
           >
             <option value="all">Todos os sexos</option>
             <option value="macho">Macho</option>
@@ -373,7 +373,7 @@ export default function CommunityCatsBar({
           <select
             value={ageFilter}
             onChange={(e) => setAgeFilter(e.target.value)}
-            className="rounded-[14px] px-3 py-2 text-[11px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
+            className="rounded-[14px] px-3 py-2 text-[12px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
           >
             <option value="all">Todas as idades</option>
             <option value="baby">Até 1 ano</option>
@@ -385,7 +385,7 @@ export default function CommunityCatsBar({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="rounded-[14px] px-3 py-2 text-[11px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
+            className="rounded-[14px] px-3 py-2 text-[12px] font-bold border border-gray-200 bg-white text-gray-700 outline-none"
           >
             <option value="newest">Mais novos</option>
             <option value="oldest">Mais antigos</option>
@@ -398,11 +398,11 @@ export default function CommunityCatsBar({
       <div className="flex gap-4 overflow-x-auto pb-1">
         {loading ? (
           <div className="w-full rounded-[18px] p-4 bg-gray-50 border border-gray-100 text-center">
-            <p className="text-[11px] font-black text-gray-600">Carregando gatos da comunidade...</p>
+            <p className="text-[12px] font-black text-gray-600">Carregando gatos da comunidade...</p>
           </div>
         ) : filteredCats.length === 0 ? (
           <div className="w-full rounded-[18px] p-4 bg-gray-50 border border-gray-100 text-center">
-            <p className="text-[11px] font-black text-gray-600">Nenhum gato encontrado</p>
+            <p className="text-[12px] font-black text-gray-600">Nenhum gato encontrado</p>
             <p className="text-[10px] text-gray-400 font-medium mt-1">
               Ajuste a busca ou os filtros.
             </p>

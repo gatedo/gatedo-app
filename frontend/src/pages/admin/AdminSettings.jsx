@@ -144,7 +144,7 @@ export default function AdminSettings() {
             ].map((item) => (
               <div key={item.label} className="rounded-2xl p-3 border border-white/10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
                 <p className="text-2xl font-black" style={{ color: item.color }}>{item.value}</p>
-                <p className="text-[11px] font-black text-white/40 uppercase">{item.label}</p>
+                <p className="text-[12px] font-black text-white/40 uppercase">{item.label}</p>
               </div>
             ))}
           </div>
@@ -174,8 +174,8 @@ export default function AdminSettings() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-black text-gray-900">{check.label}</p>
-                      <p className="text-[11px] text-gray-400 truncate">{check.path}</p>
-                      {state.message && <p className="text-[11px] text-red-500 mt-1">{state.message}</p>}
+                      <p className="text-[12px] text-gray-400 truncate">{check.path}</p>
+                      {state.message && <p className="text-[12px] text-red-500 mt-1">{state.message}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
@@ -214,7 +214,7 @@ export default function AdminSettings() {
             <div className="space-y-2">
               {storageRows.map((row) => (
                 <div key={row.key} className="flex items-center justify-between gap-3 rounded-2xl bg-gray-50 border border-gray-100 p-3">
-                  <p className="text-[11px] font-bold text-gray-600 truncate">{row.key}</p>
+                  <p className="text-[12px] font-bold text-gray-600 truncate">{row.key}</p>
                   <span className={`text-[10px] font-black px-2 py-1 rounded-full ${row.exists ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
                     {row.exists ? row.size : 'vazio'}
                   </span>
@@ -321,7 +321,7 @@ function SettingsFieldsCard({ icon: Icon, title, hint, fields }) {
               <button
                 onClick={() => save(f.key)}
                 disabled={saving === f.key}
-                className="px-4 py-2.5 rounded-xl font-black text-[11px] text-white shrink-0"
+                className="px-4 py-2.5 rounded-xl font-black text-[12px] text-white shrink-0"
                 style={{ background: saved === f.key ? '#10B981' : saving === f.key ? '#9ca3af' : P }}
               >
                 {saved === f.key ? 'Salvo!' : saving === f.key ? 'Salvando...' : 'Salvar'}

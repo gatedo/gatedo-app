@@ -123,7 +123,7 @@ export default function PushPermissionPrompt({ onClose }) {
               </p>
 
               {status === 'denied' && (
-                <p className="text-[11px] font-bold text-amber-600 mb-3">
+                <p className="text-[12px] font-bold text-amber-600 mb-3">
                   O navegador bloqueou o aviso. Dá pra liberar depois nas configurações do site.
                 </p>
               )}

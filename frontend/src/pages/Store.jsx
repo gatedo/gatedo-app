@@ -584,7 +584,7 @@ export default function Store() {
                     </div>
 
                     <div className="px-0.5">
-                      <h3 className="font-black text-gray-800 text-[11px] leading-tight line-clamp-2">{product.name}</h3>
+                      <h3 className="font-black text-gray-800 text-[12px] leading-tight line-clamp-2">{product.name}</h3>
                       <p className="text-base font-black text-[#8B4AFF] mt-0.5">{formatCurrency(product.price)}</p>
                       <p className="text-[8px] text-gray-400 font-bold flex items-center gap-1 mt-0.5">
                         <Users size={7} /> {getViewCount(product.id)} vendo agora
@@ -641,7 +641,7 @@ export default function Store() {
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className={`mt-2 flex items-center gap-2 text-[11px] font-bold px-2.5 py-1.5 rounded-lg ${
+                  className={`mt-2 flex items-center gap-2 text-[12px] font-bold px-2.5 py-1.5 rounded-lg ${
                     couponResult.success ? 'bg-white/18 text-white' : 'bg-[#7d1f12]/25 text-white'
                   }`}
                 >

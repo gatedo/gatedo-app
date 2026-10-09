@@ -62,7 +62,7 @@ function SectionTitle({ icon: Icon, title, subtitle }) {
             {title}
           </h3>
           {subtitle && (
-            <p className="text-[11px] text-gray-500 font-medium">{subtitle}</p>
+            <p className="text-[12px] text-gray-500 font-medium">{subtitle}</p>
           )}
         </div>
       </div>
@@ -105,13 +105,13 @@ function ProviderCard({
           </div>
 
           {isVet && item.clinicName && (
-            <p className="text-[11px] text-gray-500 font-semibold mt-1">
+            <p className="text-[12px] text-gray-500 font-semibold mt-1">
               Clínica: {item.clinicName}
             </p>
           )}
 
           {!isVet && item.address && (
-            <p className="text-[11px] text-gray-500 font-semibold mt-1">
+            <p className="text-[12px] text-gray-500 font-semibold mt-1">
               {item.address}
             </p>
           )}
@@ -155,7 +155,7 @@ function ProviderCard({
       </div>
 
       {item.notes ? (
-        <div className="text-[11px] text-gray-500 bg-gray-50 rounded-2xl p-3">
+        <div className="text-[12px] text-gray-500 bg-gray-50 rounded-2xl p-3">
           {item.notes}
         </div>
       ) : null}
@@ -222,7 +222,7 @@ function QuickAddForm({
           <h4 className="text-sm font-black text-gray-900 uppercase">
             {isVet ? "novo veterinário" : "nova clínica"}
           </h4>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[12px] text-gray-500">
             Cadastro rápido para reutilizar no prontuário.
           </p>
         </div>
@@ -354,7 +354,7 @@ function QuickAddForm({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 py-3 rounded-[22px] bg-gray-100 text-gray-700 text-[11px] font-black uppercase tracking-wide hover:bg-gray-200 transition"
+          className="flex-1 py-3 rounded-[22px] bg-gray-100 text-gray-700 text-[12px] font-black uppercase tracking-wide hover:bg-gray-200 transition"
         >
           cancelar
         </button>
@@ -363,7 +363,7 @@ function QuickAddForm({
           type="button"
           onClick={submit}
           disabled={saving}
-          className="flex-1 py-3 rounded-[22px] bg-gray-900 text-white text-[11px] font-black uppercase tracking-wide hover:opacity-90 transition disabled:opacity-60"
+          className="flex-1 py-3 rounded-[22px] bg-gray-900 text-white text-[12px] font-black uppercase tracking-wide hover:opacity-90 transition disabled:opacity-60"
         >
           {saving ? "salvando..." : "salvar contato"}
         </button>
@@ -685,7 +685,7 @@ export default function ProvidersSection({
             setShowAddVet((prev) => !prev);
             setShowAddClinic(false);
           }}
-          className="bg-white rounded-[24px] border border-gray-100 shadow-sm px-4 py-4 hover:shadow-md transition flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-gray-800"
+          className="bg-white rounded-[24px] border border-gray-100 shadow-sm px-4 py-4 hover:shadow-md transition flex items-center justify-center gap-2 text-[12px] font-black uppercase tracking-wide text-gray-800"
         >
           <Plus size={14} />
           veterinário
@@ -697,7 +697,7 @@ export default function ProvidersSection({
             setShowAddClinic((prev) => !prev);
             setShowAddVet(false);
           }}
-          className="bg-white rounded-[24px] border border-gray-100 shadow-sm px-4 py-4 hover:shadow-md transition flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-gray-800"
+          className="bg-white rounded-[24px] border border-gray-100 shadow-sm px-4 py-4 hover:shadow-md transition flex items-center justify-center gap-2 text-[12px] font-black uppercase tracking-wide text-gray-800"
         >
           <Plus size={14} />
           clínica
@@ -732,7 +732,7 @@ export default function ProvidersSection({
               <h4 className="text-xs font-black uppercase tracking-wide text-gray-800">
                 clínicas
               </h4>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-[12px] text-gray-500">
                 {filteredClinics.length} encontrada{filteredClinics.length === 1 ? "" : "s"}
               </p>
             </div>
@@ -753,7 +753,7 @@ export default function ProvidersSection({
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-[24px] border border-dashed border-gray-200 p-5 text-center text-[11px] text-gray-500 font-semibold">
+          <div className="bg-white rounded-[24px] border border-dashed border-gray-200 p-5 text-center text-[12px] text-gray-500 font-semibold">
             Nenhuma clínica cadastrada ou detectada no histórico.
           </div>
         )}
@@ -769,7 +769,7 @@ export default function ProvidersSection({
               <h4 className="text-xs font-black uppercase tracking-wide text-gray-800">
                 veterinários
               </h4>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-[12px] text-gray-500">
                 {filteredVets.length} encontrado{filteredVets.length === 1 ? "" : "s"}
               </p>
             </div>
@@ -790,14 +790,14 @@ export default function ProvidersSection({
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-[24px] border border-dashed border-gray-200 p-5 text-center text-[11px] text-gray-500 font-semibold">
+          <div className="bg-white rounded-[24px] border border-dashed border-gray-200 p-5 text-center text-[12px] text-gray-500 font-semibold">
             Nenhum veterinário cadastrado ou detectado no histórico.
           </div>
         )}
       </div>
 
       {loading && (
-        <div className="text-[11px] text-gray-400 font-semibold">
+        <div className="text-[12px] text-gray-400 font-semibold">
           carregando base de confiança...
         </div>
       )}

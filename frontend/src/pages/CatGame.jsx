@@ -17,7 +17,7 @@ function ScreenProtectionNotice({ onDismiss }) {
       style={{ background: 'rgba(20,10,45,0.92)', backdropFilter: 'blur(8px)' }}
     >
       <ShieldAlert size={18} className="text-amber-300 shrink-0" />
-      <p className="flex-1 text-[11px] font-bold text-white/90 leading-snug">
+      <p className="flex-1 text-[12px] font-bold text-white/90 leading-snug">
         Seu gato vai tocar a tela — proteja com uma película ou use um tablet com capa.
       </p>
       <button
@@ -343,7 +343,7 @@ function Slider({ label, min, max, step = 1, value, onChange, format, disabled =
       }}
     >
       <div className="flex justify-between items-center gap-3 mb-2">
-        <span className="text-[11px] font-black uppercase tracking-[2px] text-white/70 flex items-center gap-2">
+        <span className="text-[12px] font-black uppercase tracking-[2px] text-white/70 flex items-center gap-2">
           {icon}
           {label}
         </span>
@@ -417,9 +417,9 @@ function ThemeCard({ id, theme, selected, onClick }) {
         <div style={{ fontSize: 18 }}>{emojis}</div>
         <p
           style={{
-            fontFamily: 'Nunito, sans-serif',
+            fontFamily: 'Asap, sans-serif',
             fontSize: 13,
-            fontWeight: 900,
+            fontWeight: 700,
             color: '#fff',
             textShadow: '0 1px 6px rgba(0,0,0,0.5)',
           }}
@@ -444,7 +444,7 @@ function ThemeCard({ id, theme, selected, onClick }) {
             zIndex: 3,
           }}
         >
-          <span style={{ color: '#fff', fontSize: 10, fontWeight: 900 }}>✓</span>
+          <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>✓</span>
         </div>
       )}
     </button>
@@ -453,7 +453,7 @@ function ThemeCard({ id, theme, selected, onClick }) {
 
 function MenuScreen({ config, globalSoundEnabled, onConfigChange, onStart, onBack }) {
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: C.bg, fontFamily: 'Nunito, sans-serif' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: C.bg, fontFamily: 'Asap, sans-serif' }}>
       <style>{SLIDER_CSS}</style>
 
       <div
@@ -477,7 +477,7 @@ function MenuScreen({ config, globalSoundEnabled, onConfigChange, onStart, onBac
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-[148px] pt-1">
-        <p className="text-[11px] font-bold text-gray-400 mb-4 leading-relaxed">
+        <p className="text-[12px] font-bold text-gray-400 mb-4 leading-relaxed">
           Escolha o tema e configure o jogo antes de colocar na frente do seu gatinho.
         </p>
 
@@ -570,7 +570,7 @@ function MenuScreen({ config, globalSoundEnabled, onConfigChange, onStart, onBac
               background: `linear-gradient(135deg, ${C.purple} 0%, #4B40C6 100%)`,
               color: '#fff',
               boxShadow: `0 8px 24px ${C.purple}50`,
-              fontFamily: 'Nunito, sans-serif',
+              fontFamily: 'Asap, sans-serif',
             }}
           >
             <Play size={18} fill="white" />
@@ -856,8 +856,8 @@ function GameScreen({ config, soundEnabled, onEnd }) {
               padding: '7px 16px',
               color: '#fff',
               fontSize: 14,
-              fontWeight: 900,
-              fontFamily: 'Nunito, sans-serif',
+              fontWeight: 700,
+              fontFamily: 'Asap, sans-serif',
               border: '1px solid rgba(255,255,255,0.1)',
             }}
           >
@@ -913,7 +913,7 @@ function EndScreen({ score, themeKey, onReplay, onMenu }) {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{ background: `linear-gradient(160deg, ${C.purple} 0%, #1e1b4b 100%)`, fontFamily: 'Nunito, sans-serif' }}
+      style={{ background: `linear-gradient(160deg, ${C.purple} 0%, #1e1b4b 100%)`, fontFamily: 'Asap, sans-serif' }}
     >
       <img src="/assets/App_gatedo_logo.svg" alt="Gatedo" style={{ height: 100, marginBottom: 28, opacity: 0.9 }} />
 
@@ -923,15 +923,15 @@ function EndScreen({ score, themeKey, onReplay, onMenu }) {
         transition={{ type: 'spring', stiffness: 280, damping: 22 }}
       >
         <div style={{ fontSize: 72, textAlign: 'center', marginBottom: 8 }}>😸</div>
-        <h2 style={{ fontSize: 28, fontWeight: 900, color: '#fff', textAlign: 'center', marginBottom: 4 }}>
+        <h2 style={{ fontSize: 28, fontWeight: 700, color: '#fff', textAlign: 'center', marginBottom: 4 }}>
           {message}
         </h2>
         <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginBottom: 8 }}>
           Tema: {theme.label}
         </p>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <span style={{ fontSize: 48, fontWeight: 900, color: C.accent }}>{score}</span>
-          <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginLeft: 8, fontWeight: 700 }}>
+          <span style={{ fontSize: 48, fontWeight: 700, color: C.accent }}>{score}</span>
+          <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginLeft: 8, fontWeight: 600 }}>
             capturas
           </span>
         </div>
@@ -947,11 +947,11 @@ function EndScreen({ score, themeKey, onReplay, onMenu }) {
             border: 'none',
             borderRadius: 18,
             fontSize: 15,
-            fontWeight: 900,
+            fontWeight: 700,
             background: C.accent,
             color: C.purple,
             cursor: 'pointer',
-            fontFamily: 'Nunito, sans-serif',
+            fontFamily: 'Asap, sans-serif',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -970,11 +970,11 @@ function EndScreen({ score, themeKey, onReplay, onMenu }) {
             border: '1px solid rgba(255,255,255,0.2)',
             borderRadius: 18,
             fontSize: 15,
-            fontWeight: 900,
+            fontWeight: 700,
             background: 'rgba(255,255,255,0.1)',
             color: '#fff',
             cursor: 'pointer',
-            fontFamily: 'Nunito, sans-serif',
+            fontFamily: 'Asap, sans-serif',
           }}
         >
           ← Menu

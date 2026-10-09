@@ -52,7 +52,7 @@ export default function NextCareChips({ type, value, onChange }) {
 
   return (
     <div className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-50">
-      <p className="text-[11px] font-black text-gray-700 mb-2.5">Quando é a próxima?</p>
+      <p className="text-[12px] font-black text-gray-700 mb-2.5">Quando é a próxima?</p>
 
       <div className="flex flex-wrap gap-1.5 mb-2.5">
         {CHIPS.map((chip) => (
@@ -60,7 +60,7 @@ export default function NextCareChips({ type, value, onChange }) {
             key={chip.key}
             type="button"
             onClick={() => pick(chip)}
-            className="px-3 py-1.5 rounded-full text-[11px] font-black border"
+            className="px-3 py-1.5 rounded-full text-[12px] font-black border"
             style={
               selected === chip.key
                 ? { background: C.purple, color: '#fff', borderColor: 'transparent' }
@@ -82,7 +82,7 @@ export default function NextCareChips({ type, value, onChange }) {
       )}
 
       {selected === 'unknown' ? (
-        <p className="text-[11px] font-bold text-gray-400 leading-relaxed">
+        <p className="text-[12px] font-bold text-gray-400 leading-relaxed">
           Tudo bem. Pergunte na próxima consulta e atualize aqui.
         </p>
       ) : (

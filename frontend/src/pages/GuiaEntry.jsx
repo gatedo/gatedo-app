@@ -22,7 +22,7 @@ function UrgencyBadge({ urgency }) {
   const Icon = meta.icon;
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wide"
+      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-black uppercase tracking-wide"
       style={{ background: meta.bg, color: meta.color }}
     >
       {Icon && <Icon size={12} />}

@@ -128,7 +128,7 @@ export default function AdminEntitlements() {
 
           {/* Liberados */}
           <div>
-            <p className="text-[11px] font-black uppercase tracking-wide text-gray-400 mb-2">Produtos liberados</p>
+            <p className="text-[12px] font-black uppercase tracking-wide text-gray-400 mb-2">Produtos liberados</p>
             {result.granted.length === 0 && <p className="text-xs text-gray-400 font-medium">Nenhum ainda.</p>}
             <div className="space-y-1.5">
               {result.granted.map((g) => (
@@ -151,7 +151,7 @@ export default function AdminEntitlements() {
           {/* Pendentes */}
           {result.pending.length > 0 && (
             <div>
-              <p className="text-[11px] font-black uppercase tracking-wide text-gray-400 mb-2">Pendentes (sem conta ainda)</p>
+              <p className="text-[12px] font-black uppercase tracking-wide text-gray-400 mb-2">Pendentes (sem conta ainda)</p>
               <div className="space-y-1.5">
                 {result.pending.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 bg-amber-50 rounded-xl p-3 border border-amber-100">

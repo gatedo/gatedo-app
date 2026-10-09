@@ -61,7 +61,7 @@ function BadgePill({ label, className, icon }) {
   const IconComponent = icon || Crown;
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black border ${className}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[12px] font-black border ${className}`}>
       <IconComponent size={9} />
       {label}
     </span>
@@ -73,7 +73,7 @@ function TutorHierarchyPill({ badge, petMode = false }) {
 
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black border shadow-sm"
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[12px] font-black border shadow-sm"
       style={{
         background: badge.pillBg || badge.color || '#8B4AFF',
         color: badge.pillText || '#ebfc66',
@@ -281,7 +281,7 @@ function EditModal({ pet, onClose, onSaved }) {
               placeholder="Ex.: MEMORIAL, IGENT_STAR"
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-[#8B4AFF]"
             />
-            <p className="text-[11px] text-gray-400 mt-1">
+            <p className="text-[12px] text-gray-400 mt-1">
               Os badges BABY, JUNIOR, GROWN e SENIOR aparecem automaticamente conforme a idade.
             </p>
           </div>
@@ -488,7 +488,7 @@ export default function AdminCats() {
                         <Avatar name={pet.name} photoUrl={pet.photoUrl} />
                         <div className="min-w-0">
                           <p className="font-black text-gray-800 truncate">{pet.name || 'Sem nome'}</p>
-                          <p className="text-[11px] text-gray-400 truncate">{pet.breed || 'SRD / sem raca'}</p>
+                          <p className="text-[12px] text-gray-400 truncate">{pet.breed || 'SRD / sem raca'}</p>
                           <button
                             onClick={() => navigator.clipboard.writeText(pet.id)}
                             className="inline-flex items-center gap-1 mt-1 text-[10px] font-mono bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg text-gray-500 transition-colors"
@@ -504,7 +504,7 @@ export default function AdminCats() {
                         <Avatar name={pet.owner?.name} photoUrl={pet.owner?.photoUrl} />
                         <div className="min-w-0">
                           <p className="font-black text-gray-800 truncate">{pet.owner?.name || 'Sem tutor'}</p>
-                          <p className="text-[11px] text-gray-400 flex items-center gap-1 truncate">
+                          <p className="text-[12px] text-gray-400 flex items-center gap-1 truncate">
                             <Mail size={9} /> {pet.owner?.email || 'Sem e-mail'}
                           </p>
                           <div className="mt-1">
@@ -528,10 +528,10 @@ export default function AdminCats() {
                           <User size={10} />
                           {pet.city || 'Sem cidade'}
                         </InfoChip>
-                        <p className="text-[11px] text-gray-400">
+                        <p className="text-[12px] text-gray-400">
                           Idade: {getPetAgeLabel(pet)}
                         </p>
-                        <p className="text-[11px] text-gray-400">
+                        <p className="text-[12px] text-gray-400">
                           Plano tutor: {tutorBadge?.label || pet.owner?.plan || 'FREE'}
                         </p>
                       </div>
@@ -543,7 +543,7 @@ export default function AdminCats() {
                           <PawPrint size={10} />
                           Nivel {levelMeta.rank}
                         </InfoChip>
-                        <p className="text-[11px] font-black text-gray-700">
+                        <p className="text-[12px] font-black text-gray-700">
                           {levelMeta.emoji} {levelMeta.name}
                         </p>
                         <InfoChip className="bg-amber-50 text-amber-700 border-amber-200">
@@ -575,7 +575,7 @@ export default function AdminCats() {
                           <CalendarClock size={10} />
                           Criado em {formatDate(pet.createdAt)}
                         </InfoChip>
-                        <p className="text-[11px] text-gray-400">
+                        <p className="text-[12px] text-gray-400">
                           Atualizado em {formatDate(pet.updatedAt)}
                         </p>
                       </div>

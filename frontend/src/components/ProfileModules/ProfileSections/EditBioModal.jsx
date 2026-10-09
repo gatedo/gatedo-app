@@ -207,7 +207,7 @@ function ChipSelector({ label, options = [], values = [], onChange }) {
               key={option}
               type="button"
               onClick={() => toggle(option)}
-              className={`px-3 py-2 rounded-full text-[11px] font-black border transition-all ${
+              className={`px-3 py-2 rounded-full text-[12px] font-black border transition-all ${
                 active
                   ? 'text-white border-transparent shadow-[0_8px_20px_rgba(107,48,224,0.18)]'
                   : 'bg-gray-50 text-gray-600 border-gray-100'
@@ -409,11 +409,11 @@ export default function EditBioModal({ isOpen, onClose, cat, onSave }) {
           <div className="sticky top-0 z-10 bg-white/96 backdrop-blur border-b border-gray-100 px-5 py-4">
             <div className="flex justify-between items-center gap-3">
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[1.6px] text-[#8B4AFF]">{catRegistry}</p>
+                <p className="text-[12px] font-black uppercase tracking-[1.6px] text-[#8B4AFF]">{catRegistry}</p>
                 <h2 className="text-lg font-black text-gray-800 uppercase tracking-tight">
                   Editar Bio Profile
                 </h2>
-                <p className="text-[11px] font-bold text-gray-400 mt-0.5">
+                <p className="text-[12px] font-bold text-gray-400 mt-0.5">
                   Ajuste os dados principais do perfil do gato
                 </p>
               </div>

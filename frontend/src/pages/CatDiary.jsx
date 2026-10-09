@@ -204,7 +204,7 @@ function CheckinCard({ item }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="text-[11px] font-black" style={{ color: tone.hex }}>
+          <span className="text-[12px] font-black" style={{ color: tone.hex }}>
             {hasSignals ? `${signals.length} sinal${signals.length > 1 ? 'is' : ''} de atenção` : 'Tudo normal'}
           </span>
           <span className="text-[9px] text-gray-400 font-bold">{fmtDate(item.date)}</span>
@@ -301,7 +301,7 @@ function ProtocolItemCard({ item, onOpen }) {
           </span>
           <span className="text-[9px] text-gray-400 font-bold">{fmtDate(item.date)}</span>
         </div>
-        <p className="text-[11px] font-black" style={{ color: cfg.hex }}>
+        <p className="text-[12px] font-black" style={{ color: cfg.hex }}>
           {cfg.title}
         </p>
         {cfg.sub && <p className="text-[10px] text-gray-500 font-medium truncate">{cfg.sub}</p>}
@@ -523,7 +523,7 @@ function HistoryView({ catName, catColor, journal, loading, onOpenProtocol, onNe
             ))}
           </div>
         ) : (
-          <p className="text-[11px] font-bold text-gray-500">
+          <p className="text-[12px] font-bold text-gray-500">
             {(journal?.checkins30d ?? 0) > 0
               ? `Nenhum sinal de atenção em ${catName}. Continue registrando: é assim que um padrão aparece cedo.`
               : `Faça o check-in de ${catName} pra começar a ver padrões aqui.`}
@@ -578,7 +578,7 @@ function HistoryView({ catName, catColor, journal, loading, onOpenProtocol, onNe
             <button
               type="button"
               onClick={onNewDay}
-              className="mt-1 px-4 py-2 rounded-full text-[11px] font-black text-white"
+              className="mt-1 px-4 py-2 rounded-full text-[12px] font-black text-white"
               style={{ background: catColor }}
             >
               Fazer check-in
@@ -626,7 +626,7 @@ function ProtocolTodayBlock({ protocols, catColor, onOpen, onAvulso }) {
             <button
               type="button"
               onClick={() => onOpen(p.slug)}
-              className="flex-1 py-2.5 rounded-xl font-black text-[11px] text-white"
+              className="flex-1 py-2.5 rounded-xl font-black text-[12px] text-white"
               style={{ background: `linear-gradient(135deg, ${C.primary} 0%, #4B40C6 100%)` }}
             >
               {p.doneToday || !p.unlocked ? 'Ver protocolo' : 'Abrir dia'}
@@ -635,7 +635,7 @@ function ProtocolTodayBlock({ protocols, catColor, onOpen, onAvulso }) {
               <button
                 type="button"
                 onClick={() => onAvulso(p)}
-                className="px-3.5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-1"
+                className="px-3.5 py-2.5 rounded-xl font-black text-[12px] flex items-center gap-1"
                 style={{ background: RED.bg, color: RED.hex }}
               >
                 <PlusCircle size={13} /> {p.avulsoLabel}
@@ -764,7 +764,7 @@ function NewEntryView({ catId, catName, catColor, catPhoto, draftRef, activeProt
                 }
               >
                 <span className="text-sm">{s.emoji}</span>
-                <span className="text-[11px] font-black">{s.label}</span>
+                <span className="text-[12px] font-black">{s.label}</span>
                 {active && <Check size={12} />}
               </motion.button>
             );
@@ -782,7 +782,7 @@ function NewEntryView({ catId, catName, catColor, catPhoto, draftRef, activeProt
               style={{ background: RED.hex, color: 'white' }}
             >
               <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] font-bold leading-snug">{s.tip}</p>
+              <p className="text-[12px] font-bold leading-snug">{s.tip}</p>
             </motion.div>
           ))}
           {tips.map((s) => (
@@ -910,7 +910,7 @@ function NewEntryView({ catId, catName, catColor, catPhoto, draftRef, activeProt
                     {h.emoji}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-black" style={{ color: done ? '#374151' : '#6B7280' }}>
+                    <p className="text-[12px] font-black" style={{ color: done ? '#374151' : '#6B7280' }}>
                       {h.label}
                     </p>
                     <p className="text-[9px] font-medium text-gray-400 mt-0.5">{h.sub}</p>
@@ -1234,7 +1234,7 @@ export default function CatDiary() {
                       <Calendar size={20} style={{ color: catColor }} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: catColor }}>
+                      <p className="text-[12px] font-black uppercase tracking-[0.18em]" style={{ color: catColor }}>
                         Dia já registrado
                       </p>
                       <h3 className="text-[18px] font-black text-gray-800 leading-tight">Check-in de hoje já feito</h3>

@@ -73,7 +73,7 @@ function CopyButton({ value, label = 'Copiar' }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1400);
       }}
-      className="h-9 px-3 rounded-xl border border-gray-100 text-[11px] font-black text-gray-500 flex items-center gap-1.5 hover:bg-gray-50"
+      className="h-9 px-3 rounded-xl border border-gray-100 text-[12px] font-black text-gray-500 flex items-center gap-1.5 hover:bg-gray-50"
     >
       {copied ? <CheckCircle2 size={13} className="text-green-500" /> : <Copy size={13} />}
       {copied ? 'Copiado' : label}
@@ -289,22 +289,22 @@ export default function AdminAmbassadors() {
                   <div className="rounded-2xl bg-gray-50 p-3">
                     <Users size={13} className="text-gray-400" />
                     <p className="text-sm font-black text-gray-900 mt-1">{Number(item.audience || 0).toLocaleString('pt-BR')}</p>
-                    <p className="text-[11px] text-gray-400">seguidores</p>
+                    <p className="text-[12px] text-gray-400">seguidores</p>
                   </div>
                   <div className="rounded-2xl bg-gray-50 p-3">
                     <p className="text-sm font-black text-gray-900">{item.commissionPercent}%</p>
-                    <p className="text-[11px] text-gray-400">comissao base</p>
+                    <p className="text-[12px] text-gray-400">comissao base</p>
                   </div>
                   <div className="rounded-2xl bg-gray-50 p-3">
                     <p className="text-sm font-black text-gray-900 truncate">{item.affiliateCode}</p>
-                    <p className="text-[11px] text-gray-400">codigo afiliado</p>
+                    <p className="text-[12px] text-gray-400">codigo afiliado</p>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mt-4">
                   <CopyButton value={links.portal} label="Portal" />
                   <CopyButton value={links.store} label="Vitrine" />
-                  <button onClick={() => window.open(links.portal, '_blank', 'noopener,noreferrer')} className="h-9 px-3 rounded-xl bg-[#8B4AFF] text-white text-[11px] font-black flex items-center gap-1.5">
+                  <button onClick={() => window.open(links.portal, '_blank', 'noopener,noreferrer')} className="h-9 px-3 rounded-xl bg-[#8B4AFF] text-white text-[12px] font-black flex items-center gap-1.5">
                     Abrir <ExternalLink size={13} />
                   </button>
                 </div>

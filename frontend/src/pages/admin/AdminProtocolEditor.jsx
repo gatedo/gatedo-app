@@ -6,8 +6,8 @@ import { makeBlock, BLOCK_TYPES } from '../../components/content/blockTypes';
 
 const C = { purple: '#8B4AFF' };
 const fieldCls = 'w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] font-medium text-gray-700 outline-none focus:border-[#8B4AFF]';
-const labelCls = 'text-[11px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
-const helpCls = 'text-[11px] text-gray-400 font-medium mt-1 leading-relaxed';
+const labelCls = 'text-[12px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
+const helpCls = 'text-[12px] text-gray-400 font-medium mt-1 leading-relaxed';
 
 function centsToReais(cents) {
   return cents == null ? '' : (Number(cents) / 100).toFixed(2).replace('.', ',');
@@ -175,7 +175,7 @@ function AccessEditor({ spec, setSpec, access, setAccess, slug }) {
         <div className="rounded-xl bg-gray-50 p-3">
           <div className="flex items-center gap-1.5 mb-1.5">
             <KeyRound size={11} className="text-gray-400" />
-            <p className="text-[11px] font-black uppercase tracking-wide text-gray-400">Liberar manualmente (teste, sem comprar)</p>
+            <p className="text-[12px] font-black uppercase tracking-wide text-gray-400">Liberar manualmente (teste, sem comprar)</p>
           </div>
           <div className="flex items-center gap-1.5">
             <input className={fieldCls} placeholder="email@do-tutor.com" value={grantEmail} onChange={(e) => setGrantEmail(e.target.value)} />
@@ -206,7 +206,7 @@ function DayEditor({ dia, index, onUpdate, onDelete }) {
     <div className="rounded-[20px] border border-gray-100 bg-white shadow-sm overflow-hidden">
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between px-4 py-3.5">
         <div className="text-left min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-wide text-gray-400">Dia {dia.numero ?? index + 1}</p>
+          <p className="text-[12px] font-black uppercase tracking-wide text-gray-400">Dia {dia.numero ?? index + 1}</p>
           <p className="text-[13px] font-black text-gray-700 truncate">{dia.titulo || 'Sem título'}</p>
         </div>
         {open ? <ChevronUp size={16} className="text-gray-300 shrink-0" /> : <ChevronDown size={16} className="text-gray-300 shrink-0" />}
@@ -379,7 +379,7 @@ export default function AdminProtocolEditor() {
         </button>
 
         <h2 className="text-lg font-black text-gray-800 mb-1">{spec?.titulo || editingSlug}</h2>
-        <p className="text-[11px] font-bold text-gray-400 mb-4">{dias.length} dias · edite título, tarefa e conteúdo de cada dia</p>
+        <p className="text-[12px] font-bold text-gray-400 mb-4">{dias.length} dias · edite título, tarefa e conteúdo de cada dia</p>
 
         <AccessEditor spec={spec} setSpec={setSpec} access={access} setAccess={setAccess} slug={editingSlug} />
 
@@ -424,7 +424,7 @@ export default function AdminProtocolEditor() {
       <div className="flex items-center justify-between gap-3 mb-5">
         <div>
           <h2 className="text-lg font-black text-gray-800">Protocolos</h2>
-          <p className="text-[11px] font-bold text-gray-400">{list.length} protocolos</p>
+          <p className="text-[12px] font-bold text-gray-400">{list.length} protocolos</p>
         </div>
         <button type="button" onClick={() => setShowCreateForm((v) => !v)}
           className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-black text-[12px] text-white"
@@ -446,7 +446,7 @@ export default function AdminProtocolEditor() {
               {creating ? <Loader2 size={13} className="animate-spin" /> : 'Criar'}
             </button>
           </div>
-          {createError && <p className="text-[11px] font-bold text-red-500">{createError}</p>}
+          {createError && <p className="text-[12px] font-bold text-red-500">{createError}</p>}
           <p className={helpCls}>Cria o protocolo em rascunho, sem dias — você adiciona os dias na tela seguinte.</p>
         </div>
       )}

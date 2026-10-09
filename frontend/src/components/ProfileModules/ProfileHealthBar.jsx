@@ -130,7 +130,7 @@ const GLOBAL_CSS = `
 /* ══════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════ */
-const NUN = { fontFamily: 'Nunito, sans-serif' };
+const NUN = { fontFamily: 'Asap, sans-serif' };
 
 const fmtDate = (d) => {
   if (!d) return '—';
@@ -266,8 +266,8 @@ function ScoreRing({ score, ring, soft }) {
       </svg>
       <div style={{ position:'absolute', inset:0, borderRadius:'50%', boxShadow:`0 0 0 5px ${soft}` }} />
       <div style={{ position:'relative', zIndex:2, textAlign:'center' }}>
-        <p style={{ ...NUN, fontSize:16, fontWeight:900, color:'#fff', lineHeight:1 }}>{score}</p>
-        <p style={{ ...NUN, fontSize:6, fontWeight:800, letterSpacing:'0.18em', textTransform:'uppercase', color:'rgba(255,255,255,0.60)', marginTop:1 }}>
+        <p style={{ ...NUN, fontSize:16, fontWeight:700, color:'#fff', lineHeight:1 }}>{score}</p>
+        <p style={{ ...NUN, fontSize:6, fontWeight:600, letterSpacing:'0.18em', textTransform:'uppercase', color:'rgba(255,255,255,0.60)', marginTop:1 }}>
           Score
         </p>
       </div>
@@ -328,9 +328,9 @@ function DetailCard({ icon: Icon, label, value, accent }) {
     }}>
       <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
         <Icon size={10} style={{ color:accent, flexShrink:0 }} />
-        <span style={{ fontSize:7, fontWeight:800, letterSpacing:'0.12em', textTransform:'uppercase', color:'#9CA3AF' }}>{label}</span>
+        <span style={{ fontSize:7, fontWeight:600, letterSpacing:'0.12em', textTransform:'uppercase', color:'#9CA3AF' }}>{label}</span>
       </div>
-      <p style={{ fontSize:12, fontWeight:800, color:'#1F2937', lineHeight:1.3 }}>{value}</p>
+      <p style={{ fontSize:12, fontWeight:600, color:'#1F2937', lineHeight:1.3 }}>{value}</p>
     </div>
   );
 }
@@ -345,9 +345,9 @@ function ProgressTrack({ label, value, colorA, colorB, icon: Icon, accent }) {
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
         <div style={{ display:'flex', alignItems:'center', gap:5 }}>
           <Icon size={10} style={{ color:accent }} />
-          <span style={{ fontSize:7.5, fontWeight:800, letterSpacing:'0.12em', textTransform:'uppercase', color:'#6B7280' }}>{label}</span>
+          <span style={{ fontSize:7.5, fontWeight:600, letterSpacing:'0.12em', textTransform:'uppercase', color:'#6B7280' }}>{label}</span>
         </div>
-        <span style={{ fontSize:9, fontWeight:800, color:'#374151' }}>{safe}%</span>
+        <span style={{ fontSize:9, fontWeight:600, color:'#374151' }}>{safe}%</span>
       </div>
       <div style={{ height:5, borderRadius:99, background:'#F3F4F6', overflow:'hidden' }}>
         <motion.div
@@ -433,7 +433,7 @@ export default function ProfileHealthBar({ cat }) {
           }}>
             <Cat size={10} color={tone.ring} strokeWidth={2.4} />
             <span style={{
-              ...NUN, fontSize:7.5, fontWeight:800,
+              ...NUN, fontSize:7.5, fontWeight:600,
               letterSpacing:'0.22em', textTransform:'uppercase',
               color:'rgba(255,255,255,0.90)',
               whiteSpace:'nowrap',
@@ -477,7 +477,7 @@ export default function ProfileHealthBar({ cat }) {
                 {[formatGender(cat?.gender), getDisplayBreed(cat), ageLabel].map(lbl => (
                   <span key={lbl} style={{
                     ...NUN, padding:'2px 8px', borderRadius:99,
-                    fontSize:6.5, fontWeight:900, letterSpacing:'0.10em',
+                    fontSize:6.5, fontWeight:700, letterSpacing:'0.10em',
                     textTransform:'uppercase',
                     background:'linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.13))',
                     color:'#fff',
@@ -487,7 +487,7 @@ export default function ProfileHealthBar({ cat }) {
                 {lifeStageLabel ? (
                   <span style={{
                     ...NUN, padding:'2px 7px', borderRadius:99,
-                    fontSize:6, fontWeight:950, letterSpacing:'0.12em',
+                    fontSize:6, fontWeight:700, letterSpacing:'0.12em',
                     textTransform:'uppercase',
                     background:tone.ring, color:tone.darkBase || '#064e3b',
                     boxShadow:`0 0 12px ${tone.pulse}`,
@@ -496,7 +496,7 @@ export default function ProfileHealthBar({ cat }) {
               </div>
               {/* Eyebrow com nome */}
               <p style={{ display:'none',
-                ...NUN, fontSize:6.5, fontWeight:800, letterSpacing:'0.18em',
+                ...NUN, fontSize:6.5, fontWeight:600, letterSpacing:'0.18em',
                 textTransform:'uppercase', color:'rgba(255,255,255,0.50)',
                 marginBottom:2,
               }}>
@@ -504,7 +504,7 @@ export default function ProfileHealthBar({ cat }) {
               </p>
               {/* Nome grande */}
               <p style={{
-                ...NUN, fontSize:20, fontWeight:900, letterSpacing:'-0.01em',
+                ...NUN, fontSize:20, fontWeight:700, letterSpacing:'-0.01em',
                 color:'#fff', lineHeight:1, marginBottom:5,
               }}>
                 {cat?.name}
@@ -514,7 +514,7 @@ export default function ProfileHealthBar({ cat }) {
                 {[].map(lbl => (
                   <span key={lbl} style={{
                     ...NUN, padding:'2px 9px', borderRadius:99,
-                    fontSize:6.5, fontWeight:900, letterSpacing:'0.10em',
+                    fontSize:6.5, fontWeight:700, letterSpacing:'0.10em',
                     textTransform:'uppercase',
                     background:'rgba(255,255,255,0.22)', color:'#fff',
                     border:'1px solid rgba(255,255,255,0.18)',
@@ -523,7 +523,7 @@ export default function ProfileHealthBar({ cat }) {
                 {[`Saúde ${healthScore}/100`, `Cuidado ${careScore}/100`].map(lbl => (
                   <span key={lbl} style={{
                     ...NUN, padding:'2px 9px', borderRadius:99,
-                    fontSize:6.5, fontWeight:800, letterSpacing:'0.10em',
+                    fontSize:6.5, fontWeight:600, letterSpacing:'0.10em',
                     textTransform:'uppercase',
                     background:'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.10))',
                     color:tone.badgeColor,
@@ -543,7 +543,7 @@ export default function ProfileHealthBar({ cat }) {
             }}>
               <ScoreRing score={healthScore} ring={tone.ring} soft={tone.soft} />
               <p style={{
-                ...NUN, maxWidth:54, fontSize:8, fontWeight:900,
+                ...NUN, maxWidth:54, fontSize:8, fontWeight:700,
                 letterSpacing:'0.08em', color:'rgba(255,255,255,0.78)',
                 textTransform:'uppercase', textAlign:'center', lineHeight:1,
               }}>
@@ -595,7 +595,7 @@ export default function ProfileHealthBar({ cat }) {
                   border:`1px solid ${tone.tintBorder}`,
                   borderLeft:`4px solid ${tone.accentSolid}`,
                 }}>
-                  <p style={{ ...NUN, fontSize:11, fontWeight:700, color:tone.accentText, lineHeight:1.5 }}>
+                  <p style={{ ...NUN, fontSize:12, fontWeight:600, color:tone.accentText, lineHeight:1.5 }}>
                     {statusText}
                   </p>
                 </div>
@@ -608,7 +608,7 @@ export default function ProfileHealthBar({ cat }) {
                 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:7 }}>
                     <BrainCircuit size={12} style={{ color:tone.accentSolid }} />
-                    <span style={{ ...NUN, fontSize:7.5, fontWeight:800, letterSpacing:'0.18em', textTransform:'uppercase', color:'#9CA3AF' }}>
+                    <span style={{ ...NUN, fontSize:7.5, fontWeight:600, letterSpacing:'0.18em', textTransform:'uppercase', color:'#9CA3AF' }}>
                       Leitura Preditiva
                     </span>
                   </div>
@@ -659,7 +659,7 @@ export default function ProfileHealthBar({ cat }) {
                             :             <Sparkles     size={12} style={{ color:acc }} />}
                           </div>
                           <div>
-                            <p style={{ ...NUN, fontSize:10, fontWeight:800, color:txt, lineHeight:1.3 }}>{alert.title}</p>
+                            <p style={{ ...NUN, fontSize:10, fontWeight:600, color:txt, lineHeight:1.3 }}>{alert.title}</p>
                             <p style={{ ...NUN, fontSize:9, color:'#6B7280', lineHeight:1.4, marginTop:2 }}>{alert.description}</p>
                           </div>
                         </div>
@@ -673,7 +673,7 @@ export default function ProfileHealthBar({ cat }) {
                     background:tone.tintBg, border:`1px solid ${tone.tintBorder}`, borderLeft:`3px solid ${tone.accentSolid}`,
                   }}>
                     <CheckCircle2 size={13} style={{ color:tone.accentSolid }} />
-                    <p style={{ ...NUN, fontSize:10, fontWeight:700, color:tone.accentText }}>
+                    <p style={{ ...NUN, fontSize:10, fontWeight:600, color:tone.accentText }}>
                       Nenhuma pendência relevante detectada no momento.
                     </p>
                   </div>

@@ -151,7 +151,7 @@ export default function StudioModuleShell({
                   </div>
                   <div>
                     <p className="text-sm font-black">{selectedPet?.name || 'Nenhum gato selecionado'}</p>
-                    <p className="text-[11px] text-white/45">
+                    <p className="text-[12px] text-white/45">
                       {selectedPet?.breed || 'Volte ao Studio para escolher o perfil correto'}
                     </p>
                   </div>
@@ -167,7 +167,7 @@ export default function StudioModuleShell({
                       <button
                         key={preset}
                         onClick={() => setSelectedPreset(preset)}
-                        className="px-3 py-2 rounded-full text-[11px] font-black transition-all"
+                        className="px-3 py-2 rounded-full text-[12px] font-black transition-all"
                         style={{
                           background: active ? C.accent : 'rgba(255,255,255,0.06)',
                           color: active ? '#1a1a00' : 'rgba(255,255,255,0.7)',
@@ -211,7 +211,7 @@ export default function StudioModuleShell({
                   <>
                     <Upload size={22} className="text-white/40 mb-3" />
                     <p className="text-sm font-black">Enviar foto base</p>
-                    <p className="text-[11px] text-white/45 mt-2">
+                    <p className="text-[12px] text-white/45 mt-2">
                       Selecione a imagem do gato para gerar o resultado.
                     </p>
                   </>
@@ -249,7 +249,7 @@ export default function StudioModuleShell({
                     <Check size={16} color={C.accent} className="mt-0.5" />
                     <div>
                       <p className="text-sm font-black text-white">Criação concluída</p>
-                      <p className="text-[11px] text-white/55 mt-1">
+                      <p className="text-[12px] text-white/55 mt-1">
                         Asset salvo no Studio. Agora você já pode usar no Comunigato.
                       </p>
                     </div>
@@ -265,7 +265,7 @@ export default function StudioModuleShell({
                     <Clock3 size={16} className="text-amber-400 mt-0.5" />
                     <div>
                       <p className="text-sm font-black text-white">Selecione um gato no Studio</p>
-                      <p className="text-[11px] text-white/55 mt-1">
+                      <p className="text-[12px] text-white/55 mt-1">
                         A geração final deve sempre estar ligada ao pet ativo.
                       </p>
                     </div>
@@ -275,7 +275,7 @@ export default function StudioModuleShell({
 
               <button
                 onClick={() => navigate('/alerts')}
-                className="w-full py-3 rounded-[18px] border border-white/10 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-[18px] border border-white/10 text-[12px] font-black uppercase tracking-wider flex items-center justify-center gap-2"
                 style={{ background: 'rgba(255,255,255,0.04)' }}
               >
                 <Bell size={14} />
@@ -290,7 +290,7 @@ export default function StudioModuleShell({
             <Wand2 size={16} className="text-white/60 mt-0.5" />
             <div>
               <p className="text-sm font-black">Fluxo real do Studio ativado</p>
-              <p className="text-[11px] text-white/55 mt-1">
+              <p className="text-[12px] text-white/55 mt-1">
                 Agora este módulo já sobe mídia, chama IA, persiste em StudioCreation e dispara atualização de XP.
               </p>
             </div>

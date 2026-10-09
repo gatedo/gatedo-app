@@ -627,7 +627,7 @@ function SocialCardModal({ post, onClose, onCopyCaption, onCopyLink }) {
                   {catName}
                 </h3>
 
-                <p className="text-[11px] font-bold text-white/65 mb-3">
+                <p className="text-[12px] font-bold text-white/65 mb-3">
                   por {author}
                 </p>
 
@@ -636,7 +636,7 @@ function SocialCardModal({ post, onClose, onCopyCaption, onCopyLink }) {
                 </p>
 
                 <div className="rounded-[18px] px-4 py-3 bg-white/10 border border-white/10">
-                  <p className="text-[11px] font-black text-[#e1ff00] mb-1">
+                  <p className="text-[12px] font-black text-[#e1ff00] mb-1">
                     Meu gato também vive no GATEDO 🐾
                   </p>
                   <p className="text-[10px] text-white/75 font-medium">
@@ -786,7 +786,7 @@ function CommentsDrawer({ open, post, onClose, onCommentAdded, showToast }) {
                 <p className="text-[10px] font-black text-gray-700 mb-1">
                   {post?.author?.name}
                 </p>
-                <p className="text-[11px] text-gray-600 leading-relaxed">
+                <p className="text-[12px] text-gray-600 leading-relaxed">
                   {post?.caption || 'Post sem texto'}
                 </p>
               </div>
@@ -824,7 +824,7 @@ function CommentsDrawer({ open, post, onClose, onCommentAdded, showToast }) {
                     </div>
                     <div className="flex-1 min-w-0 rounded-[18px] border border-gray-100 bg-white p-3 shadow-sm">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-[11px] font-black text-gray-800">
+                        <p className="text-[12px] font-black text-gray-800">
                           {comment.author?.name || 'Tutor'}
                         </p>
                         {comment.isMine && (
@@ -833,7 +833,7 @@ function CommentsDrawer({ open, post, onClose, onCommentAdded, showToast }) {
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-gray-600 leading-relaxed mt-1">
+                      <p className="text-[12px] text-gray-600 leading-relaxed mt-1">
                         {comment.content}
                       </p>
                     </div>

@@ -428,7 +428,7 @@ function StudioFounderModal({ onClose, onOpenFounders }) {
             </div>
             <div>
               <p className="text-sm font-black text-white">Fundadores entram primeiro</p>
-              <p className="text-[11px] text-white/45 font-semibold leading-relaxed">
+              <p className="text-[12px] text-white/45 font-semibold leading-relaxed">
                 Mais voz nas features, acesso prioritario e participacao direta no refinamento do Studio.
               </p>
             </div>
@@ -452,7 +452,7 @@ function StudioPriorityCard({ title, text, tone }) {
     <div className="rounded-[18px] p-4"
       style={{ background: 'rgba(255,255,255,0.055)', border: `1px solid ${tone}55` }}>
       <p className="text-sm font-black" style={{ color: tone }}>{title}</p>
-      <p className="text-[11px] text-white/46 font-semibold leading-relaxed mt-1">{text}</p>
+      <p className="text-[12px] text-white/46 font-semibold leading-relaxed mt-1">{text}</p>
     </div>
   );
 }

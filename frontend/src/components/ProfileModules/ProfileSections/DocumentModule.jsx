@@ -372,7 +372,7 @@ function FolderCard({ item, onClick, onAdd }) {
           <Icon size={24} />
         </div>
 
-        <p className="text-[11px] font-black text-gray-800 uppercase tracking-tighter">
+        <p className="text-[12px] font-black text-gray-800 uppercase tracking-tighter">
           {item.label || meta.label}
         </p>
 
@@ -760,7 +760,7 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#DFFF40]/80">Biblioteca viva</p>
               <h3 className="text-lg font-black tracking-tight mt-1">Documentos do GATO</h3>
-              <p className="text-[11px] text-white/68 mt-2 max-w-[260px] leading-relaxed">
+              <p className="text-[12px] text-white/68 mt-2 max-w-[260px] leading-relaxed">
                 Centralize exames, receitas, laudos e arquivos oficiais com exportação rápida para Drive ou iCloud.
               </p>
             </div>

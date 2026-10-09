@@ -539,11 +539,11 @@ function MemorialGrid({
                         Eternizado
                       </p>
 
-                      <p className="text-[11px] text-white/45 font-bold mt-2 truncate">
+                      <p className="text-[12px] text-white/45 font-bold mt-2 truncate">
                         Tutor: {tutorName}
                       </p>
 
-                      <p className="text-[11px] text-white/40 mt-1 truncate">
+                      <p className="text-[12px] text-white/40 mt-1 truncate">
                         {item?.message
                           ? `“${item.message}”`
                           : 'Toque para ver o legado'}

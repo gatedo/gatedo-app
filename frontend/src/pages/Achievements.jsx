@@ -52,7 +52,7 @@ export default function Achievements() {
             }`} style={{ backgroundColor: badge.earned ? `${badge.color}20` : '', color: badge.earned ? badge.color : '#9ca3af' }}>
               {badge.earned ? <badge.icon size={28} /> : <Lock size={24} />}
             </div>
-            <h3 className="text-[11px] font-black text-gray-800 uppercase leading-tight mb-1">{badge.name}</h3>
+            <h3 className="text-[12px] font-black text-gray-800 uppercase leading-tight mb-1">{badge.name}</h3>
             <p className="text-[9px] font-bold text-gray-400 leading-tight">{badge.desc}</p>
           </motion.div>
         ))}

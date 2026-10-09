@@ -139,7 +139,7 @@ export default function DiaryBanner({ cat, themeColor = '#6366f1', navigate }) {
             <ChevronRight size={16} style={{ color: themeColor }} className="flex-shrink-0" />
           </div>
 
-          <p className="text-[11px] text-gray-500 font-medium mt-1 leading-snug line-clamp-2">
+          <p className="text-[12px] text-gray-500 font-medium mt-1 leading-snug line-clamp-2">
             Registre humor, hábitos e pequenas pistas do dia a dia de {cat?.name || 'seu gato'}.
           </p>
         </div>
@@ -179,7 +179,7 @@ export default function DiaryBanner({ cat, themeColor = '#6366f1', navigate }) {
                 </p>
               </div>
 
-              <p className="text-[11px] font-bold text-gray-700 mt-1 truncate">
+              <p className="text-[12px] font-bold text-gray-700 mt-1 truncate">
                 Nível {level} · {xpg}/{xpMax} XPG
               </p>
             </div>

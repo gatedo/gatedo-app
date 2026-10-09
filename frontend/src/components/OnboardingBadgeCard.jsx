@@ -97,7 +97,7 @@ export default function OnboardingBadgeCard({ cat }) {
         <button
           onClick={() => share('INSTAGRAM')}
           disabled={sharing === 'INSTAGRAM'}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl font-black text-[11px] text-white"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl font-black text-[12px] text-white"
           style={{ background: sharing === 'INSTAGRAM' ? '#9ca3af' : 'linear-gradient(135deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)' }}
         >
           {done === 'INSTAGRAM' ? <Check size={13} /> : <Share2 size={13} />} Instagram
@@ -105,7 +105,7 @@ export default function OnboardingBadgeCard({ cat }) {
         <button
           onClick={() => share('WHATSAPP')}
           disabled={sharing === 'WHATSAPP'}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl font-black text-[11px] text-white"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl font-black text-[12px] text-white"
           style={{ background: sharing === 'WHATSAPP' ? '#9ca3af' : '#25D366' }}
         >
           {done === 'WHATSAPP' ? <Check size={13} /> : <Share2 size={13} />} WhatsApp

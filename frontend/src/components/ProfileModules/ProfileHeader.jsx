@@ -25,7 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { resolveThemeHex } from './CatIdentityCard';
 import { getCatLifeBadge, getPrimaryTutorBadge } from '../../utils/membershipMeta';
 
-const NUN = { fontFamily: 'Nunito, sans-serif' };
+const NUN = { fontFamily: 'Asap, sans-serif' };
 
 const NAV_ITEMS = [
   {
@@ -198,7 +198,7 @@ const SocialPill = memo(function SocialPill({ cat, onClick }) {
           style={{
             ...NUN,
             fontSize: 8,
-            fontWeight: 900,
+            fontWeight: 700,
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
             color: '#4C1D95',
@@ -211,7 +211,7 @@ const SocialPill = memo(function SocialPill({ cat, onClick }) {
           style={{
             ...NUN,
             fontSize: 10,
-            fontWeight: 800,
+            fontWeight: 600,
             color: '#374151',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -394,7 +394,7 @@ const RightSidebar = memo(function RightSidebar({
                   style={{
                     ...NUN,
                     fontSize: 9,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     letterSpacing: '0.12em',
                     textTransform: 'uppercase',
                     color: themeHex,
@@ -407,7 +407,7 @@ const RightSidebar = memo(function RightSidebar({
                   style={{
                     ...NUN,
                     fontSize: 18,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     color: '#111827',
                     lineHeight: 1,
                     whiteSpace: 'nowrap',
@@ -421,8 +421,8 @@ const RightSidebar = memo(function RightSidebar({
                 <div
                   style={{
                     ...NUN,
-                    fontSize: 11,
-                    fontWeight: 700,
+                    fontSize: 12,
+                    fontWeight: 600,
                     color: '#6B7280',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -448,7 +448,7 @@ const RightSidebar = memo(function RightSidebar({
                   style={{
                     ...NUN,
                     fontSize: 10,
-                    fontWeight: 800,
+                    fontWeight: 600,
                     color: '#6B7280',
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
@@ -460,7 +460,7 @@ const RightSidebar = memo(function RightSidebar({
                   style={{
                     ...NUN,
                     fontSize: 10,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     color: themeHex,
                   }}
                 >
@@ -546,7 +546,7 @@ const RightSidebar = memo(function RightSidebar({
                         style={{
                           ...NUN,
                           fontSize: 13,
-                          fontWeight: 900,
+                          fontWeight: 700,
                           color: '#111827',
                           lineHeight: 1.1,
                         }}
@@ -557,7 +557,7 @@ const RightSidebar = memo(function RightSidebar({
                         style={{
                           ...NUN,
                           fontSize: 10,
-                          fontWeight: 800,
+                          fontWeight: 600,
                           color: '#6B7280',
                           marginTop: 2,
                         }}
@@ -612,7 +612,7 @@ const RightSidebar = memo(function RightSidebar({
                     style={{
                       ...NUN,
                       fontSize: 13,
-                      fontWeight: 900,
+                      fontWeight: 700,
                       color: '#111827',
                       lineHeight: 1.1,
                     }}
@@ -623,7 +623,7 @@ const RightSidebar = memo(function RightSidebar({
                     style={{
                       ...NUN,
                       fontSize: 10,
-                      fontWeight: 800,
+                      fontWeight: 600,
                       color: '#6B7280',
                       marginTop: 2,
                     }}
@@ -673,7 +673,7 @@ const RightSidebar = memo(function RightSidebar({
                       style={{
                         ...NUN,
                         fontSize: 13,
-                        fontWeight: 900,
+                        fontWeight: 700,
                         color: '#111827',
                         lineHeight: 1.1,
                       }}
@@ -684,7 +684,7 @@ const RightSidebar = memo(function RightSidebar({
                       style={{
                         ...NUN,
                         fontSize: 10,
-                        fontWeight: 800,
+                        fontWeight: 600,
                         color: '#6B7280',
                         marginTop: 2,
                       }}
@@ -896,7 +896,7 @@ function ProfileHeader({
                 style={{
                   ...NUN,
                   fontSize: 9,
-                  fontWeight: 900,
+                  fontWeight: 700,
                   letterSpacing: '0.10em',
                   textTransform: 'uppercase',
               color: '#8B4AFF',
@@ -913,7 +913,7 @@ function ProfileHeader({
                 style={{
                   ...NUN,
                   fontSize: 15,
-                  fontWeight: 900,
+                  fontWeight: 700,
                   color: '#111827',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -938,7 +938,7 @@ function ProfileHeader({
                       background: tutorBadge.gradient || tutorBadge.pillBg || tutorBadge.color || themeHex,
                       color: tutorBadge.pillText || '#ebfc66',
                       fontSize: 7,
-                      fontWeight: 900,
+                      fontWeight: 700,
                       letterSpacing: '0.08em',
                       textTransform: 'uppercase',
                       whiteSpace: 'nowrap',
@@ -959,7 +959,7 @@ function ProfileHeader({
                     background: `${themeHex}12`,
                     color: themeHex,
                     fontSize: 7,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     letterSpacing: '0.12em',
                     textTransform: 'uppercase',
                   }}

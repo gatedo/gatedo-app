@@ -146,7 +146,7 @@ export default function Guia() {
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <p className="text-[13px] font-black text-gray-800 truncate">{entry.title}</p>
                 </div>
-                <p className="text-[11px] font-medium text-gray-400 truncate">{entry.excerpt || entry.category?.nome}</p>
+                <p className="text-[12px] font-medium text-gray-400 truncate">{entry.excerpt || entry.category?.nome}</p>
               </div>
               <UrgencyBadge urgency={entry.urgency} />
               <ChevronRight size={16} className="text-gray-300 shrink-0" />

@@ -584,7 +584,7 @@ export default function CatIdentityCard({ cat, tutor: tutorProp, onOpenVets }) {
                       {lifeStageMeta.label}
                     </span>
                   )}
-                  <p className="text-white font-black text-[11px] leading-tight">
+                  <p className="text-white font-black text-[12px] leading-tight">
                     {formatCatAgeWithDate(cat)}
                   </p>
                 </div>

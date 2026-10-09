@@ -92,7 +92,7 @@ function MetaNaming() {
         ].map(row => (
           <div key={row.key} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl border border-gray-100">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-black text-gray-400 mb-0.5">{row.label}</p>
+              <p className="text-[12px] font-black text-gray-400 mb-0.5">{row.label}</p>
               <p className="text-xs font-mono font-bold text-gray-800 truncate">{row.val}</p>
             </div>
             <button onClick={() => copy(row.val, row.key)}
@@ -223,9 +223,9 @@ function KanbanBoard() {
                   <p className="text-xs text-gray-800 font-medium leading-relaxed mb-2">{task.text}</p>
                   <div className="flex items-center justify-between">
                     <div className="flex gap-1.5">
-                      <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md text-white"
+                      <span className="text-[12px] font-black px-1.5 py-0.5 rounded-md text-white"
                         style={{ backgroundColor: TAG_COLORS[task.tag] || '#6b7280' }}>{task.tag}</span>
-                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md
+                      <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-md
                         ${task.priority === 'Alta' ? 'bg-red-50 text-red-500' : task.priority === 'Média' ? 'bg-amber-50 text-amber-500' : 'bg-gray-100 text-gray-400'}`}>
                         {task.priority}
                       </span>
@@ -333,7 +333,7 @@ function CopyEditor() {
             style={active === id ? { backgroundColor: P } : {}}
             onClick={() => setActive(id)}>
             <Edit3 size={11} className="flex-shrink-0" />
-            <span className="text-[11px] font-bold truncate flex-1">{docs[id].name}</span>
+            <span className="text-[12px] font-bold truncate flex-1">{docs[id].name}</span>
             <button onClick={e => { e.stopPropagation(); deleteDoc(id); }}
               className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400">
               <Trash2 size={10} />
@@ -359,7 +359,7 @@ function CopyEditor() {
               <p className="text-sm font-black text-gray-900">{currentDoc.name}</p>
               <div className="flex items-center gap-2">
                 {saved && <span className="text-[10px] text-green-500 font-bold flex items-center gap-1"><CheckCircle2 size={11} /> Salvo</span>}
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[12px] text-gray-400">
                   {currentDoc.updatedAt ? `Atualizado ${new Date(currentDoc.updatedAt).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})}` : ''}
                 </span>
               </div>
@@ -387,7 +387,7 @@ function CopyEditor() {
                 <div key={tmpl.id} className="space-y-1">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] font-black text-gray-500">{tmpl.label}</p>
-                    <span className={`text-[11px] font-bold ${val.length > 280 ? 'text-red-400' : 'text-gray-300'}`}>
+                    <span className={`text-[12px] font-bold ${val.length > 280 ? 'text-red-400' : 'text-gray-300'}`}>
                       {val.length} chars
                     </span>
                   </div>
@@ -492,9 +492,9 @@ function BrainstormBank() {
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white"
+                <span className="text-[12px] font-black px-2 py-0.5 rounded-full text-white"
                   style={{ backgroundColor: TAG_COLORS[idea.tag] || '#6b7280' }}>{idea.tag}</span>
-                <span className="text-[11px] text-gray-400">{idea.createdAt}</span>
+                <span className="text-[12px] text-gray-400">{idea.createdAt}</span>
               </div>
             </div>
           ))}
@@ -534,7 +534,7 @@ function BrainstormBank() {
                   <p className="text-xs font-bold text-gray-800 truncate">{link.title}</p>
                   <p className="text-[10px] text-gray-400 truncate">{link.url}</p>
                 </div>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">{link.category}</span>
+                <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">{link.category}</span>
                 <div className="flex gap-1 flex-shrink-0">
                   <button onClick={() => toggleStar(links, setLinks, link.id)}
                     className={link.starred ? 'text-amber-400' : 'text-gray-200 hover:text-amber-400'}>
@@ -643,12 +643,12 @@ function SalesDiagnosis() {
                   <Icon size={18} style={{ color: step.color }} />
                 </div>
                 <p className="text-[10px] font-black text-gray-700">{step.label}</p>
-                <p className="text-[11px] text-gray-400 mb-2">{step.desc}</p>
+                <p className="text-[12px] text-gray-400 mb-2">{step.desc}</p>
                 <input value={Object.values(metrics)[i] || ''}
                   onChange={e => setMetrics(prev => { const keys = Object.keys(prev); const upd = {...prev}; upd[keys[i]] = e.target.value; return upd; })}
                   placeholder="valor"
                   className="w-full text-center text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-purple-300" />
-                {d && <span className="mt-1 text-[11px] font-bold" style={{ color: d.color }}>{d.label}</span>}
+                {d && <span className="mt-1 text-[12px] font-bold" style={{ color: d.color }}>{d.label}</span>}
                 <p className="text-[10px] text-gray-300 mt-0.5 leading-tight">{step.benchmark}</p>
               </div>
             );
@@ -702,7 +702,7 @@ function SalesDiagnosis() {
                     {item.text}
                   </p>
                   {item.hard && !checks[item.id] && (
-                    <span className="text-[11px] font-black text-red-400">🔑 Crítico para vendas</span>
+                    <span className="text-[12px] font-black text-red-400">🔑 Crítico para vendas</span>
                   )}
                 </div>
               </label>
@@ -758,7 +758,7 @@ function AdSpy() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <p className="text-sm font-black text-gray-900">{r.name}</p>
-                <span className="text-[11px] font-black px-2 py-0.5 rounded-full text-white"
+                <span className="text-[12px] font-black px-2 py-0.5 rounded-full text-white"
                   style={{ backgroundColor: r.color }}>{r.tag}</span>
               </div>
               <p className="text-xs text-gray-500 leading-relaxed">{r.desc}</p>
@@ -777,9 +777,9 @@ function AdSpy() {
                 <span className="w-5 h-5 rounded-lg text-[10px] font-black text-white flex items-center justify-center flex-shrink-0"
                   style={{ backgroundColor: P }}>{i+1}</span>
                 <p className="text-xs font-black text-gray-900">{f.name}</p>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${P}15`, color: P }}>{f.type}</span>
+                <span className="text-[12px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${P}15`, color: P }}>{f.type}</span>
               </div>
-              <p className="text-[11px] text-gray-500 italic leading-relaxed pl-7">"{f.example}"</p>
+              <p className="text-[12px] text-gray-500 italic leading-relaxed pl-7">"{f.example}"</p>
             </div>
           ))}
         </div>
@@ -920,17 +920,17 @@ function ContentCalendar() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: channel.color }}>
+                              <span className="inline-flex items-center gap-1 text-[12px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: channel.color }}>
                                 <Icon size={9} /> {channel.label}
                               </span>
-                              <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{item.status}</span>
-                              <span className="text-[11px] font-bold text-gray-400">{item.time}</span>
+                              <span className="text-[12px] font-black px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{item.status}</span>
+                              <span className="text-[12px] font-bold text-gray-400">{item.time}</span>
                             </div>
                             <p className="text-sm font-black text-gray-900 leading-tight">{item.title}</p>
-                            <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{item.objective || item.copy}</p>
+                            <p className="text-[12px] text-gray-500 mt-1 line-clamp-2">{item.objective || item.copy}</p>
                             <div className="flex gap-1.5 mt-2 flex-wrap">
-                              {item.drive && <a href={item.drive} target="_blank" rel="noreferrer" className="text-[11px] font-black px-2 py-1 rounded-lg bg-blue-50 text-blue-600 inline-flex items-center gap-1"><Cloud size={10} /> Drive</a>}
-                              {channel.path && <a href={channel.path} target={channel.path.startsWith('http') ? '_blank' : '_self'} rel="noreferrer" className="text-[11px] font-black px-2 py-1 rounded-lg bg-purple-50 text-purple-600 inline-flex items-center gap-1"><ExternalLink size={10} /> Canal</a>}
+                              {item.drive && <a href={item.drive} target="_blank" rel="noreferrer" className="text-[12px] font-black px-2 py-1 rounded-lg bg-blue-50 text-blue-600 inline-flex items-center gap-1"><Cloud size={10} /> Drive</a>}
+                              {channel.path && <a href={channel.path} target={channel.path.startsWith('http') ? '_blank' : '_self'} rel="noreferrer" className="text-[12px] font-black px-2 py-1 rounded-lg bg-purple-50 text-purple-600 inline-flex items-center gap-1"><ExternalLink size={10} /> Canal</a>}
                             </div>
                           </div>
                         </div>
@@ -995,7 +995,7 @@ function ContentCalendar() {
                   <a key={channel.id} href={channel.path} target={channel.path.startsWith('http') ? '_blank' : '_self'} rel="noreferrer" className="rounded-xl border border-white/10 p-3 hover:bg-white/10 transition-colors">
                     <Icon size={15} style={{ color: channel.color === '#010101' ? '#fff' : channel.color }} />
                     <p className="text-[10px] font-black mt-2">{channel.label}</p>
-                    <p className="text-[11px] text-white/40">{count} itens</p>
+                    <p className="text-[12px] text-white/40">{count} itens</p>
                   </a>
                 );
               })}

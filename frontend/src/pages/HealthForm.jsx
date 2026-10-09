@@ -186,7 +186,7 @@ function XPSuccessPill({ text }) {
       style={{ background:'linear-gradient(135deg,#8B4AFF 0%,#4B40C6 100%)', borderColor:'rgba(255,255,255,0.16)' }}>
       <div className="flex items-center gap-2">
         <Zap size={13} className="text-[#DFFF40]" />
-        <span className="text-[11px] font-black text-white">{text}</span>
+        <span className="text-[12px] font-black text-white">{text}</span>
       </div>
     </motion.div>
   );

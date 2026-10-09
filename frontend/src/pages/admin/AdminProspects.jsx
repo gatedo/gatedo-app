@@ -310,7 +310,7 @@ function StatusBadge({ status, size = 'sm', statusMap = LEAD_STATUS }) {
   const Icon = cfg.icon;
   return (
     <span
-      className={`inline-flex items-center gap-1 font-black rounded-full border ${cfg.badge} ${cfg.border} ${cfg.color} ${size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-[11px] px-2 py-0.5'}`}
+      className={`inline-flex items-center gap-1 font-black rounded-full border ${cfg.badge} ${cfg.border} ${cfg.color} ${size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-[12px] px-2 py-0.5'}`}
       style={statusStyle(cfg)}
     >
       <Icon size={size === 'xs' ? 8 : 9} /> {cfg.label}
@@ -432,7 +432,7 @@ function WaStatusBar({ onStatusChange }) {
             : <><RefreshCw size={14} className="text-gray-400 animate-spin flex-shrink-0" /><span className="text-xs font-black text-gray-400 flex-1">Verificando gateway...</span></>
         }
         {status?.queueSize > 0 && (
-          <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+          <span className="text-[12px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
             {status.queueSize} na fila
           </span>
         )}
@@ -778,7 +778,7 @@ function TemplateManager({ templates, onSave, onClose }) {
           <div className="w-64 border-r border-gray-100 p-3 space-y-3 overflow-y-auto">
             {Object.entries(groupedTemplates).map(([theme, flows]) => (
               <div key={theme} className="space-y-2">
-                <p className="px-2 text-[11px] font-black uppercase tracking-[0.18em] text-gray-300 truncate">
+                <p className="px-2 text-[12px] font-black uppercase tracking-[0.18em] text-gray-300 truncate">
                   {theme}
                 </p>
                 {Object.entries(flows).map(([flow, items]) => {
@@ -821,10 +821,10 @@ function TemplateManager({ templates, onSave, onClose }) {
                             className={`w-full text-left px-2.5 py-2 rounded-xl transition-all group relative bg-white ${active?.id === t.id ? 'border-2 border-purple-200 shadow-sm' : 'border-2 border-transparent hover:border-gray-100'} ${dragId === t.id ? 'opacity-50' : ''}`}>
                             <div className="flex items-center gap-2">
                               <GripVertical size={12} className="text-gray-300 flex-shrink-0 cursor-grab" />
-                              <span className="text-[11px] font-black" style={{ color: flowColor }}>M{t.stepOrder || 1}</span>
-                              <p className="text-[11px] font-black text-gray-700 truncate flex-1">{t.name}</p>
+                              <span className="text-[12px] font-black" style={{ color: flowColor }}>M{t.stepOrder || 1}</span>
+                              <p className="text-[12px] font-black text-gray-700 truncate flex-1">{t.name}</p>
                             </div>
-                            <div className="mt-1 ml-5 flex items-center gap-1.5 text-[11px] text-gray-400">
+                            <div className="mt-1 ml-5 flex items-center gap-1.5 text-[12px] text-gray-400">
                               <span className="inline-flex items-center gap-0.5"><Timer size={8} />{Number(t.delaySeconds || 0)}s</span>
                               {t.imageUrl && <span className="text-blue-400">img</span>}
                             </div>
@@ -910,7 +910,7 @@ function TemplateManager({ templates, onSave, onClose }) {
                     className="w-full h-10 bg-white border border-purple-100 rounded-xl px-2 py-1" />
                 </div>
               </div>
-              <p className="mt-2 text-[11px] font-bold text-purple-400">
+              <p className="mt-2 text-[12px] font-bold text-purple-400">
                 Organize por Tema pai {'>'} Conjunto. Ex: Lancamento {'>'} Primeiro contato: M1, espera 30s, M2, espera 15s, M3.
               </p>
             </div>
@@ -943,7 +943,7 @@ function TemplateManager({ templates, onSave, onClose }) {
                 <input value={form.linkUrl || ''} onChange={f('linkUrl')} placeholder="https://gatedo.com"
                   className="flex-1 bg-transparent text-sm font-medium focus:outline-none" />
               </div>
-              <p className="text-[11px] text-blue-500 mt-1">
+              <p className="text-[12px] text-blue-500 mt-1">
                 O link gera preview com imagem e titulo do site (igual ao print). Enviado como mensagem separada apos o texto.
               </p>
             </div>
@@ -976,28 +976,28 @@ function TemplateManager({ templates, onSave, onClose }) {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider">Mensagem</label>
-                <span className="text-[11px] text-gray-300">{(form.message||'').length} chars · *negrito* _italico_</span>
+                <span className="text-[12px] text-gray-300">{(form.message||'').length} chars · *negrito* _italico_</span>
               </div>
               <textarea value={form.message || ''} onChange={f('message')} rows={10}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm leading-relaxed focus:outline-none focus:border-purple-400 resize-none" />
-              <p className="text-[11px] text-amber-600 mt-1">
+              <p className="text-[12px] text-amber-600 mt-1">
                 Evite emojis e URLs diretas para nao quebrar no WA. Use *negrito* para destaque.
               </p>
             </div>
 
             {/* Preview WA */}
             <div className="bg-[#ECE5DD] rounded-2xl p-4">
-              <p className="text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Preview WhatsApp</p>
+              <p className="text-[12px] font-black text-gray-500 uppercase tracking-wider mb-2">Preview WhatsApp</p>
               {form.imageUrl && (
                 <div className="bg-white rounded-[14px] overflow-hidden shadow-sm mb-2">
                   <img src={form.imageUrl} alt="" className="w-full max-h-32 object-cover" onError={e => e.target.style.display='none'} />
                 </div>
               )}
               <div className="rounded-[14px] rounded-tl-sm px-4 py-3 shadow-sm" style={{ background: form.bubbleColor || '#ffffff', borderLeft: `4px solid ${form.labelColor || form.color || C.purple}` }}>
-                <p className="text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap">
+                <p className="text-[12px] text-gray-800 leading-relaxed whitespace-pre-wrap">
                   {form.message || <span className="text-gray-300 italic">Mensagem aparece aqui...</span>}
                 </p>
-                <p className="text-[11px] text-gray-400 text-right mt-1">12:00 ok</p>
+                <p className="text-[12px] text-gray-400 text-right mt-1">12:00 ok</p>
               </div>
               {form.linkUrl && (
                 <div className="mt-2 bg-white rounded-[14px] rounded-tl-sm overflow-hidden shadow-sm border border-gray-100">
@@ -1006,7 +1006,7 @@ function TemplateManager({ templates, onSave, onClose }) {
                   </div>
                   <div className="px-3 py-2">
                     <p className="text-[10px] font-black text-gray-700 truncate">{form.linkUrl}</p>
-                    <p className="text-[11px] text-gray-400">Preview rico sera gerado pelo WA</p>
+                    <p className="text-[12px] text-gray-400">Preview rico sera gerado pelo WA</p>
                   </div>
                 </div>
               )}
@@ -1230,12 +1230,12 @@ function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail
       draggable onDragStart={e => e.dataTransfer.setData('contactId', String(contact.id))}
       onClick={() => onOpenDetail(contact)}>
       <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black flex-shrink-0"
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[12px] font-black flex-shrink-0"
           style={{background:`${C.purple}15`, color:C.purple}}>
           {contact.name ? contact.name[0].toUpperCase() : ddd}
         </div>
         <div className="flex-1 min-w-0">
-          {contact.name && <p className="text-[11px] font-black text-gray-700 leading-none mb-0.5 truncate">{contact.name}</p>}
+          {contact.name && <p className="text-[12px] font-black text-gray-700 leading-none mb-0.5 truncate">{contact.name}</p>}
           {editingPhone ? (
             <div className="flex gap-1" onClick={e => e.stopPropagation()}>
               <input value={phoneVal} onChange={e => setPhoneVal(formatPhone(e.target.value))}
@@ -1245,7 +1245,7 @@ function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail
               <button onClick={() => setEditingPhone(false)} className="text-red-400 p-0.5"><X size={10} /></button>
             </div>
           ) : (
-            <span className="text-[11px] font-bold text-gray-500">{contact.phone}</span>
+            <span className="text-[12px] font-bold text-gray-500">{contact.phone}</span>
           )}
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
@@ -1299,7 +1299,7 @@ function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail
             })}
           </div>
           <button onClick={() => { onDelete(contact.id); setMenuOpen(false); }}
-            className="mt-1.5 w-full text-[11px] font-black text-red-400 bg-red-50 border border-red-100 rounded-lg px-2 py-1 flex items-center justify-center gap-1">
+            className="mt-1.5 w-full text-[12px] font-black text-red-400 bg-red-50 border border-red-100 rounded-lg px-2 py-1 flex items-center justify-center gap-1">
             <Trash2 size={9} /> Remover
           </button>
         </div>
@@ -1323,14 +1323,14 @@ function KanbanColumn({ colId, contacts, onMove, onEdit, onDelete, onSendWA, onO
       onDrop={e => { e.preventDefault(); setOver(false); const id = e.dataTransfer.getData('contactId'); if (id) onMove(id, colId); }}>
       <div className={`${cfg.bg} rounded-t-2xl px-3 py-2.5 flex items-center gap-2 border-b ${cfg.border}`} style={statusStyle(cfg)}>
         <Icon size={13} className={cfg.color} />
-        <span className={`text-[11px] font-black ${cfg.color} flex-1`}>{cfg.label}</span>
-        <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${cfg.badge} border ${cfg.border}`} style={statusStyle(cfg, '20')}>{contacts.length}</span>
+        <span className={`text-[12px] font-black ${cfg.color} flex-1`}>{cfg.label}</span>
+        <span className={`text-[12px] font-black px-2 py-0.5 rounded-full ${cfg.badge} border ${cfg.border}`} style={statusStyle(cfg, '20')}>{contacts.length}</span>
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[480px]">
         {contacts.length === 0 && (
           <div className="text-center text-gray-200 text-xs py-8 flex flex-col items-center gap-2">
             <Icon size={14} className="opacity-20" />
-            <span className="text-[11px]">Arraste aqui</span>
+            <span className="text-[12px]">Arraste aqui</span>
           </div>
         )}
         {contacts.map(c => (
@@ -1438,7 +1438,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
           {alreadySent && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
               <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
-              <p className="text-[11px] font-black text-amber-700">
+              <p className="text-[12px] font-black text-amber-700">
                 Ja enviado {contact.sentCount}x — ultima vez {timeAgo(contact.sentAt)}. Confirme antes de reenviar.
               </p>
             </div>
@@ -1447,12 +1447,12 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
           {/* Fields */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-black text-gray-400 uppercase tracking-wider mb-1">Nome</label>
+              <label className="block text-[12px] font-black text-gray-400 uppercase tracking-wider mb-1">Nome</label>
               <input value={name} onChange={e => setName(e.target.value)} placeholder="Nome..."
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-purple-400" />
             </div>
             <div>
-              <label className="block text-[11px] font-black text-gray-400 uppercase tracking-wider mb-1">Telefone</label>
+              <label className="block text-[12px] font-black text-gray-400 uppercase tracking-wider mb-1">Telefone</label>
               <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
                 <Phone size={11} className="text-gray-400 flex-shrink-0" />
                 <span className="text-sm font-medium text-gray-600 truncate text-xs">{contact.phone}</span>
@@ -1463,15 +1463,15 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
           {/* Score */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Lead Score</label>
-              <span className="text-[11px] font-black" style={{color: score>=70?C.emerald:score>=40?C.amber:C.purple}}>{score}</span>
+              <label className="text-[12px] font-black text-gray-400 uppercase tracking-wider">Lead Score</label>
+              <span className="text-[12px] font-black" style={{color: score>=70?C.emerald:score>=40?C.amber:C.purple}}>{score}</span>
             </div>
             <input type="range" min="0" max="100" value={score} onChange={e => setScore(+e.target.value)} className="w-full accent-purple-500" />
           </div>
 
           {/* Status */}
           <div>
-            <label className="block text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">Status</label>
+            <label className="block text-[12px] font-black text-gray-400 uppercase tracking-wider mb-2">Status</label>
             <div className="grid grid-cols-4 gap-1">
               {KANBAN_COLS.map(col => {
                 const s    = statusMap[col] || LEAD_STATUS[col];
@@ -1491,8 +1491,8 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Historico do chat</label>
-              <span className="text-[11px] font-bold text-gray-300">{messages.length} mensagens</span>
+              <label className="text-[12px] font-black text-gray-400 uppercase tracking-wider">Historico do chat</label>
+              <span className="text-[12px] font-bold text-gray-300">{messages.length} mensagens</span>
             </div>
             <div className="rounded-2xl bg-[#ECE5DD] border border-gray-100 p-3 max-h-56 overflow-y-auto space-y-2">
               {messages.length === 0 ? (
@@ -1514,7 +1514,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
                         </span>
                         {msg.sentAt && <span className="text-[10px] text-gray-400">{timeAgo(msg.sentAt)}</span>}
                       </div>
-                      <p className="text-[11px] font-medium leading-relaxed whitespace-pre-wrap">{msg.body}</p>
+                      <p className="text-[12px] font-medium leading-relaxed whitespace-pre-wrap">{msg.body}</p>
                     </div>
                   </div>
                 );
@@ -1524,7 +1524,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
 
           {/* Template selector */}
           <div>
-            <label className="block text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">Template</label>
+            <label className="block text-[12px] font-black text-gray-400 uppercase tracking-wider mb-2">Template</label>
             <div className="space-y-2 mb-3">
               {Object.entries(groupedTemplates).map(([theme, flows]) => (
                 <div key={theme} className="space-y-1">
@@ -1536,7 +1536,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
                         <div className="flex items-center justify-between px-1 pb-1">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: flowColor }} />
-                            <p className="truncate text-[11px] font-black text-gray-500">{flow}</p>
+                            <p className="truncate text-[12px] font-black text-gray-500">{flow}</p>
                           </div>
                           <span className="text-[10px] font-black text-gray-300">{items.length} msg</span>
                         </div>
@@ -1544,9 +1544,9 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
                           {items.map(t => (
                             <button key={t.id} onClick={() => setSelTmpl(t)}
                               className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg border transition-all text-left ${selTmpl?.id === t.id ? 'border-purple-300 bg-white shadow-sm' : 'border-transparent hover:border-gray-100'}`}>
-                              <span className="text-[11px] font-black flex-shrink-0" style={{color:flowColor}}>M{t.stepOrder || 1}</span>
+                              <span className="text-[12px] font-black flex-shrink-0" style={{color:flowColor}}>M{t.stepOrder || 1}</span>
                               <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-black text-gray-700 truncate">{t.name}</p>
+                                <p className="text-[12px] font-black text-gray-700 truncate">{t.name}</p>
                                 <p className="text-[10px] text-gray-400 truncate">{t.category || flow}</p>
                               </div>
                               {t.imageUrl && <ImageIcon size={9} className="text-blue-400 flex-shrink-0" />}
@@ -1577,7 +1577,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
                 >
                   <p className="text-[10px] text-gray-700 leading-relaxed whitespace-pre-wrap line-clamp-5">{selTmpl.message}</p>
                 </div>
-                <button onClick={handleCopy} className="mt-2 flex items-center gap-1 text-[11px] font-black text-gray-400 hover:text-purple-500">
+                <button onClick={handleCopy} className="mt-2 flex items-center gap-1 text-[12px] font-black text-gray-400 hover:text-purple-500">
                   {copied ? <><Check size={9} className="text-emerald-500" /> Copiado!</> : <><Copy size={9} /> Copiar texto</>}
                 </button>
               </div>
@@ -1586,10 +1586,10 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
 
           {/* Tags */}
           <div>
-            <label className="block text-[11px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Tags</label>
+            <label className="block text-[12px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Tags</label>
             <div className="flex flex-wrap gap-1 mb-1.5">
               {tags.map(t => (
-                <span key={t} className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full bg-purple-50 text-purple-500 border border-purple-100">
+                <span key={t} className="inline-flex items-center gap-1 text-[12px] font-black px-2 py-0.5 rounded-full bg-purple-50 text-purple-500 border border-purple-100">
                   #{t} <button onClick={() => setTags(tags.filter(x => x !== t))}>×</button>
                 </span>
               ))}
@@ -1601,7 +1601,7 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
 
           {/* Note */}
           <div>
-            <label className="block text-[11px] font-black text-gray-400 uppercase tracking-wider mb-1">Nota interna</label>
+            <label className="block text-[12px] font-black text-gray-400 uppercase tracking-wider mb-1">Nota interna</label>
             <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
               placeholder="Observacoes..."
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-purple-400 resize-none" />
@@ -1782,7 +1782,7 @@ function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, sequenceTem
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Sequencia de disparo</p>
+              <p className="text-[12px] font-black text-gray-400 uppercase tracking-wider">Sequencia de disparo</p>
               <p className="font-black text-gray-800">{idx+1} / {queue.length} pendentes</p>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50"><X size={15} /></button>
@@ -1812,7 +1812,7 @@ function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, sequenceTem
               {current.name && <p className="font-black text-gray-800 text-sm">{current.name}</p>}
               <p className="font-bold text-gray-600 text-sm">{current.phone}</p>
               {(current.sentCount||0) > 0 && (
-                <p className="text-[11px] text-amber-500 font-black">Ja enviado {current.sentCount}x</p>
+                <p className="text-[12px] text-amber-500 font-black">Ja enviado {current.sentCount}x</p>
               )}
             </div>
           </div>
@@ -1957,7 +1957,7 @@ function AddContactModal({ onClose, onAdd, existingContacts = [] }) {
                 <button key={val} onClick={() => setTarget(val)}
                   className={`p-3 rounded-xl border-2 text-left transition-all ${target===val?'border-purple-300 bg-purple-50':'border-gray-100 hover:border-gray-200'}`}>
                   <p className={`text-xs font-black ${target===val?'text-purple-600':'text-gray-600'}`}>{lbl}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{desc}</p>
+                  <p className="text-[12px] text-gray-400 mt-0.5">{desc}</p>
                 </button>
               ))}
             </div>
@@ -1970,8 +1970,8 @@ function AddContactModal({ onClose, onAdd, existingContacts = [] }) {
               <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${skipDups?'right-0.5':'left-0.5'}`} />
             </div>
             <div>
-              <p className="text-[11px] font-black text-gray-700">Ignorar duplicatas</p>
-              <p className="text-[11px] text-gray-400">Numeros ja existentes serao pulados</p>
+              <p className="text-[12px] font-black text-gray-700">Ignorar duplicatas</p>
+              <p className="text-[12px] text-gray-400">Numeros ja existentes serao pulados</p>
             </div>
           </div>
 
@@ -2045,12 +2045,12 @@ function WaitingList({ contacts, onMoveToQueue, onDelete, onOpenDetail }) {
               style={{background:`linear-gradient(135deg,${C.purple},#5046b0)`}}>
               <Send size={9} /> Mover {selected.size} para Pendente
             </button>
-            <button onClick={() => setSelected(new Set())} className="text-[11px] font-black text-gray-400 px-2 py-1.5 rounded-xl border border-gray-200">
+            <button onClick={() => setSelected(new Set())} className="text-[12px] font-black text-gray-400 px-2 py-1.5 rounded-xl border border-gray-200">
               Limpar
             </button>
           </div>
         )}
-        <button onClick={selectAll} className="text-[11px] font-black text-purple-500 hover:underline">
+        <button onClick={selectAll} className="text-[12px] font-black text-purple-500 hover:underline">
           {selected.size === waiting.length ? 'Desmarcar' : 'Selecionar todos'}
         </button>
       </div>
@@ -2074,9 +2074,9 @@ function WaitingList({ contacts, onMoveToQueue, onDelete, onOpenDetail }) {
                 {c.name?c.name[0].toUpperCase():c.phone.slice(-2)}
               </div>
               <div className="flex-1 min-w-0">
-                {c.name && <p className="text-[11px] font-black text-gray-700 leading-none">{c.name}</p>}
-                <p className="text-[11px] font-bold text-gray-500">{c.phone}</p>
-                {c.note && <p className="text-[11px] text-gray-400 truncate italic">{c.note}</p>}
+                {c.name && <p className="text-[12px] font-black text-gray-700 leading-none">{c.name}</p>}
+                <p className="text-[12px] font-bold text-gray-500">{c.phone}</p>
+                {c.note && <p className="text-[12px] text-gray-400 truncate italic">{c.note}</p>}
               </div>
               {(c.sentCount||0) > 0 && (
                 <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-400 border border-blue-100 flex-shrink-0">
@@ -2411,7 +2411,7 @@ export default function AdminProspects() {
             <MessageSquare size={13} style={{color:C.purple}} />
             <p className="text-xs font-black text-gray-600">Template Ativo</p>
           </div>
-          <button onClick={() => setShowTemplates(true)} className="text-[11px] font-black text-purple-500 hover:underline">
+          <button onClick={() => setShowTemplates(true)} className="text-[12px] font-black text-purple-500 hover:underline">
             Gerenciar templates
           </button>
         </div>
@@ -2448,7 +2448,7 @@ export default function AdminProspects() {
             {activeTmpl.linkUrl && (
               <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
                 <Link size={10} className="text-blue-400 flex-shrink-0" />
-                <span className="text-[11px] font-bold text-blue-500 truncate">{activeTmpl.linkUrl}</span>
+                <span className="text-[12px] font-bold text-blue-500 truncate">{activeTmpl.linkUrl}</span>
                 <span className="text-[10px] text-blue-300 flex-shrink-0">preview rico</span>
               </div>
             )}
@@ -2513,7 +2513,7 @@ export default function AdminProspects() {
             </div>
             <div className="flex gap-1 flex-wrap">
               <button onClick={() => setFilterCol('all')}
-                className={`text-[11px] font-black px-2.5 py-1.5 rounded-xl border transition-all ${filterCol==='all'?'bg-purple-600 text-white border-purple-600':'border-gray-200 text-gray-500'}`}>
+                className={`text-[12px] font-black px-2.5 py-1.5 rounded-xl border transition-all ${filterCol==='all'?'bg-purple-600 text-white border-purple-600':'border-gray-200 text-gray-500'}`}>
                 Todos ({contacts.length})
               </button>
               {KANBAN_COLS.map(col => {
@@ -2523,7 +2523,7 @@ export default function AdminProspects() {
                 if (cnt === 0) return null;
                 return (
                   <button key={col} onClick={() => setFilterCol(col)}
-                    className={`text-[11px] font-black px-2.5 py-1.5 rounded-xl border flex items-center gap-1 transition-all ${filterCol===col?`${s.bg} ${s.color} ${s.border}`:'border-gray-200 text-gray-500'}`}
+                    className={`text-[12px] font-black px-2.5 py-1.5 rounded-xl border flex items-center gap-1 transition-all ${filterCol===col?`${s.bg} ${s.color} ${s.border}`:'border-gray-200 text-gray-500'}`}
                     style={filterCol===col ? statusStyle(s) : {}}>
                     <Icon size={8} /> {s.label} ({cnt})
                   </button>
@@ -2534,7 +2534,7 @@ export default function AdminProspects() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                <tr className="text-[12px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100">
                   <th className="text-left px-4 py-2">Lead</th>
                   <th className="text-left px-4 py-2">Telefone</th>
                   <th className="text-left px-4 py-2">Status</th>
@@ -2555,13 +2555,13 @@ export default function AdminProspects() {
                         <span className="text-[12px] font-bold text-gray-700">{c.name||'—'}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-[11px] font-bold text-gray-500">{c.phone}</td>
+                    <td className="px-4 py-2.5 text-[12px] font-bold text-gray-500">{c.phone}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={c.column} size="xs" statusMap={statusMap} /></td>
                     <td className="px-4 py-2.5 w-20"><ScoreBar score={c.score} /></td>
                     <td className="px-4 py-2.5">
                       {(c.sentCount||0) > 0
-                        ? <span className="text-[11px] font-black px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-100">{c.sentCount}x</span>
-                        : <span className="text-[11px] text-gray-300">—</span>}
+                        ? <span className="text-[12px] font-black px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-100">{c.sentCount}x</span>
+                        : <span className="text-[12px] text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">

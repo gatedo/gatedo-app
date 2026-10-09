@@ -185,7 +185,7 @@ export default function GalleryUploadModal({
                 <h2
                   style={{
                     fontSize: 28,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     color: '#1F2937',
                     textTransform: 'uppercase',
                     fontStyle: 'italic',
@@ -198,8 +198,8 @@ export default function GalleryUploadModal({
 
                 <p
                   style={{
-                    fontSize: 11,
-                    fontWeight: 700,
+                    fontSize: 12,
+                    fontWeight: 600,
                     color: '#9CA3AF',
                     marginTop: 8,
                     marginBottom: 0,
@@ -259,7 +259,7 @@ export default function GalleryUploadModal({
                 }}
               >
                 <UploadCloud size={34} />
-                <span style={{ marginTop: 12, fontSize: 15, fontWeight: 600 }}>
+                <span style={{ marginTop: 12, fontSize: 15, fontWeight: 500 }}>
                   {existingCount >= MAX_FREE_GALLERY
                     ? 'Limite atual atingido'
                     : 'Clique para selecionar imagens'}
@@ -271,7 +271,7 @@ export default function GalleryUploadModal({
                   <h3
                     style={{
                       fontSize: 14,
-                      fontWeight: 900,
+                      fontWeight: 700,
                       color: '#374151',
                       margin: 0,
                     }}
@@ -341,7 +341,7 @@ export default function GalleryUploadModal({
                   style={{
                     textAlign: 'center',
                     fontSize: 14,
-                    fontWeight: 600,
+                    fontWeight: 500,
                     color: uploadMessage.includes('sucesso')
                       ? '#16A34A'
                       : uploadMessage.includes('A carregar')
@@ -365,7 +365,7 @@ export default function GalleryUploadModal({
                   background: '#B495F1',
                   color: '#fff',
                   fontSize: 22,
-                  fontWeight: 900,
+                  fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

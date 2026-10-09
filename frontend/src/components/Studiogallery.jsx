@@ -584,7 +584,7 @@ export default function StudioGallery({ refreshTrigger = 0 }) {
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
               <div className="absolute bottom-1.5 left-1.5">
-                <span className="text-[11px]">{meta.emoji}</span>
+                <span className="text-[12px]">{meta.emoji}</span>
               </div>
 
               <div className="absolute bottom-1.5 right-1.5 opacity-50">
