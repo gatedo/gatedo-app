@@ -7,11 +7,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Caminho baseado no seu print
 import { calcTutorLevelMeta } from '../gamification/gamification.constants';
 import { XP_TIERS } from '../gamification/xp.config';
+import {
+  GANCHO_MAX, LEGACY_CATEGORY, MEDICINE_MESSAGE, PRODUCT_ROLES, PRODUCT_STATUSES,
+  PUBLIC_PRODUCT_WHERE, STORE_CATEGORIES, isBlockedCategory, isValidAffiliateLink,
+  normalizeBadge, normalizeImages, normalizeImportItem, publishBlockers, sameName,
+} from '../store/product-rules';
 
 // Compartilhar produto é uso do app, não dado clínico — XP zero.
 // Ver backend/src/gamification/xp.config.ts.
 const STORE_SHARE_XPT_REWARD = XP_TIERS.ZERO.tutorXp;
- 
+
 @Controller('products')
 export class ProductsController {
   constructor(private prisma: PrismaService) {}
@@ -23,12 +28,78 @@ export class ProductsController {
   }
  
   // ── GET /products ─────────────────────────────────────────────────────────
+  // Loja do app: só publicados. O admin usa GET /products/admin.
   @Get()
   async findAll() {
+    return this.prisma.product.findMany({
+      where: PUBLIC_PRODUCT_WHERE,
+      include: { category: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // ── GET /products/admin ───────────────────────────────────────────────────
+  @Get('admin')
+  @UseGuards(JwtAuthGuard)
+  async findAllAdmin(@Req() req: any) {
+    this.assertAdmin(req);
     return this.prisma.product.findMany({
       include: { category: true },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  // ── GET /products/admin/categories ────────────────────────────────────────
+  // "options" = o que o formulário oferece (sem Saúde e sem Medicamento).
+  @Get('admin/categories')
+  @UseGuards(JwtAuthGuard)
+  async categories(@Req() req: any) {
+    this.assertAdmin(req);
+    const all = await this.prisma.category.findMany({ orderBy: { name: 'asc' } });
+    return {
+      all,
+      options: STORE_CATEGORIES.filter((n) => all.some((c) => sameName(c.name, n))),
+    };
+  }
+
+  // ── POST /products/import/preview  e  POST /products/import ──────────────
+  @Post('import/preview')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async importPreview(@Req() req: any, @Body() body: any) {
+    this.assertAdmin(req);
+    const { items, summary } = await this.buildImportPreview(body);
+    return { summary, items: items.map((i) => (i.ok ? { ...i, data: undefined } : i)) };
+  }
+
+  @Post('import')
+  @UseGuards(JwtAuthGuard)
+  async importProducts(@Req() req: any, @Body() body: any) {
+    this.assertAdmin(req);
+    const preview = await this.buildImportPreview(body);
+    const ok = preview.items.filter((i): i is Extract<typeof i, { ok: true }> => i.ok);
+    // Numa transação e sem criar categoria: o import antigo disparava tudo em
+    // paralelo e criava uma categoria duplicada por produto.
+    await this.prisma.$transaction(ok.map((i) => this.prisma.product.create({ data: i.data as any })));
+    return { ...preview.summary, created: ok.length };
+  }
+
+  private async buildImportPreview(body: any) {
+    const list = Array.isArray(body) ? body : body?.items;
+    if (!Array.isArray(list)) throw new BadRequestException('Formato inválido — esperado array de produtos.');
+    const categories = await this.prisma.category.findMany();
+    const now = new Date();
+    const items = list.map((raw, i) => normalizeImportItem(raw, i, categories, now));
+    return {
+      items,
+      summary: {
+        total: items.length,
+        ok: items.filter((i) => i.ok).length,
+        drafts: items.filter((i) => i.ok && i.status === 'draft').length,
+        published: items.filter((i) => i.ok && i.status === 'published').length,
+        failed: items.filter((i) => !i.ok).length,
+      },
+    };
   }
 
   // ── GET /products/gatedo ─────────────────────────────────────────────────
@@ -42,7 +113,7 @@ export class ProductsController {
         orderBy: { createdAt: 'desc' },
         select: { id: true, slug: true, title: true, summary: true, totalDays: true, spec: true, entitlementProductId: true },
       }),
-      this.prisma.product.findMany({ where: { platform: 'Gatedo' } }),
+      this.prisma.product.findMany({ where: { platform: 'Gatedo', ...PUBLIC_PRODUCT_WHERE } }),
     ]);
 
     const entitlementIds = [
@@ -115,41 +186,125 @@ export class ProductsController {
   // ── GET /products/:id ─────────────────────────────────────────────────────
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
+    const product = await this.prisma.product.findFirst({
+      where: { id, ...PUBLIC_PRODUCT_WHERE },
       include: { category: true },
     });
     if (!product) throw new NotFoundException('Produto não encontrado');
     return product;
   }
- 
-  // ── Resolve categoria por nome (cria se não existir) ─────────────────────
-  private async resolveCategoryId(name: string): Promise<string> {
-    let cat = await this.prisma.category.findFirst({ where: { name } });
-    if (!cat) {
-      cat = await this.prisma.category.create({ data: { name } });
+
+  // ── Categoria: só as que existem (não cria mais por nome). Medicamento é
+  // recusado; Saúde só fica pra quem já está nela, até recategorizar.
+  private async resolveCategory(dto: any, currentCategoryId?: string) {
+    const name = String(dto.categoryName ?? '').trim();
+    if (isBlockedCategory(name)) throw new BadRequestException(MEDICINE_MESSAGE);
+    if (!dto.categoryId && !name) {
+      const current = currentCategoryId
+        ? await this.prisma.category.findUnique({ where: { id: currentCategoryId } })
+        : null;
+      if (!current) throw new BadRequestException('Categoria obrigatória.');
+      return current;
     }
-    return cat.id;
+    const all = await this.prisma.category.findMany();
+    const cat = (dto.categoryId && all.find((c) => c.id === dto.categoryId)) || all.find((c) => sameName(c.name, name));
+    if (!cat) throw new BadRequestException(`Categoria "${name || dto.categoryId}" não existe.`);
+    if (isBlockedCategory(cat.name)) throw new BadRequestException(MEDICINE_MESSAGE);
+    if (sameName(cat.name, LEGACY_CATEGORY) && cat.id !== currentCategoryId) {
+      throw new BadRequestException('Categoria "Saúde" não aceita produto novo.');
+    }
+    return cat;
   }
- 
+
+  // DTO do formulário → campos do Prisma, validando. Só inclui o que veio
+  // (PATCH parcial: o toggle "Mostrar na Home" manda só {featured} e antes
+  // jogava o produto na categoria "Geral").
+  private productFields(dto: any) {
+    const data: Record<string, any> = {};
+    const has = (k: string) => dto[k] !== undefined;
+    const text = (v: any) => (v === null || v === undefined ? null : String(v).trim() || null);
+
+    if (has('name')) {
+      if (!String(dto.name).trim()) throw new BadRequestException('Nome obrigatório.');
+      data.name = String(dto.name).trim();
+    }
+    if (has('description')) data.description = String(dto.description ?? '');
+    if (has('price')) {
+      const price = Number(String(dto.price).replace(',', '.'));
+      if (!Number.isFinite(price) || price < 0) throw new BadRequestException('Preço inválido.');
+      data.price = price;
+    }
+    if (has('platform')) data.platform = text(dto.platform);
+    // externalLink é o campo antigo = linkApp; os dois ficam iguais.
+    const linkApp = has('linkApp') ? dto.linkApp : has('externalLink') ? dto.externalLink : undefined;
+    if (linkApp !== undefined) {
+      const link = text(linkApp);
+      if (link && !isValidAffiliateLink(link)) throw new BadRequestException('Link do app precisa começar com https://');
+      data.linkApp = link;
+      data.externalLink = link;
+    }
+    if (has('linkGroup')) {
+      const link = text(dto.linkGroup);
+      if (link && !isValidAffiliateLink(link)) throw new BadRequestException('Link do grupo precisa começar com https://');
+      data.linkGroup = link;
+    }
+    if (has('images')) {
+      const { valid, invalid } = normalizeImages(dto.images);
+      if (invalid.length) throw new BadRequestException(`Imagem inválida: ${invalid.join(' ')}`);
+      data.images = valid;
+    }
+    if (has('videoReview')) data.videoReview = text(dto.videoReview);
+    if (has('badge')) {
+      const badge = normalizeBadge(dto.badge);
+      if (dto.badge && !badge) throw new BadRequestException(`Badge "${dto.badge}" não está na lista.`);
+      data.badge = badge;
+    }
+    if (has('tags')) data.tags = Array.isArray(dto.tags) ? dto.tags : [];
+    if (has('featured')) data.featured = !!dto.featured;
+    if (has('subid')) data.subid = text(dto.subid)?.slice(0, 60) ?? null;
+    if (has('role')) {
+      if (dto.role && !PRODUCT_ROLES.includes(dto.role)) throw new BadRequestException('Papel inválido.');
+      data.role = dto.role || null;
+    }
+    if (has('commissionPct')) {
+      const v = dto.commissionPct === '' || dto.commissionPct === null ? null : Number(dto.commissionPct);
+      if (v !== null && (!Number.isFinite(v) || v < 0 || v > 100)) throw new BadRequestException('Comissão inválida.');
+      data.commissionPct = v;
+    }
+    if (has('gancho')) {
+      const g = text(dto.gancho);
+      if (g && g.length > GANCHO_MAX) throw new BadRequestException(`Gancho com mais de ${GANCHO_MAX} caracteres.`);
+      data.gancho = g;
+    }
+    if (has('status')) {
+      if (!(PRODUCT_STATUSES as readonly string[]).includes(dto.status)) throw new BadRequestException('Status inválido.');
+      data.status = dto.status;
+    }
+    return data;
+  }
+
+  private assertPublishable(merged: any, categoryName: string) {
+    if (merged.status !== 'published') return;
+    const errors = publishBlockers({ linkApp: merged.linkApp, price: Number(merged.price), images: merged.images, categoryName });
+    if (errors.length) throw new BadRequestException(errors.join(' '));
+  }
+
   // ── POST /products ────────────────────────────────────────────────────────
   @Post()
   @UseGuards(JwtAuthGuard)
   async create(@Req() req: any, @Body() dto: any) {
     this.assertAdmin(req);
-    const categoryId = await this.resolveCategoryId(dto.categoryName || dto.categoryId || 'Geral');
+    const category = await this.resolveCategory(dto);
+    const data = this.productFields({ status: 'draft', ...dto });
+    if (!data.name) throw new BadRequestException('Nome obrigatório.');
+    this.assertPublishable(data, category.name);
     return this.prisma.product.create({
       data: {
-        name:         dto.name,
-        description:  dto.description  || '',
-        price:        dto.price,
-        platform:     dto.platform     || null,
-        externalLink: dto.externalLink || null,
-        images:       dto.images       || [],
-        videoReview:  dto.videoReview  || null,
-        badge:        dto.badge        || null,
-        tags:         Array.isArray(dto.tags) ? dto.tags : [],
-        categoryId,
+        description: '',
+        price: 0,
+        ...(data as any),
+        priceCheckedAt: Number(data.price) > 0 ? new Date() : null,
+        categoryId: category.id,
       },
       include: { category: true },
     });
@@ -160,21 +315,20 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   async update(@Req() req: any, @Param('id') id: string, @Body() dto: any) {
     this.assertAdmin(req);
-    const categoryId = await this.resolveCategoryId(dto.categoryName || dto.categoryId || 'Geral');
+    const current = await this.prisma.product.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException('Produto não encontrado');
+
+    const category = await this.resolveCategory(dto, current.categoryId);
+    const data = this.productFields(dto);
+    // Preço editado, ou "conferi o preço agora" → carimba a data.
+    if ((data.price !== undefined && Number(data.price) !== Number(current.price)) || dto.priceChecked === true) {
+      data.priceCheckedAt = new Date();
+    }
+    this.assertPublishable({ ...current, ...data }, category.name);
+
     return this.prisma.product.update({
       where: { id },
-      data: {
-        name:         dto.name,
-        description:  dto.description,
-        price:        dto.price,
-        platform:     dto.platform,
-        externalLink: dto.externalLink,
-        images:       dto.images,
-        videoReview:  dto.videoReview ?? null,
-        badge:        dto.badge       ?? null,
-        tags:         Array.isArray(dto.tags) ? dto.tags : undefined,
-        categoryId,
-      },
+      data: { ...data, categoryId: category.id },
       include: { category: true },
     });
   }

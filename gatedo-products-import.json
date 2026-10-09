@@ -1,0 +1,482 @@
+[
+  {
+    "categoryId": null,
+    "name": "Petisco Cremoso Churu (kit de sachês)",
+    "description": "Petisco cremoso para dar na mão; vira momento de vínculo.",
+    "price": "0.00",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Em teste nos gatos",
+    "videoReview": null,
+    "tags": [
+      "heroi",
+      "subid:grp_churu"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Petisco"
+  },
+  {
+    "categoryId": null,
+    "name": "Areia Catbio Biodegradável Max Clean 4kg",
+    "description": "Areia biodegradável de grãos finos.",
+    "price": "49.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Recompra",
+    "videoReview": null,
+    "tags": [
+      "grupo-frente",
+      "subid:grp_catbio"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Higiene"
+  },
+  {
+    "categoryId": null,
+    "name": "Ração Úmida Friskies 85g caixa com 15",
+    "description": "Sachê carne ao molho, caixa com 15.",
+    "price": "40.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Recompra",
+    "videoReview": null,
+    "tags": [
+      "grupo-frente",
+      "subid:grp_friskies"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Alimentação"
+  },
+  {
+    "categoryId": null,
+    "name": "Areia Smart Ultra Cat-Bio",
+    "description": "Areia para a caixa do gato. Confira na loja o tamanho do pacote e o tipo de grão antes de comprar.",
+    "price": "0.00",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Teste de margem",
+    "videoReview": null,
+    "tags": [
+      "teste-margem",
+      "subid:grp_smartultra"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Higiene"
+  },
+  {
+    "categoryId": null,
+    "name": "Billy Cat (conferir SKU)",
+    "description": "Areia para a caixa do gato. Confira na loja o tamanho do pacote e o tipo de grão antes de comprar.",
+    "price": "0.00",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Teste de margem",
+    "videoReview": null,
+    "tags": [
+      "teste-margem",
+      "subid:grp_billycat"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Higiene"
+  },
+  {
+    "categoryId": null,
+    "name": "Tapete Arranhador Adesivo Protetor de Sofá 2m",
+    "description": "Protege o sofá e dá lugar certo para arranhar.",
+    "price": "46.66",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Achado",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_tapete"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Enriquecimento"
+  },
+  {
+    "categoryId": null,
+    "name": "GranPlus Gourmet (sachê ou seca)",
+    "description": "Alimento para gatos. Confira sabor, peso e fase de vida (filhote, adulto, castrado) na página da loja.",
+    "price": "0.00",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Recompra",
+    "videoReview": null,
+    "tags": [
+      "reserva",
+      "subid:grp_granplus"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Alimentação"
+  },
+  {
+    "categoryId": null,
+    "name": "Areia Espaço de Bicho Biodegradável Milho e Mandioca 4kg",
+    "description": "Areia para a caixa do gato. Confira na loja o tamanho do pacote e o tipo de grão antes de comprar.",
+    "price": "59.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Recompra",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_espbicho"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Higiene"
+  },
+  {
+    "categoryId": null,
+    "name": "Areia Higiênica Katbom Granulado 6kg",
+    "description": "Areia para a caixa do gato. Confira na loja o tamanho do pacote e o tipo de grão antes de comprar.",
+    "price": "49.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Oferta do dia",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_katbom"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Higiene"
+  },
+  {
+    "categoryId": null,
+    "name": "Areia Mya Cat 100% Mandioca 4kg",
+    "description": "Areia para a caixa do gato. Confira na loja o tamanho do pacote e o tipo de grão antes de comprar.",
+    "price": "35.89",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Oferta do dia",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_myacat"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Higiene"
+  },
+  {
+    "categoryId": null,
+    "name": "Areia Wisecat Mandioca 2kg kit 5",
+    "description": "Areia para a caixa do gato. Confira na loja o tamanho do pacote e o tipo de grão antes de comprar.",
+    "price": "102.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Recompra",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_wisecat"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Higiene"
+  },
+  {
+    "categoryId": null,
+    "name": "Ração Fórmula Natural Fresh Meat Castrados Salmão 10,1kg",
+    "description": "Alimento para gatos. Confira sabor, peso e fase de vida (filhote, adulto, castrado) na página da loja.",
+    "price": "284.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Oferta do dia",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_fnfresh"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Alimentação"
+  },
+  {
+    "categoryId": null,
+    "name": "Ração Quatree Supreme Gatos Adultos Salmão 10,1kg",
+    "description": "Alimento para gatos. Confira sabor, peso e fase de vida (filhote, adulto, castrado) na página da loja.",
+    "price": "191.99",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Oferta do dia",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_quatree"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Alimentação"
+  },
+  {
+    "categoryId": null,
+    "name": "Ração Golden Gatos Castrados Salmão 10kg",
+    "description": "Alimento para gatos. Confira sabor, peso e fase de vida (filhote, adulto, castrado) na página da loja.",
+    "price": "179.00",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Oferta do dia",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_golden"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Alimentação"
+  },
+  {
+    "categoryId": null,
+    "name": "Whiskas Sachê kit 20 x 85g",
+    "description": "Alimento para gatos. Confira sabor, peso e fase de vida (filhote, adulto, castrado) na página da loja.",
+    "price": "49.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Recompra",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_whiskas"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Alimentação"
+  },
+  {
+    "categoryId": null,
+    "name": "Snack Cremoso Nutrisco 56g",
+    "description": "Petisco para gatos. Ofereça como agrado, sem substituir a refeição.",
+    "price": "15.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Oferta do dia",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_nutrisco"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Petisco"
+  },
+  {
+    "categoryId": null,
+    "name": "Petisco Cremoso Sheba Atum",
+    "description": "Petisco para gatos. Ofereça como agrado, sem substituir a refeição.",
+    "price": "12.99",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Oferta do dia",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_sheba"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Petisco"
+  },
+  {
+    "categoryId": null,
+    "name": "Casinha Toca Arranhador MDF 30x47x36",
+    "description": "Para o gato arranhar, brincar e explorar no lugar certo.",
+    "price": "26.90",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Achado",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_toca"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Enriquecimento"
+  },
+  {
+    "categoryId": null,
+    "name": "Kit 4 Arranhadores de Papelão",
+    "description": "Para o gato arranhar, brincar e explorar no lugar certo.",
+    "price": "42.99",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Achado",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_papelao"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Enriquecimento"
+  },
+  {
+    "categoryId": null,
+    "name": "Playground Gatificação Prateleiras MDF",
+    "description": "Para o gato arranhar, brincar e explorar no lugar certo.",
+    "price": "181.87",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Achado",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_playground"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Enriquecimento"
+  },
+  {
+    "categoryId": null,
+    "name": "Kit 8 Brinquedos Varinha Interativa",
+    "description": "Para o gato arranhar, brincar e explorar no lugar certo.",
+    "price": "28.48",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Achado",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_varinha"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Enriquecimento"
+  },
+  {
+    "categoryId": null,
+    "name": "Fonte Inox Newpet 3L Silenciosa",
+    "description": "Fonte de inox silenciosa.",
+    "price": "151.99",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Shopee",
+    "badge": "Achado",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_newpet"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Hidratação"
+  },
+  {
+    "categoryId": null,
+    "name": "Fonte MIW 1,5L com Filtro",
+    "description": "Fonte de água para gatos. Confira capacidade, filtro e voltagem na loja.",
+    "price": "78.99",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Oferta do dia",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_miw"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Hidratação"
+  },
+  {
+    "categoryId": "1d838247-f7e7-4785-b382-cf52f1e02d47",
+    "name": "Cama Suspensa de Janela com Ventosa",
+    "description": "Para o gato descansar perto de você.",
+    "price": "125.00",
+    "promoPrice": null,
+    "images": [],
+    "isDigital": false,
+    "externalLink": "",
+    "stock": 0,
+    "platform": "Mercado Livre",
+    "badge": "Achado",
+    "videoReview": null,
+    "tags": [
+      "grupo",
+      "subid:grp_camajanela"
+    ],
+    "entitlementProductId": null,
+    "categoryName": "Conforto"
+  }
+]

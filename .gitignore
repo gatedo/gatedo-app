@@ -11,3 +11,4 @@ backend/env_dev.env
 # Builds e Cache
 dist/
 .cache/
+.backups/

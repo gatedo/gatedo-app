@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import api from '../../services/api';
 import useSensory from '../../hooks/useSensory';
+import { appLink } from '../../utils/productRules';
 
 const C = { purple: '#8B4AFF' };
 
@@ -59,7 +60,7 @@ export default function StoreRecommendations() {
     api.post('/offers/event', {
       surface: 'STORE_RECOMMENDED', petId: selectedCatId, offerKey: `product-${item.id}`, action: 'CLICK',
     }).catch(() => {});
-    if (item.externalLink) window.open(item.externalLink, '_blank', 'noopener,noreferrer');
+    if (appLink(item)) window.open(appLink(item), '_blank', 'noopener,noreferrer');
   };
 
   return (

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IgentCreditsService } from '../igent/igent-credits.service';
 import { DIARY_SIGNALS, SIGNAL_BY_KEY, signalForProtocol } from '../diary/diary-signals';
+import { PUBLIC_PRODUCT_WHERE } from '../store/product-rules';
 
 const PROTOCOL_XIXI_SLUG = 'xixi-fora-da-caixa';
 
@@ -442,7 +443,7 @@ export class OfferDecisionService {
     if (wantedTags.length === 0) return [];
 
     const products = await this.prisma.product.findMany({
-      where: { tags: { hasSome: wantedTags } },
+      where: { tags: { hasSome: wantedTags }, ...PUBLIC_PRODUCT_WHERE },
       take: 12,
     });
 

@@ -13,13 +13,39 @@ import {
   Star, Share2, TrendingUp, Link, Tag, Gift,
   Users, Copy, Check, Zap, Package, Crown,
   Heart, Award, Flame, Box, Send,
-  Download, Upload, Home, ToggleLeft, ToggleRight
+  Download, Upload, Home, ToggleLeft, ToggleRight, AlertTriangle, Clock, ClipboardCopy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
+import {
+  GANCHO_MAX, HEALTH_WARNING, LEGACY_CATEGORY, MEDICINE_MESSAGE, PRODUCT_BADGES, PRODUCT_ROLES,
+  appLink, buildGroupPost, findHealthClaims, formatCheckedAt, groupPostMissing, isBlockedCategory,
+  isPriceStale, normalizeImages, publishBlockers, sameName,
+} from '../../utils/productRules';
 
 const PARTNERS  = ['Amazon', 'Shopee', 'Mercado Livre', 'Gatedo'];
-const CATS      = ['Saúde', 'Diversão', 'Higiene', 'Conforto', 'Alimentação'];
+const ROLE_LABELS = { heroi: 'Herói', 'grupo-frente': 'Grupo (frente)', grupo: 'Grupo', 'teste-margem': 'Teste de margem', reserva: 'Reserva' };
+const isStale = (p) => Number(p.price) > 0 && isPriceStale(p.priceCheckedAt);
+
+// Trecho da descrição com as promessas de saúde marcadas em amarelo.
+function HealthHighlight({ text }) {
+  const hits = findHealthClaims(text);
+  if (!hits.length) return null;
+  const parts = [];
+  let last = 0;
+  hits.forEach((h, i) => {
+    parts.push(text.slice(last, h.start));
+    parts.push(<mark key={i} className="bg-yellow-200 text-gray-800 rounded px-0.5">{text.slice(h.start, h.end)}</mark>);
+    last = h.end;
+  });
+  parts.push(text.slice(last));
+  return (
+    <div className="mt-2 rounded-2xl border border-yellow-200 bg-yellow-50 p-3">
+      <p className="text-[12px] font-black text-yellow-800 flex items-center gap-1 mb-1"><AlertTriangle size={11} /> {HEALTH_WARNING}</p>
+      <p className="text-xs text-gray-600 whitespace-pre-wrap">{parts}</p>
+    </div>
+  );
+}
 const GRADIENTS = [
   'from-yellow-400 to-orange-500',
   'from-purple-500 to-indigo-600',
@@ -42,7 +68,11 @@ const ICON_OPTIONS = [
   { name: 'Flame', icon: Flame },
 ];
 
-const EMPTY_PROD = { name: '', price: '', platform: 'Amazon', category: 'Saúde', externalLink: '', images: '', videoReview: '', badge: '', description: '', featured: false, tags: [] };
+const EMPTY_PROD = {
+  name: '', price: '', platform: 'Shopee', category: '', linkApp: '', linkGroup: '', images: '', videoReview: '',
+  badge: '', description: '', featured: false, tags: [], status: 'draft', subid: '', role: '', commissionPct: '',
+  gancho: '', priceCheckedAt: null, priceChecked: false,
+};
 
 // Tags de perfil do gato — usadas pelo motor de recomendação da Loja
 // (GET /offers/recommend-products). Marcação manual, sem automação.
@@ -81,18 +111,27 @@ export default function AdminStore() {
   const [cupForm,       setCupForm]       = useState(EMPTY_CUP);
   const [copiedCode,    setCopiedCode]    = useState(null);
 
+  // Loja: categorias, filtros, import com prévia, Copiar post
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [filters,       setFilters]       = useState({ status: '', category: '', role: '', stale: false });
+  const [importPreview, setImportPreview] = useState(null); // { list, summary, items }
+  const [importing,     setImporting]     = useState(false);
+  const [copiedPostId,  setCopiedPostId]  = useState(null);
+
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
     setFetching(true);
     try {
-      const [p, k, c, u] = await Promise.all([
-        api.get('/products'),
+      const [p, k, c, u, cats] = await Promise.all([
+        api.get('/products/admin'),
         api.get('/kits').catch(() => ({ data: [] })),
         api.get('/coupons').catch(() => ({ data: [] })),
         api.get('/users').catch(() => ({ data: [] })),
+        api.get('/products/admin/categories').catch(() => ({ data: { options: [] } })),
       ]);
       setProducts(p.data || []);
+      setCategoryOptions(cats.data?.options || []);
       setKits(k.data || []);
       setCoupons(c.data || []);
       setUsers(u.data || []);
@@ -104,19 +143,48 @@ export default function AdminStore() {
   const openProdModal = (prod = null) => {
     if (prod) {
       setEditingProdId(prod.id);
-      setProdForm({ name: prod.name || '', price: prod.price || '', platform: prod.platform || 'Amazon', category: prod.category?.name || 'Saúde', externalLink: prod.externalLink || '', images: (prod.images || []).join(', '), videoReview: prod.videoReview || '', badge: prod.badge || '', description: prod.description || '', featured: prod.featured ?? false, tags: prod.tags || [] });
+      setProdForm({
+        name: prod.name || '', price: prod.price ?? '', platform: prod.platform || 'Shopee',
+        category: prod.category?.name || '', linkApp: appLink(prod), linkGroup: prod.linkGroup || '',
+        images: (prod.images || []).join('\n'), videoReview: prod.videoReview || '', badge: prod.badge || '',
+        description: prod.description || '', featured: prod.featured ?? false, tags: prod.tags || [],
+        status: prod.status || 'draft', subid: prod.subid || '', role: prod.role || '',
+        commissionPct: prod.commissionPct ?? '', gancho: prod.gancho || '',
+        priceCheckedAt: prod.priceCheckedAt || null, priceChecked: false,
+      });
     } else {
       setEditingProdId(null);
-      setProdForm(EMPTY_PROD);
+      setProdForm({ ...EMPTY_PROD, category: categoryOptions[0] || '' });
     }
     setShowProdModal(true);
   };
 
+  // Imagens: ao sair do campo, separa URLs coladas e mostra uma por linha.
+  const tidyImages = () => {
+    const { valid, invalid } = normalizeImages(prodForm.images);
+    setProdForm(prev => ({ ...prev, images: [...valid, ...invalid].join('\n') }));
+  };
+
+  const formImages = normalizeImages(prodForm.images);
+  const formPrice = parseFloat(String(prodForm.price).replace(',', '.')) || 0;
+  const formBlockers = publishBlockers({ linkApp: prodForm.linkApp.trim(), price: formPrice, images: formImages.valid, categoryName: prodForm.category });
+
   const saveProd = async (e) => {
     e.preventDefault();
+    if (isBlockedCategory(prodForm.category)) { alert(MEDICINE_MESSAGE); return; }
+    if (formImages.invalid.length) { alert(`Imagem inválida:\n${formImages.invalid.join('\n')}`); return; }
+    if (prodForm.status === 'published' && formBlockers.length) { alert(formBlockers.join('\n')); return; }
     setSavingProd(true);
     try {
-      const payload = { name: prodForm.name.trim(), description: prodForm.description.trim() || '', price: parseFloat(String(prodForm.price).replace(',', '.')) || 0, platform: prodForm.platform, externalLink: prodForm.externalLink.trim(), images: prodForm.images.split(',').map(u => u.trim()).filter(Boolean), videoReview: prodForm.videoReview.trim() || null, badge: prodForm.badge.trim() || null, categoryName: prodForm.category, featured: prodForm.featured ?? false, tags: prodForm.tags || [] };
+      const payload = {
+        name: prodForm.name.trim(), description: prodForm.description.trim(), price: formPrice,
+        platform: prodForm.platform, linkApp: prodForm.linkApp.trim() || null, linkGroup: prodForm.linkGroup.trim() || null,
+        images: formImages.valid, videoReview: prodForm.videoReview.trim() || null, badge: prodForm.badge || null,
+        categoryName: prodForm.category, featured: prodForm.featured ?? false, tags: prodForm.tags || [],
+        status: prodForm.status, subid: prodForm.subid.trim() || null, role: prodForm.role || null,
+        commissionPct: prodForm.commissionPct === '' ? null : Number(prodForm.commissionPct),
+        gancho: prodForm.gancho.trim() || null, priceChecked: prodForm.priceChecked,
+      };
       if (editingProdId) {
         const r = await api.patch(`/products/${editingProdId}`, payload);
         setProducts(prev => prev.map(p => p.id === editingProdId ? r.data : p));
@@ -159,28 +227,69 @@ export default function AdminStore() {
     URL.revokeObjectURL(url);
   };
 
+  // Import em 2 passos: prévia (nada gravado) → confirmar.
   const importProducts = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const text = await file.text();
-      const list = JSON.parse(text);
+      const list = JSON.parse(await file.text());
       if (!Array.isArray(list)) throw new Error('Formato inválido — esperado array.');
-      const confirm = window.confirm(`Importar ${list.length} produto(s)? Produtos existentes com mesmo nome serão duplicados.`);
-      if (!confirm) return;
-      setFetching(true);
-      const results = await Promise.allSettled(list.map(p => api.post('/products', p)));
-      const ok  = results.filter(r => r.status === 'fulfilled').length;
-      const err = results.filter(r => r.status === 'rejected').length;
-      await fetchAll();
-      alert(`Importação concluída: ${ok} criados${err ? `, ${err} com erro` : ''}.`);
+      const r = await api.post('/products/import/preview', list);
+      setImportPreview({ list, fileName: file.name, ...r.data });
     } catch (err) {
-      alert('Erro ao importar: ' + err.message);
+      alert('Erro ao ler o arquivo: ' + (err.response?.data?.message || err.message));
     } finally {
-      setFetching(false);
       e.target.value = '';
     }
   };
+
+  const confirmImport = async () => {
+    setImporting(true);
+    try {
+      const r = await api.post('/products/import', importPreview.list);
+      setImportPreview(null);
+      await fetchAll();
+      alert(`Importação concluída: ${r.data.created} criados (${r.data.drafts} rascunho${r.data.failed ? `, ${r.data.failed} recusados` : ''}).`);
+    } catch (err) {
+      alert('Erro ao importar: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // Copiar post: só área de transferência, não envia nada.
+  const copyPost = async (prod) => {
+    try {
+      await navigator.clipboard.writeText(buildGroupPost(prod));
+      setCopiedPostId(prod.id);
+      setTimeout(() => setCopiedPostId(null), 2000);
+    } catch { alert('Não consegui copiar. Copie manualmente.'); }
+  };
+
+  const postButton = (prod, size = 'sm') => {
+    const missing = groupPostMissing(prod);
+    const copied = copiedPostId === prod.id;
+    return (
+      <button type="button" onClick={() => copyPost(prod)} disabled={missing.length > 0}
+        title={missing.length ? `Falta: ${missing.join(', ')}` : 'Copia o texto do post para colar no grupo'}
+        className={`${size === 'sm' ? 'p-2' : 'px-4 py-2.5 text-xs font-black gap-1.5'} flex items-center justify-center rounded-xl transition-all disabled:opacity-30 ${copied ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500 hover:text-[#8B4AFF]'}`}>
+        {copied ? <Check size={14} /> : <ClipboardCopy size={14} />}
+        {size !== 'sm' && (copied ? 'Copiado' : 'Copiar post')}
+      </button>
+    );
+  };
+
+  const stats = {
+    published: products.filter(p => p.status === 'published').length,
+    drafts: products.filter(p => p.status !== 'published').length,
+    stale: products.filter(isStale).length,
+  };
+  const productCategories = [...new Set(products.map(p => p.category?.name).filter(Boolean))].sort();
+  const visibleProducts = products.filter(p =>
+    (!filters.status || (p.status || 'draft') === filters.status) &&
+    (!filters.category || p.category?.name === filters.category) &&
+    (!filters.role || (filters.role === '_none' ? !p.role : p.role === filters.role)) &&
+    (!filters.stale || isStale(p)));
 
   // ── Kit ──────────────────────────────────────────────────────────────────
   const openKitModal = (kit = null) => {
@@ -307,8 +416,13 @@ export default function AdminStore() {
       {tab === 'produtos' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            {/* Contador de destaques */}
-            <div className="flex items-center gap-2">
+            {/* Contadores */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black text-green-700 bg-green-50 px-3 py-1.5 rounded-full">{stats.published} publicados</span>
+              <span className="text-[10px] font-black text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">{stats.drafts} rascunhos</span>
+              <span className="flex items-center gap-1 text-[10px] font-black text-orange-700 bg-orange-50 px-3 py-1.5 rounded-full">
+                <Clock size={10} /> {stats.stale} preço vencido
+              </span>
               <span className="flex items-center gap-1.5 text-[10px] font-black text-gray-400 bg-gray-100 px-3 py-1.5 rounded-full">
                 <Home size={10} className="text-[#8B4AFF]" />
                 {products.filter(p => p.featured).length} na home
@@ -332,24 +446,62 @@ export default function AdminStore() {
             </div>
           </div>
 
+          {/* Filtros */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} className="flt">
+              <option value="">Todos os status</option>
+              <option value="published">Publicados</option>
+              <option value="draft">Rascunhos</option>
+            </select>
+            <select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))} className="flt">
+              <option value="">Todas as categorias</option>
+              {productCategories.map(c => <option key={c}>{c}</option>)}
+            </select>
+            <select value={filters.role} onChange={e => setFilters(f => ({ ...f, role: e.target.value }))} className="flt">
+              <option value="">Todos os papéis</option>
+              {PRODUCT_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              <option value="_none">Sem papel</option>
+            </select>
+            <button type="button" onClick={() => setFilters(f => ({ ...f, stale: !f.stale }))}
+              className={`flt flex items-center gap-1 ${filters.stale ? '!bg-orange-50 !text-orange-700 !border-orange-200' : ''}`}>
+              <Clock size={11} /> Preço vencido
+            </button>
+            {(filters.status || filters.category || filters.role || filters.stale) && (
+              <button type="button" onClick={() => setFilters({ status: '', category: '', role: '', stale: false })} className="text-[12px] font-bold text-gray-400 underline">
+                limpar
+              </button>
+            )}
+            <span className="text-[12px] font-bold text-gray-400 ml-auto">{visibleProducts.length} de {products.length}</span>
+          </div>
+
           {fetching ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[1,2,3].map(i => <div key={i} className="h-52 bg-gray-100 rounded-[24px] animate-pulse" />)}
             </div>
-          ) : products.length === 0 ? (
+          ) : visibleProducts.length === 0 ? (
             <div className="text-center py-16 text-gray-300">
               <ShoppingBag size={40} className="mx-auto mb-3" />
-              <p className="font-bold text-gray-400">Nenhum produto cadastrado</p>
+              <p className="font-bold text-gray-400">{products.length ? 'Nenhum produto com esses filtros' : 'Nenhum produto cadastrado'}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {products.map(prod => (
+              {visibleProducts.map(prod => (
                 <div key={prod.id} className="bg-white rounded-[20px] border border-gray-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-all">
                   <div className="h-36 bg-gray-50 relative overflow-hidden">
                     {prod.images?.[0]
                       ? <img src={prod.images[0]} alt={prod.name} className="w-full h-full object-cover mix-blend-multiply p-2" />
                       : <div className="w-full h-full flex items-center justify-center"><ImageIcon size={28} className="text-gray-200" /></div>}
-                    {prod.badge && <span className="absolute top-2 left-2 bg-[#8B4AFF] text-white text-[10px] font-black px-2 py-0.5 rounded-full">{prod.badge}</span>}
+                    <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${prod.status === 'published' ? 'bg-green-500 text-white' : 'bg-gray-700 text-white'}`}>
+                        {prod.status === 'published' ? 'PUBLICADO' : 'RASCUNHO'}
+                      </span>
+                      {prod.badge && <span className="bg-[#8B4AFF] text-white text-[10px] font-black px-2 py-0.5 rounded-full">{prod.badge}</span>}
+                      {isStale(prod) && (
+                        <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                          <Clock size={9} /> preço com mais de 24h
+                        </span>
+                      )}
+                    </div>
                     {prod.featured && (
                       <span className="absolute top-2 right-2 bg-[#DFFF40] text-[#1a1a00] text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5">
                         <Home size={7} /> HOME
@@ -359,7 +511,8 @@ export default function AdminStore() {
                   <div className="p-3 flex-1 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] font-black text-[#8B4AFF] bg-purple-50 px-1.5 py-0.5 rounded-full">{prod.platform}</span>
-                      <span className="text-[10px] text-gray-400 font-bold">{prod.category?.name}</span>
+                      <span className={`text-[10px] font-bold ${sameName(prod.category?.name, LEGACY_CATEGORY) ? 'text-red-500' : 'text-gray-400'}`}>{prod.category?.name}</span>
+                      {prod.role && <span className="text-[10px] text-gray-400 font-bold">· {ROLE_LABELS[prod.role] || prod.role}</span>}
                     </div>
                     <h3 className="font-black text-gray-800 text-sm line-clamp-1">{prod.name}</h3>
                     <p className="text-sm font-black text-[#8B4AFF]">R$ {parseFloat(prod.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
@@ -373,8 +526,9 @@ export default function AdminStore() {
                     <button onClick={() => openProdModal(prod)} className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 hover:bg-blue-100">
                       <Edit size={12} /> Editar
                     </button>
+                    {postButton(prod)}
                     <button onClick={() => deleteProd(prod.id)} className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-100"><Trash2 size={14} /></button>
-                    {prod.externalLink && <a href={prod.externalLink} target="_blank" rel="noreferrer" className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:text-[#8B4AFF]"><ExternalLink size={14} /></a>}
+                    {appLink(prod) && <a href={appLink(prod)} target="_blank" rel="noreferrer" className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:text-[#8B4AFF]"><ExternalLink size={14} /></a>}
                   </div>
                 </div>
               ))}
@@ -495,6 +649,63 @@ export default function AdminStore() {
         </div>
       )}
 
+      {/* ── PRÉVIA DO IMPORT ──────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {importPreview && (
+          <div className="fixed inset-0 bg-black/60 z-[3000] flex items-end sm:items-center justify-center backdrop-blur-sm">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              className="bg-white w-full sm:max-w-2xl sm:rounded-[32px] rounded-t-[32px] max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between px-7 py-5 border-b border-gray-100 shrink-0">
+                <div>
+                  <h3 className="font-black text-lg text-gray-800">Prévia do import</h3>
+                  <p className="text-[12px] text-gray-400 font-bold">{importPreview.fileName} · nada foi gravado ainda</p>
+                </div>
+                <button onClick={() => setImportPreview(null)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                  <X size={14} className="text-gray-500" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-7 py-5 space-y-4">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-green-50 rounded-2xl p-3"><p className="text-2xl font-black text-green-700">{importPreview.summary.ok}</p><p className="text-[10px] font-black text-green-700 uppercase">entram</p></div>
+                  <div className="bg-gray-50 rounded-2xl p-3"><p className="text-2xl font-black text-gray-700">{importPreview.summary.drafts}</p><p className="text-[10px] font-black text-gray-500 uppercase">como rascunho</p></div>
+                  <div className="bg-red-50 rounded-2xl p-3"><p className="text-2xl font-black text-red-600">{importPreview.summary.failed}</p><p className="text-[10px] font-black text-red-600 uppercase">falharam</p></div>
+                </div>
+                {importPreview.items.filter(i => !i.ok).length > 0 && (
+                  <div>
+                    <p className="lbl">Falharam</p>
+                    {importPreview.items.filter(i => !i.ok).map(i => (
+                      <p key={i.index} className="text-xs text-red-600 font-bold">#{i.index + 1} {i.name || '(sem nome)'} — {i.error}</p>
+                    ))}
+                  </div>
+                )}
+                <div>
+                  <p className="lbl">Entram</p>
+                  <div className="space-y-1.5">
+                    {importPreview.items.filter(i => i.ok).map(i => (
+                      <div key={i.index} className="text-xs border border-gray-100 rounded-xl px-3 py-2">
+                        <p className="font-black text-gray-700">
+                          <span className={`mr-1.5 text-[9px] px-1.5 py-0.5 rounded-full ${i.status === 'published' ? 'bg-green-500 text-white' : 'bg-gray-700 text-white'}`}>{i.status === 'published' ? 'PUBLICADO' : 'RASCUNHO'}</span>
+                          {i.name}
+                        </p>
+                        {i.status === 'draft' && <p className="text-[10px] text-gray-400 font-bold mt-0.5">{i.reasons.join(' ')}</p>}
+                        {i.warnings.map(w => <p key={w} className="text-[10px] text-yellow-700 font-bold mt-0.5">⚠ {w}</p>)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="px-7 py-4 border-t border-gray-100 shrink-0 flex gap-3">
+                <button onClick={() => setImportPreview(null)} className="flex-1 py-3 rounded-[16px] bg-gray-100 text-gray-600 font-black text-sm">Cancelar</button>
+                <button onClick={confirmImport} disabled={importing || importPreview.summary.ok === 0}
+                  className="flex-1 py-3 rounded-[16px] bg-[#8B4AFF] text-white font-black text-sm disabled:opacity-40">
+                  {importing ? 'Importando…' : `Importar ${importPreview.summary.ok}`}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* ── MODAL PRODUTO ─────────────────────────────────────────────────── */}
       <AnimatePresence>
         {showProdModal && (
@@ -508,24 +719,108 @@ export default function AdminStore() {
                 </button>
               </div>
               <form onSubmit={saveProd} className="flex-1 overflow-y-auto px-7 py-6 space-y-5">
+                {/* Status */}
+                <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-2xl">
+                  {[['draft', 'Rascunho'], ['published', 'Publicado']].map(([v, label]) => (
+                    <button key={v} type="button" onClick={() => setProdForm(prev => ({ ...prev, status: v }))}
+                      className={`flex-1 py-2 rounded-xl text-xs font-black ${prodForm.status === v ? (v === 'published' ? 'bg-green-500 text-white' : 'bg-white text-gray-800 shadow-sm') : 'text-gray-400'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {formBlockers.length > 0 && (
+                  <div className={`rounded-2xl p-3 text-[12px] font-bold ${prodForm.status === 'published' ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'}`}>
+                    <p className="font-black mb-1">{prodForm.status === 'published' ? 'Não dá para publicar ainda:' : 'Para publicar falta:'}</p>
+                    {formBlockers.map(b => <p key={b}>• {b}</p>)}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="lbl">Nome *</label><input required value={prodForm.name} onChange={pf('name')} className="inp" placeholder="Ex: Fonte Inox" /></div>
-                  <div><label className="lbl">Preço *</label><input required value={prodForm.price} onChange={pf('price')} className="inp" type="number" step="0.01" min="0" placeholder="89.90" /></div>
+                  <div>
+                    <label className="lbl">Preço</label>
+                    <input value={prodForm.price} onChange={pf('price')} className="inp" type="number" step="0.01" min="0" placeholder="89.90" />
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className={`text-[10px] font-bold ${editingProdId && isStale(prodForm) ? 'text-orange-600' : 'text-gray-400'}`}>
+                        {prodForm.priceCheckedAt ? `Visto em ${formatCheckedAt(prodForm.priceCheckedAt)}` : 'Preço ainda não conferido'}
+                        {editingProdId && isStale(prodForm) && ' · mais de 24h'}
+                      </p>
+                      {editingProdId && (
+                        <button type="button" onClick={() => setProdForm(prev => ({ ...prev, priceChecked: !prev.priceChecked }))}
+                          className={`text-[10px] font-black px-2 py-0.5 rounded-full ${prodForm.priceChecked ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {prodForm.priceChecked ? '✓ conferido agora' : 'conferi agora'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="lbl">Loja</label><select value={prodForm.platform} onChange={pf('platform')} className="inp">{PARTNERS.map(p => <option key={p}>{p}</option>)}</select></div>
-                  <div><label className="lbl">Categoria</label><select value={prodForm.category} onChange={pf('category')} className="inp">{CATS.map(c => <option key={c}>{c}</option>)}</select></div>
-                </div>
-                <div><label className="lbl flex items-center gap-1"><Link size={9} /> Link de Afiliado *</label><input required value={prodForm.externalLink} onChange={pf('externalLink')} className="inp font-mono text-xs text-blue-600" placeholder="https://amzn.to/..." /></div>
-                <div className="bg-gray-50 p-4 rounded-[20px] space-y-3">
-                  <label className="lbl flex items-center gap-1"><ImageIcon size={10} /> Mídia</label>
-                  <div><label className="lbl">URLs das Imagens (vírgula)</label><textarea value={prodForm.images} onChange={pf('images')} className="inp text-xs font-mono" rows={3} placeholder="https://img1.jpg, https://img2.jpg" /></div>
-                  <div><label className="lbl">Vídeo Embed</label><input value={prodForm.videoReview} onChange={pf('videoReview')} className="inp text-xs" placeholder="https://www.youtube.com/embed/..." /></div>
+                  <div>
+                    <label className="lbl">Categoria *</label>
+                    <select required value={prodForm.category} onChange={pf('category')} className="inp">
+                      {!prodForm.category && <option value="">Escolha…</option>}
+                      {/* Saúde só aparece para quem já está nela, até recategorizar. */}
+                      {prodForm.category && !categoryOptions.includes(prodForm.category) && <option value={prodForm.category}>{prodForm.category} (legado)</option>}
+                      {categoryOptions.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                    {sameName(prodForm.category, LEGACY_CATEGORY) && <p className="text-[10px] font-bold text-red-500 mt-1">Saúde saiu da loja: escolha outra categoria para publicar.</p>}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="lbl">Badge</label><input value={prodForm.badge} onChange={pf('badge')} className="inp" placeholder="Top 1" /></div>
-                  <div><label className="lbl">Descrição</label><input value={prodForm.description} onChange={pf('description')} className="inp" placeholder="Resumo..." /></div>
+                  <div><label className="lbl flex items-center gap-1"><Link size={9} /> Link do app (afiliado)</label><input value={prodForm.linkApp} onChange={pf('linkApp')} className="inp font-mono text-xs text-blue-600" placeholder="https://s.shopee.com.br/..." /></div>
+                  <div><label className="lbl flex items-center gap-1"><Link size={9} /> Link do grupo</label><input value={prodForm.linkGroup} onChange={pf('linkGroup')} className="inp font-mono text-xs text-blue-600" placeholder="vazio = usa o do app" /></div>
                 </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div><label className="lbl">Subid</label><input value={prodForm.subid} onChange={pf('subid')} className="inp font-mono text-xs" maxLength={60} placeholder="grp_churu" /></div>
+                  <div>
+                    <label className="lbl">Papel</label>
+                    <select value={prodForm.role} onChange={pf('role')} className="inp">
+                      <option value="">—</option>
+                      {PRODUCT_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="lbl">Comissão %</label><input value={prodForm.commissionPct} onChange={pf('commissionPct')} className="inp" type="number" step="0.1" min="0" max="100" placeholder="opcional" /></div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-[20px] space-y-3">
+                  <label className="lbl flex items-center gap-1"><ImageIcon size={10} /> Mídia</label>
+                  <div>
+                    <label className="lbl">URLs das imagens (vírgula ou uma por linha)</label>
+                    <textarea value={prodForm.images} onChange={pf('images')} onBlur={tidyImages} className="inp text-xs font-mono" rows={3} placeholder="https://down-br.img.susercontent.com/file/..." />
+                    {formImages.valid.length + formImages.invalid.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {formImages.valid.map(u => <p key={u} className="text-[10px] font-mono text-green-600 truncate">✓ {u}</p>)}
+                        {formImages.invalid.map(u => <p key={u} className="text-[10px] font-mono text-red-500 truncate">✗ {u} (precisa ser https e imagem)</p>)}
+                      </div>
+                    )}
+                  </div>
+                  <div><label className="lbl">Vídeo Embed</label><input value={prodForm.videoReview} onChange={pf('videoReview')} className="inp text-xs" placeholder="https://www.youtube.com/embed/..." /></div>
+                </div>
+                <div>
+                  <label className="lbl">Badge</label>
+                  <select value={prodForm.badge} onChange={pf('badge')} className="inp">
+                    <option value="">Sem badge</option>
+                    {PRODUCT_BADGES.map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="lbl">Descrição</label>
+                  <textarea value={prodForm.description} onChange={pf('description')} className="inp" rows={3} placeholder="O que é e como se usa." />
+                  <HealthHighlight text={prodForm.description} />
+                </div>
+                <div>
+                  <label className="lbl">Gancho (frase do gato, opcional) · {prodForm.gancho.length}/{GANCHO_MAX}</label>
+                  <input value={prodForm.gancho} onChange={pf('gancho')} maxLength={GANCHO_MAX} className="inp" placeholder="O Mingau larga tudo por isso." />
+                </div>
+                {editingProdId && (
+                  <div className="bg-gray-50 rounded-[20px] p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="lbl !mb-0">Post do grupo (salvo)</label>
+                      {postButton(products.find(p => p.id === editingProdId) || {}, 'lg')}
+                    </div>
+                    <pre className="text-[12px] text-gray-600 whitespace-pre-wrap font-sans">{buildGroupPost(products.find(p => p.id === editingProdId) || { name: '' })}</pre>
+                  </div>
+                )}
 
                 <div>
                   <label className="lbl">Perfil de gato (recomendação da Loja)</label>
@@ -751,6 +1046,7 @@ export default function AdminStore() {
         .lbl{display:block;font-size:9px;font-weight:900;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
         .inp{width:100%;background:#F9FAFB;border:1px solid #F3F4F6;border-radius:14px;padding:12px 16px;font-weight:700;font-size:13px;color:#374151;outline:none;transition:border-color .15s;resize:vertical}
         .inp:focus{border-color:#8B4AFF}
+        .flt{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:7px 10px;font-weight:800;font-size:12px;color:#6B7280;outline:none}
       `}</style>
     </div>
   );

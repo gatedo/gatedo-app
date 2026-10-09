@@ -16,10 +16,8 @@ import {
   Tag,
   Gift,
   Flame,
-  Users,
   Copy,
   Clock,
-  TrendingUp,
   Crown,
   PlayCircle,
   PawPrint,
@@ -31,6 +29,7 @@ import StoreGatedoBlock from '../components/offers/StoreGatedoBlock';
 import StoreWhatsAppBlock from '../components/offers/StoreWhatsAppBlock';
 import StoreSectionBanners from '../components/offers/StoreSectionBanners';
 import { track } from '../utils/track';
+import { AFFILIATE_DISCLOSURE, STORE_CATEGORIES, appLink } from '../utils/productRules';
 import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -48,7 +47,7 @@ const PARTNER_STYLES = {
 };
 
 const KIT_ICONS = { Star, Zap, Heart, Award, ShoppingBag, Box, Gift, Crown, Flame };
-const CATEGORIES = ['Tudo', 'Saúde', 'Diversão', 'Higiene', 'Conforto', 'Alimentação'];
+const CATEGORIES = ['Tudo', ...STORE_CATEGORIES];
 const STORE_HEADER_GRADIENT = 'linear-gradient(135deg, #8B4AFF 0%, #6d42e0 100%)';
 const STORE_COUPON_GRADIENT = 'linear-gradient(135deg, #FFD3A8 0%, #FFAE63 48%, #FF7E33 100%)';
 const STORE_FAVORITES_KEY = 'gatedo_store_favorites';
@@ -61,7 +60,6 @@ const normalizeText = (value) =>
     .toLowerCase()
     .trim();
 
-const getViewCount = (id) => (parseInt(String(id || '').slice(-4), 16) % 18) + 3;
 
 function readFavoriteProductIds() {
   if (typeof window === 'undefined') return [];
@@ -122,7 +120,6 @@ export default function Store() {
   const rewardTimeoutRef = useRef(null);
   const copiedTimeoutRef = useRef(null);
 
-  const featuredIds = useMemo(() => new Set(products.slice(0, 3).map((product) => product.id)), [products]);
   const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const filterCategories = useMemo(
     () => ['Tudo', 'Favoritos', ...CATEGORIES.filter((category) => category !== 'Tudo')],
@@ -310,7 +307,7 @@ export default function Store() {
       const shareToken = response.data?.shareToken;
       const shareUrl = shareToken
         ? `${window.location.origin}/loja?ref=${shareToken}`
-        : product.externalLink || '';
+        : appLink(product);
 
       let shareConfirmed = false;
 
@@ -397,6 +394,11 @@ export default function Store() {
       </div>
 
       <div className="p-4 space-y-5 max-w-5xl mx-auto">
+        {/* Selo fixo de publicidade — links de afiliado. */}
+        <p className="text-[12px] font-bold text-gray-500 bg-white border border-gray-100 rounded-2xl px-3 py-2 leading-snug">
+          {AFFILIATE_DISCLOSURE}
+        </p>
+
         <StoreSectionBanners />
 
         <StoreGatedoBlock />
@@ -528,7 +530,6 @@ export default function Store() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {filteredProducts.map((product) => {
-                const isFeatured = featuredIds.has(product.id);
                 const isFavorite = favoriteSet.has(product.id);
 
                 return (
@@ -573,12 +574,10 @@ export default function Store() {
                         </div>
                       )}
 
-                      {(isFeatured || product.badge) && (
-                        <div className={`absolute left-2 bottom-2 text-[7px] font-black px-2 py-1 rounded-full z-10 flex items-center gap-1 ${
-                          isFeatured ? 'bg-red-500 text-white' : 'bg-[#ebfc66] text-[#6d42e0]'
-                        }`}>
-                          {isFeatured ? <Flame size={7} fill="currentColor" /> : <Star size={7} fill="currentColor" />}
-                          {isFeatured ? 'TOP' : product.badge}
+                      {product.badge && (
+                        <div className="absolute left-2 bottom-2 text-[7px] font-black px-2 py-1 rounded-full z-10 flex items-center gap-1 bg-[#ebfc66] text-[#6d42e0]">
+                          <Star size={7} fill="currentColor" />
+                          {product.badge}
                         </div>
                       )}
                     </div>
@@ -586,9 +585,6 @@ export default function Store() {
                     <div className="px-0.5">
                       <h3 className="font-black text-gray-800 text-[12px] leading-tight line-clamp-2">{product.name}</h3>
                       <p className="text-base font-black text-[#8B4AFF] mt-0.5">{formatCurrency(product.price)}</p>
-                      <p className="text-[8px] text-gray-400 font-bold flex items-center gap-1 mt-0.5">
-                        <Users size={7} /> {getViewCount(product.id)} vendo agora
-                      </p>
                     </div>
                   </motion.div>
                 );
@@ -863,9 +859,9 @@ export default function Store() {
                     <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${PARTNER_STYLES[selectedProduct.platform]?.color || 'bg-gray-100 text-gray-500'}`}>
                       {selectedProduct.platform}
                     </span>
-                    {featuredIds.has(selectedProduct.id) && (
-                      <span className="px-2 py-1 rounded-lg text-[9px] font-black bg-red-50 text-red-500 flex items-center gap-1">
-                        <Flame size={9} fill="currentColor" /> Mais vendido
+                    {selectedProduct.badge && (
+                      <span className="px-2 py-1 rounded-lg text-[9px] font-black bg-[#ebfc66] text-[#6d42e0]">
+                        {selectedProduct.badge}
                       </span>
                     )}
                   </div>
@@ -873,22 +869,12 @@ export default function Store() {
                   <h2 className="text-lg font-black text-gray-800 leading-tight mb-1">{selectedProduct.name}</h2>
                   <h3 className="text-2xl font-black text-[#8B4AFF] mb-3">{formatCurrency(selectedProduct.price)}</h3>
 
-                  <div className="flex items-center gap-3 mb-3 bg-gray-50 rounded-2xl p-3">
-                    <div className="flex -space-x-2">
-                      {['🐱', '😺', '🐾'].map((emoji, index) => (
-                        <div key={`${emoji}-${index}`} className="w-6 h-6 bg-white rounded-full border-2 border-gray-100 flex items-center justify-center text-xs">
-                          {emoji}
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-gray-700">{getViewCount(selectedProduct.id) + 12} tutores compraram</p>
-                      <p className="text-[9px] text-gray-400 font-bold">nos últimos 30 dias</p>
-                    </div>
-                  </div>
-
                   <p className="text-gray-500 text-sm leading-relaxed mb-3">
                     {selectedProduct.description || 'Produto selecionado pela curadoria Gatedo.'}
+                  </p>
+
+                  <p className="text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 mb-3 leading-snug">
+                    {AFFILIATE_DISCLOSURE}
                   </p>
 
                   {selectedProduct.videoReview && (
@@ -905,10 +891,6 @@ export default function Store() {
                       </div>
                     </button>
                   )}
-
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-orange-600 bg-orange-50 px-3 py-2 rounded-xl">
-                    <TrendingUp size={11} /> {getViewCount(selectedProduct.id)} pessoas estao vendo agora
-                  </div>
                 </div>
 
                 <div className="shrink-0 px-5 pt-4 pb-[125px] md:pb-5 border-t border-gray-100 bg-white">
@@ -945,12 +927,12 @@ export default function Store() {
                   </div>
 
                   <a
-                    href={selectedProduct.externalLink || '#'}
+                    href={appLink(selectedProduct) || '#'}
                     target="_blank"
                     rel="noreferrer"
                     onClick={() => track('store_click', { block: 'product-detail', item_id: selectedProduct.id })}
                     className={`w-full bg-[#8B4AFF] text-white py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-200 hover:brightness-110 active:scale-95 transition-all ${
-                      !selectedProduct.externalLink ? 'pointer-events-none opacity-50' : ''
+                      !appLink(selectedProduct) ? 'pointer-events-none opacity-50' : ''
                     }`}
                   >
                     VER NA LOJA <ExternalLink size={14} />

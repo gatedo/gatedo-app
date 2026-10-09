@@ -2,16 +2,22 @@
 // Localização: backend/src/controllers/kits.controller.ts
 //
 // GET    /kits          → lista todos os kits ativos
-// POST   /kits          → cria kit
-// PATCH  /kits/:id      → edita kit
-// DELETE /kits/:id      → remove kit
+// POST   /kits          → cria kit (ADMIN)
+// PATCH  /kits/:id      → edita kit (ADMIN)
+// DELETE /kits/:id      → remove kit (ADMIN)
 
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Req, UseGuards, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('kits')
 export class KitsController {
   constructor(private readonly prisma: PrismaService) {}
+
+  // Escrita era aberta a qualquer um, sem login.
+  private assertAdmin(req: any) {
+    if (req.user?.role !== 'ADMIN') throw new ForbiddenException('Apenas ADMIN.');
+  }
 
   @Get()
   async findAll(@Query('all') all?: string) {
@@ -22,7 +28,9 @@ export class KitsController {
   }
 
   @Post()
-  async create(@Body() dto: any) {
+  @UseGuards(JwtAuthGuard)
+  async create(@Req() req: any, @Body() dto: any) {
+    this.assertAdmin(req);
     return this.prisma.kit.create({
       data: {
         title:      dto.title,
@@ -36,7 +44,9 @@ export class KitsController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: any) {
+  @UseGuards(JwtAuthGuard)
+  async update(@Req() req: any, @Param('id') id: string, @Body() dto: any) {
+    this.assertAdmin(req);
     return this.prisma.kit.update({
       where: { id },
       data: {
@@ -51,8 +61,9 @@ export class KitsController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard)
+  async remove(@Req() req: any, @Param('id') id: string) {
+    this.assertAdmin(req);
     return this.prisma.kit.delete({ where: { id } });
   }
 }
-

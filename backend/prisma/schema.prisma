@@ -953,6 +953,18 @@ model Product {
   // mesmo mecanismo que os protocolos pagos já usam — dá "Você tem" no bloco
   // "Do GATEDO" da Loja sem precisar de um sistema de posse novo.
   entitlementProductId String?
+  // Loja "Achados do Gatedo" — regras em src/store/product-rules.ts.
+  // Só "published" aparece no app. externalLink fica como espelho de linkApp
+  // pra quem ainda lê o campo antigo.
+  status         String    @default("draft")
+  priceCheckedAt DateTime?
+  linkApp        String?
+  linkGroup      String?
+  subid          String?
+  role           String?
+  commissionPct  Float?
+  gancho         String?   @db.VarChar(120)
+  featured       Boolean   @default(false)
   orderItems    OrderItem[]
   category      Category       @relation(fields: [categoryId], references: [id])
   productShares ProductShare[]
