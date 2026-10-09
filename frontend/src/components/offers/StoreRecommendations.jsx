@@ -4,6 +4,7 @@ import { Sparkles } from 'lucide-react';
 import api from '../../services/api';
 import useSensory from '../../hooks/useSensory';
 import { appLink } from '../../utils/productRules';
+import AffiliateDisclosure from './AffiliateDisclosure';
 
 const C = { purple: '#8B4AFF' };
 
@@ -71,6 +72,8 @@ export default function StoreRecommendations() {
           Pra {active.find((c) => c.id === selectedCatId)?.name || 'seu gato'}
         </h2>
       </div>
+      {/* Os cards abrem a loja externa direto: o aviso fica visível aqui. */}
+      <AffiliateDisclosure className="-mt-1 mb-3" />
 
       {active.length > 1 && (
         <div className="flex gap-2 mb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>

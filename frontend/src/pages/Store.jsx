@@ -29,7 +29,8 @@ import StoreGatedoBlock from '../components/offers/StoreGatedoBlock';
 import StoreWhatsAppBlock from '../components/offers/StoreWhatsAppBlock';
 import StoreSectionBanners from '../components/offers/StoreSectionBanners';
 import { track } from '../utils/track';
-import { AFFILIATE_DISCLOSURE, STORE_CATEGORIES, appLink } from '../utils/productRules';
+import { STORE_CATEGORIES, appLink, isExternalStoreProduct } from '../utils/productRules';
+import AffiliateDisclosure from '../components/offers/AffiliateDisclosure';
 import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -394,11 +395,6 @@ export default function Store() {
       </div>
 
       <div className="p-4 space-y-5 max-w-5xl mx-auto">
-        {/* Selo fixo de publicidade — links de afiliado. */}
-        <p className="text-[12px] font-bold text-gray-500 bg-white border border-gray-100 rounded-2xl px-3 py-2 leading-snug">
-          {AFFILIATE_DISCLOSURE}
-        </p>
-
         <StoreSectionBanners />
 
         <StoreGatedoBlock />
@@ -501,6 +497,8 @@ export default function Store() {
             </h3>
             <span className="text-[9px] text-gray-400 font-bold">{filteredProducts.length} produtos</span>
           </div>
+          {/* Aviso de link de indicação — sempre visível no topo da lista. */}
+          <AffiliateDisclosure className="-mt-2 mb-4" />
 
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -873,10 +871,6 @@ export default function Store() {
                     {selectedProduct.description || 'Produto selecionado pela curadoria Gatedo.'}
                   </p>
 
-                  <p className="text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 mb-3 leading-snug">
-                    {AFFILIATE_DISCLOSURE}
-                  </p>
-
                   {selectedProduct.videoReview && (
                     <button
                       onClick={() => setVideoModal(selectedProduct.videoReview)}
@@ -937,6 +931,9 @@ export default function Store() {
                   >
                     VER NA LOJA <ExternalLink size={14} />
                   </a>
+                  {isExternalStoreProduct(selectedProduct) && (
+                    <AffiliateDisclosure className="mt-2 text-center" />
+                  )}
                 </div>
               </div>
             </motion.div>

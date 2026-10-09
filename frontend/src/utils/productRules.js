@@ -26,7 +26,13 @@ export const HEALTH_TERMS = [
   'intestino', 'imunidade', 'saúde em 1º lugar',
 ];
 
-export const AFFILIATE_DISCLOSURE = 'Publi · links de indicação: o Gatedo ganha uma comissão se você comprar, sem custo extra';
+export const AFFILIATE_DISCLOSURE = 'Publi · link de indicação. Se você comprar, o Gatedo ganha uma comissão e você não paga nada a mais. É isso que ajuda a manter o app gratuito.';
+export const AFFILIATE_INFO_URL = 'https://gatedo.com/indicacoes.html';
+
+// Loja externa (Shopee, Mercado Livre, Amazon…): tudo que não é produto próprio.
+export function isExternalStoreProduct(product) {
+  return !!product && product.platform !== 'Gatedo';
+}
 
 export function foldText(text) {
   return Array.from(String(text ?? ''), (ch) => {
