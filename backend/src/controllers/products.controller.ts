@@ -6,16 +6,17 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Caminho baseado no seu print
 import { calcTutorLevelMeta } from '../gamification/gamification.constants';
-import { XP_TIERS } from '../gamification/xp.config';
+import { XP_ACTIONS } from '../gamification/xp.config';
 import {
   GANCHO_MAX, LEGACY_CATEGORY, MEDICINE_MESSAGE, PRODUCT_ROLES, PRODUCT_STATUSES,
   PUBLIC_PRODUCT_WHERE, STORE_CATEGORIES, isBlockedCategory, isValidAffiliateLink,
   normalizeBadge, normalizeImages, normalizeImportItem, publishBlockers, sameName,
 } from '../store/product-rules';
 
-// Compartilhar produto é uso do app, não dado clínico — XP zero.
-// Ver backend/src/gamification/xp.config.ts.
-const STORE_SHARE_XPT_REWARD = XP_TIERS.ZERO.tutorXp;
+// Compartilhar oferta da Loja: 2 XPT, uma vez por produto (o share reaproveita
+// o token por tutor+produto e o confirm é idempotente). Valor em
+// backend/src/gamification/xp.config.ts.
+const STORE_SHARE_XPT_REWARD = XP_ACTIONS.STORE_SHARE.tutorXp;
 
 @Controller('products')
 export class ProductsController {

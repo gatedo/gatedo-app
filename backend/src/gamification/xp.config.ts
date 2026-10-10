@@ -46,6 +46,10 @@ export const XP_ACTIONS = {
   // Só a conclusão de cada dia de protocolo pontua — triagem e a tela de
   // emergência (interrompido_emergencia) nunca chamam esta ação.
   PROTOCOL_DAY_COMPLETE: XP_TIERS.BAIXO,
+  // Exceção ao princípio acima, decidida pelo produto: compartilhar uma oferta
+  // da Loja vale 2 XPT, uma vez por produto por tutor (o token de share é
+  // reaproveitado). Clicar em "Ver na loja" ou comprar nunca pontua.
+  STORE_SHARE: { tutorXp: 2, catXp: 0 } as XpReward,
 };
 
 export function getHealthRecordXp(type: string, title?: string | null): XpReward {
