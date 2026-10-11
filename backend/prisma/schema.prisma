@@ -1313,12 +1313,41 @@ model Prospect {
   lastReply     String?
   lastMessageId String?
   scriptId      String?
+  // Atendimento com consentimento (src/prospects/wa-consent.ts).
+  // origin: inbound (escreveu primeiro) | importado | app | bio | bot.
+  origin         String?
+  optin          Boolean   @default(false)
+  optinAt        DateTime?
+  optinSource    String?
+  // Opt-out (SAIR/PARAR) bloqueia qualquer envio, de qualquer número.
+  optoutAt       DateTime?
+  // Opção 3 do menu: atendimento humano, o bot para de responder.
+  humanHandoffAt DateTime?
+  menuSentAt     DateTime?
+  // Número remetente que recebeu/atende o contato (cadastro em wa_senders).
+  senderId       String?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   messages      ProspectMessage[]
+  events        ProspectEvent[]
 
   @@index([phone])
   @@index([status])
+  @@index([optin])
+}
+
+// Métricas da Máquina de Prospecção: inbound, optin, optout, click_app,
+// click_group, handoff.
+model ProspectEvent {
+  id         String    @id @default(cuid())
+  prospectId String?
+  type       String
+  source     String?
+  createdAt  DateTime  @default(now())
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([prospectId])
 }
 
 model ProspectMessage {

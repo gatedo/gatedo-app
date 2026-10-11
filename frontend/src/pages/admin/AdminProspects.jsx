@@ -22,7 +22,8 @@ import {
   QrCode, Radio, Bell, MessageSquare, RefreshCw,
   Save, Inbox, Archive, AlertTriangle, Link,
   ChevronRight, ChevronDown, Star, Layers,
-  GripVertical, Timer, ArrowUp, ArrowDown
+  GripVertical, Timer, ArrowUp, ArrowDown,
+  ShieldCheck, ShieldOff, UserCheck, MousePointerClick, LogIn
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -170,6 +171,18 @@ function timeAgo(d) {
 }
 
 function genId() { return `c_${Date.now()}_${Math.random().toString(36).slice(2,7)}`; }
+
+// ─── CONSENTIMENTO ────────────────────────────────────────────────────────────
+// Mesma regra do backend (wa-consent.ts): opt-out bloqueia tudo; disparo pelo
+// número principal exige opt-in. O backend recusa de qualquer forma — aqui é
+// só para desabilitar o botão e explicar o porquê.
+const IMPORTED_TAG = 'importado-sem-optin';
+function consentBlock(contact, sender) {
+  if (!contact) return 'sem contato';
+  if (contact.optoutAt) return 'opt-out';
+  if (sender?.requireOptin !== false && !contact.optin) return 'sem consentimento';
+  return null;
+}
 
 // ─── PERSISTENCE ──────────────────────────────────────────────────────────────
 function loadLocal() {
@@ -1124,6 +1137,38 @@ function AutomationSettingsModal({ onClose, botSettings, onSaveBot, statusColors
               />
             </div>
 
+            <div className="md:col-span-2 rounded-2xl border border-violet-100 bg-violet-50 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-black text-violet-800">Bot de consentimento (menu)</p>
+                <p className="text-xs font-semibold text-violet-700 mt-1">
+                  GATO, OI, OLÁ, ACHADOS ou APP mandam o menu. 1 = app, 2 = grupo, 3 = falar com o Diego (o bot para e você recebe e-mail).
+                  SAIR ou PARAR marcam opt-out e funcionam mesmo com o bot desligado. Use {'{link}'} onde o link deve entrar.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {[
+                  ['menu', 'Menu'], ['app', 'Opção 1 · app'], ['group', 'Opção 2 · grupo'], ['human', 'Opção 3 · humano'], ['optout', 'SAIR / PARAR'],
+                ].map(([key, label]) => (
+                  <label key={key} className="block">
+                    <span className="text-[10px] font-black text-violet-500 uppercase tracking-wider">{label}</span>
+                    <textarea rows={key === 'menu' ? 4 : 2}
+                      value={bot.consentTexts?.[key] || ''}
+                      onChange={(e) => setBot((current) => ({ ...current, consentTexts: { ...(current.consentTexts || {}), [key]: e.target.value } }))}
+                      className="mt-1 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs font-semibold outline-none" />
+                  </label>
+                ))}
+                {[['app', 'Destino do link do app'], ['group', 'Destino do link do grupo']].map(([key, label]) => (
+                  <label key={key} className="block">
+                    <span className="text-[10px] font-black text-violet-500 uppercase tracking-wider">{label}</span>
+                    <input value={bot.links?.[key] || ''}
+                      onChange={(e) => setBot((current) => ({ ...current, links: { ...(current.links || {}), [key]: e.target.value } }))}
+                      className="mt-1 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs font-mono outline-none" />
+                  </label>
+                ))}
+              </div>
+              <p className="text-[11px] font-bold text-violet-500">Os links saem pelo contador de cliques (api.gatedo.com/api/wa/go/…) e redirecionam para os destinos acima.</p>
+            </div>
+
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
               <p className="text-sm font-black text-amber-800">Uso coerente</p>
               <p className="text-xs font-semibold text-amber-700 mt-2 leading-relaxed">
@@ -1272,6 +1317,22 @@ function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail
         </div>
       )}
 
+      <div className="flex flex-wrap gap-1 mb-1">
+        {contact.optoutAt ? (
+          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 border border-red-100 flex items-center gap-0.5"><ShieldOff size={8} /> opt-out</span>
+        ) : contact.optin ? (
+          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-0.5"><ShieldCheck size={8} /> opt-in{contact.optinSource ? ` · ${contact.optinSource}` : ''}</span>
+        ) : (
+          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-100">sem consentimento</span>
+        )}
+        {contact.humanHandoffAt && (
+          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-0.5"><UserCheck size={8} /> atendimento humano</span>
+        )}
+        {contact.origin === 'inbound' && (
+          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-500 border border-violet-100 flex items-center gap-0.5"><LogIn size={8} /> inbound</span>
+        )}
+      </div>
+
       {contact.score > 0 && <ScoreBar score={contact.score} />}
       {contact.note && <p className="text-[10px] text-gray-400 bg-gray-50 rounded-lg px-2 py-1 mt-1.5 italic truncate">{contact.note}</p>}
       {contact.tags?.length > 0 && (
@@ -1298,6 +1359,16 @@ function ContactCard({ contact, onMove, onEdit, onDelete, onSendWA, onOpenDetail
               );
             })}
           </div>
+          {contact.humanHandoffAt && (
+            <button onClick={async () => {
+                await api.post(`/prospects/${contact.id}/handoff/clear`).catch(() => {});
+                onEdit(contact.id, { humanHandoffAt: null });
+                setMenuOpen(false);
+              }}
+              className="mt-1.5 w-full text-[12px] font-black text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1 flex items-center justify-center gap-1">
+              <Bot size={9} /> Devolver ao bot
+            </button>
+          )}
           <button onClick={() => { onDelete(contact.id); setMenuOpen(false); }}
             className="mt-1.5 w-full text-[12px] font-black text-red-400 bg-red-50 border border-red-100 rounded-lg px-2 py-1 flex items-center justify-center gap-1">
             <Trash2 size={9} /> Remover
@@ -1646,9 +1717,11 @@ function LeadDetailDrawer({ contact, onClose, onSendWA, onMove, onEdit, template
 // ─── SEQUENCE FIRE ────────────────────────────────────────────────────────────
 const waitSeconds = (seconds) => new Promise(resolve => window.setTimeout(resolve, Math.max(0, Number(seconds || 0)) * 1000));
 
-function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, sequenceTemplates = [], waConnected }) {
-  // Apenas pendentes (não waiting, não já enviados recentemente)
-  const queue = contacts.filter(c => c.column === 'pending');
+function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, sequenceTemplates = [], waConnected, sender }) {
+  // Apenas pendentes com consentimento (o backend recusa os demais de qualquer forma).
+  const pendingAll = contacts.filter(c => c.column === 'pending');
+  const queue = pendingAll.filter(c => !consentBlock(c, sender));
+  const blockedCount = pendingAll.length - queue.length;
   const [idx,      setIdx]      = useState(0);
   const [fired,    setFired]    = useState(0);
   const [sending,  setSending]  = useState(false);
@@ -1666,7 +1739,8 @@ function SequenceFire({ contacts, onSendWA, onClose, activeTemplate, sequenceTem
         imageUrl: activeTemplate?.imageUrl || undefined,
         prospectId: c.id, scriptId: activeTemplate?.id,
       }));
-      await api.post('/prospects/send-batch', { messages });
+      const { data } = await api.post('/prospects/send-batch', { messages, senderId: sender?.id });
+      if (data?.blocked?.length) alert(`${data.blocked.length} contato(s) bloqueado(s): sem consentimento ou opt-out.`);
       setBatchSent(true);
     } catch (e) {
       alert('Erro: ' + (e.response?.data?.error || e.message));
@@ -1987,30 +2061,109 @@ function AddContactModal({ onClose, onAdd, existingContacts = [] }) {
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
-function ProspectsStats({ contacts }) {
-  const s = Object.fromEntries(
-    KANBAN_COLS.map(col => [col, contacts.filter(c => c.column === col).length])
-  );
-  s.total = contacts.length;
-  const conv = (s.sent||0) > 0 ? Math.round((s.accepted / ((s.accepted||0) + (s.rejected||1))) * 100) : 0;
-
+function ProspectsStats({ metrics }) {
+  const m = metrics || {};
+  const days = m.clicksPeriodDays || 7;
   return (
-    <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
       {[
-        { v: s.total,      l: 'Total',       c: 'text-gray-700',    bg: 'bg-gray-50',    b: 'border-gray-200' },
-        { v: s.waiting,    l: 'Em Espera',   c: 'text-slate-600',   bg: 'bg-slate-50',   b: 'border-slate-200' },
-        { v: s.pending,    l: 'Pendentes',   c: 'text-amber-600',   bg: 'bg-amber-50',   b: 'border-amber-200' },
-        { v: s.sent,       l: 'Enviados',    c: 'text-blue-600',    bg: 'bg-blue-50',    b: 'border-blue-200' },
-        { v: s.replied,    l: 'Responderam', c: 'text-violet-600',  bg: 'bg-violet-50',  b: 'border-violet-200' },
-        { v: s.interested, l: 'Interessados',c: 'text-orange-600',  bg: 'bg-orange-50',  b: 'border-orange-200' },
-        { v: s.accepted,   l: 'Convertidos', c: 'text-emerald-600', bg: 'bg-emerald-50', b: 'border-emerald-200' },
-        { v: `${conv}%`,   l: 'Conversao',   c: 'text-purple-600',  bg: 'bg-purple-50',  b: 'border-purple-200' },
-      ].map(({ v, l, c, bg, b }) => (
+        { v: m.inboundToday, l: 'Inbound hoje',            icon: LogIn,             c: 'text-violet-600',  bg: 'bg-violet-50',  b: 'border-violet-200' },
+        { v: m.optins,       l: 'Opt-ins',                 icon: ShieldCheck,       c: 'text-emerald-600', bg: 'bg-emerald-50', b: 'border-emerald-200' },
+        { v: m.clicksApp,    l: `Cliques no app (${days}d)`,   icon: MousePointerClick, c: 'text-blue-600',    bg: 'bg-blue-50',    b: 'border-blue-200' },
+        { v: m.clicksGroup,  l: `Cliques no grupo (${days}d)`, icon: Users,             c: 'text-orange-600',  bg: 'bg-orange-50',  b: 'border-orange-200' },
+        { v: m.optouts,      l: 'Opt-outs',                icon: ShieldOff,         c: 'text-red-500',     bg: 'bg-red-50',     b: 'border-red-200' },
+      ].map(({ v, l, icon: Icon, c, bg, b }) => (
         <div key={l} className={`${bg} border ${b} rounded-2xl px-2 py-2.5 text-center`}>
-          <p className={`text-lg font-black ${c} leading-none`}>{v}</p>
+          <p className={`text-lg font-black ${c} leading-none flex items-center justify-center gap-1`}><Icon size={14} /> {v ?? '—'}</p>
           <p className="text-[10px] font-bold text-gray-400 mt-0.5 leading-tight">{l}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── NÚMEROS REMETENTES ───────────────────────────────────────────────────────
+// Principal = gateway atual, só com consentimento. Outros números (publicidade)
+// rodam num gateway próprio; o segredo fica numa variável de ambiente do
+// backend e aqui vai só o NOME dela.
+function SendersModal({ senders, onSave, onClose }) {
+  const [list, setList] = useState(() => senders.map(s => ({ ...s })));
+  const [saving, setSaving] = useState(false);
+  const update = (i, fields) => setList(cur => cur.map((s, j) => j === i ? { ...s, ...fields } : s));
+  const add = () => setList(cur => [...cur, {
+    id: `numero_${cur.length + 1}`, label: 'Número de publicidade', phone: '', provider: 'gateway',
+    gatewayUrl: 'https://', secretEnv: `WA_GATEWAY_${cur.length + 1}_SECRET`, requireOptin: true, active: true,
+  }]);
+  const save = async () => {
+    setSaving(true);
+    try { await onSave(list.filter(s => s.id !== 'principal')); onClose(); }
+    catch (e) { alert(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+  const inp = 'w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold outline-none';
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="font-black text-gray-800 flex items-center gap-2"><Phone size={16} style={{ color: C.purple }} /> Números de envio</h3>
+            <p className="text-[10px] font-bold text-gray-400">O principal só envia com consentimento. Opt-out (SAIR) bloqueia em todos os números.</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl"><X size={16} /></button>
+        </div>
+        <div className="p-6 overflow-y-auto space-y-3">
+          {list.map((s, i) => {
+            const principal = s.id === 'principal';
+            return (
+              <div key={i} className={`rounded-2xl border p-4 space-y-2 ${principal ? 'border-emerald-100 bg-emerald-50/50' : 'border-gray-100'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-black text-gray-700">{principal ? 'Principal · gateway atual (não editável aqui)' : `Número ${i}`}</p>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${s.secretConfigured || principal ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-500'}`}>
+                    {s.secretConfigured || principal ? 'segredo configurado' : 'segredo não encontrado no backend'}
+                  </span>
+                </div>
+                <div className="grid md:grid-cols-3 gap-2">
+                  <input className={inp} value={s.label} disabled={principal} onChange={e => update(i, { label: e.target.value })} placeholder="Nome" />
+                  <input className={inp} value={s.phone} disabled={principal} onChange={e => update(i, { phone: e.target.value })} placeholder="Telefone (55...)" />
+                  <input className={inp} value={s.id} disabled={principal} onChange={e => update(i, { id: e.target.value })} placeholder="id (ex.: promo1)" />
+                  <input className={`${inp} md:col-span-2 font-mono`} value={s.gatewayUrl} disabled={principal} onChange={e => update(i, { gatewayUrl: e.target.value })} placeholder="https://outro-gateway.onrender.com" />
+                  <input className={`${inp} font-mono`} value={s.secretEnv} disabled={principal} onChange={e => update(i, { secretEnv: e.target.value })} placeholder="WA_GATEWAY_2_SECRET" />
+                </div>
+                {!principal && (
+                  <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
+                    <label className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={s.requireOptin} onChange={e => update(i, { requireOptin: e.target.checked })} />
+                      Exigir opt-in para disparar
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={s.active} onChange={e => update(i, { active: e.target.checked })} />
+                      Ativo
+                    </label>
+                    <button onClick={() => setList(cur => cur.filter((_, j) => j !== i))} className="ml-auto text-red-400 flex items-center gap-1"><Trash2 size={11} /> Remover</button>
+                  </div>
+                )}
+                {!principal && !s.requireOptin && (
+                  <p className="text-[11px] font-bold text-amber-700 bg-amber-50 rounded-xl px-3 py-2 flex items-start gap-1.5">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0" /> Sem trava de opt-in este número pode ser banido pelo WhatsApp. Opt-out continua bloqueado.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+          <button onClick={add} className="w-full rounded-2xl border-2 border-dashed border-gray-200 py-3 text-xs font-black text-gray-400 hover:border-purple-300 hover:text-purple-500 flex items-center justify-center gap-1.5">
+            <Plus size={12} /> Adicionar número
+          </button>
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            Cada número novo é outro serviço do <span className="font-mono">wa-gateway</span> no Render, com GATEWAY_SECRET próprio. No backend, crie a variável com o nome acima e o mesmo valor do segredo desse gateway.
+          </p>
+        </div>
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-xs font-black text-gray-500">Cancelar</button>
+          <button onClick={save} disabled={saving} className="px-4 py-2.5 rounded-xl text-xs font-black text-white disabled:opacity-50" style={{ background: C.purple }}>
+            {saving ? 'Salvando...' : 'Salvar números'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2121,9 +2274,25 @@ export default function AdminProspects() {
   const [syncing,      setSyncing]      = useState(false);
   const [botSettings,  setBotSettings]  = useState(null);
   const [statusColors, setStatusColors] = useState(() => loadStatusColorsLocal());
+  const [metrics,      setMetrics]      = useState(null);
+  const [senders,      setSenders]      = useState([]);
+  const [senderId,     setSenderId]     = useState('principal');
+  const [showSenders,  setShowSenders]  = useState(false);
+  const [onlyImported, setOnlyImported] = useState(false);
   const fileRef = useRef();
 
   const activeTmpl = activeTemplate || templates[0];
+  const sender = senders.find(x => x.id === senderId) || senders[0] || { id: 'principal', requireOptin: true };
+
+  const loadConsentData = useCallback(async () => {
+    const [m, snd] = await Promise.all([
+      api.get('/prospects/metrics').catch(() => null),
+      api.get('/prospects/senders').catch(() => null),
+    ]);
+    if (m?.data) setMetrics(m.data);
+    if (Array.isArray(snd?.data)) setSenders(snd.data);
+  }, []);
+  useEffect(() => { loadConsentData(); }, [loadConsentData]);
   const statusMap = useMemo(() => applyStatusCustomColors(LEAD_STATUS, statusColors), [statusColors]);
   const activeSequenceTemplates = useMemo(() => {
     if (!activeTmpl) return [];
@@ -2224,6 +2393,11 @@ export default function AdminProspects() {
 
  // Envio via Gateway ou fallback manual
   const sendWA = useCallback(async (contact, template, options = {}) => {
+    const blocked = consentBlock(contact, sender);
+    if (blocked) {
+      if (!options.silent) alert(`Não dá para disparar para ${contact.name || contact.phone}: ${blocked}.`);
+      throw new Error(blocked);
+    }
     const tmpl   = template || activeTmpl;
     // Só envia URL pública — base64 não funciona no WA Gateway
     const imgUrl = (tmpl?.imageUrl && tmpl.imageUrl.startsWith('http')) ? tmpl.imageUrl : undefined;
@@ -2245,6 +2419,7 @@ export default function AdminProspects() {
             imageUrl:   imgUrl,
             prospectId: contact.id,
             scriptId:   tmpl?.id,
+            senderId:   sender?.id,
           });
         } else {
           await api.post('/prospects/send', {
@@ -2252,6 +2427,7 @@ export default function AdminProspects() {
             text,
             prospectId: contact.id,
             scriptId:   tmpl?.id,
+            senderId:   sender?.id,
           });
         }
         // Envia link separado (gera preview rico no WA)
@@ -2261,6 +2437,7 @@ export default function AdminProspects() {
             text:       linkUrl,
             prospectId: contact.id,
             scriptId:   `${tmpl?.id}_link`,
+            senderId:   sender?.id,
           });
         }
         await loadProspectsFromAPI().catch(() => {});
@@ -2286,7 +2463,7 @@ export default function AdminProspects() {
         api.patch(`/prospects/${contact.id}/status`, { status: 'sent' }).catch(() => {});
       }
     }
-  }, [waConnected, activeTmpl, loadProspectsFromAPI]);
+  }, [waConnected, activeTmpl, loadProspectsFromAPI, sender]);
 
   const syncToAPI = async () => {
     setSyncing(true);
@@ -2325,11 +2502,39 @@ export default function AdminProspects() {
     e.target.value = '';
   };
 
+  const importedCount = contacts.filter(c => (c.tags || []).includes(IMPORTED_TAG)).length;
+
+  const exportImported = async () => {
+    const { data } = await api.get('/prospects/imported/export');
+    const blob = new Blob(['\ufeff' + data.csv], { type: 'text/csv;charset=utf-8' });
+    Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob),
+      download: `gatedo-importados-sem-optin-${new Date().toISOString().slice(0,10)}.csv`,
+    }).click();
+  };
+
+  const deleteImported = async () => {
+    const typed = window.prompt(`Excluir ${importedCount} lead(s) importado(s) sem opt-in? Isso não pode ser desfeito.\nDigite EXCLUIR para confirmar.`);
+    if (typed !== 'EXCLUIR') return;
+    const { data } = await api.delete('/prospects/imported', { params: { confirm: 'EXCLUIR' } });
+    setContacts(prev => prev.filter(c => !(c.tags || []).includes(IMPORTED_TAG)));
+    saveLocal(contacts.filter(c => !(c.tags || []).includes(IMPORTED_TAG)));
+    alert(`${data.deleted} lead(s) excluído(s).`);
+    loadConsentData();
+  };
+
+  const saveSenders = async (list) => {
+    const { data } = await api.post('/prospects/senders', { senders: list });
+    setSenders(data);
+  };
+
   const filtered = (col) => contacts
+    .filter(c => !onlyImported || (c.tags || []).includes(IMPORTED_TAG))
     .filter(c => col === 'all' ? true : c.column === col)
     .filter(c => !search || c.phone.includes(search) || c.name?.toLowerCase().includes(search.toLowerCase()));
 
   const pendingCount = contacts.filter(c => c.column === 'pending').length;
+  const eligiblePending = contacts.filter(c => c.column === 'pending' && !consentBlock(c, sender)).length;
   const waitingCount = contacts.filter(c => c.column === 'waiting').length;
 
   return (
@@ -2356,6 +2561,10 @@ export default function AdminProspects() {
             }`}>
             <Zap size={12} /> Bot & cores
           </button>
+          <button onClick={() => setShowSenders(true)}
+            className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-500 text-xs font-black flex items-center gap-1.5 hover:border-purple-300 hover:text-purple-500">
+            <Phone size={12} /> Números
+          </button>
           <button onClick={() => fileRef.current?.click()}
             className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-500 text-xs font-black flex items-center gap-1.5 hover:border-purple-300">
             <Upload size={12} /> Importar
@@ -2370,10 +2579,11 @@ export default function AdminProspects() {
             <RefreshCw size={12} className={syncing?'animate-spin':''} /> Sync API
           </button>
           {pendingCount > 0 && (
-            <button onClick={() => setShowSequence(true)}
-              className="px-3 py-2.5 rounded-xl font-black text-xs text-white flex items-center gap-1.5"
+            <button onClick={() => setShowSequence(true)} disabled={eligiblePending === 0}
+              title={eligiblePending === 0 ? 'Sem consentimento: nenhum pendente tem opt-in' : `${pendingCount - eligiblePending} pendente(s) sem consentimento ficam de fora`}
+              className="px-3 py-2.5 rounded-xl font-black text-xs text-white flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{background:'linear-gradient(135deg,#25D366,#128C7E)', boxShadow:'0 4px 16px rgba(37,211,102,0.3)'}}>
-              <Zap size={12} /> Disparar {pendingCount}
+              <Zap size={12} /> {eligiblePending === 0 ? 'Disparar · sem consentimento' : `Disparar ${eligiblePending}`}
             </button>
           )}
           <button onClick={() => setShowAdd(true)}
@@ -2401,8 +2611,33 @@ export default function AdminProspects() {
         )}
       </div>
 
-      {/* STATS */}
-      <ProspectsStats contacts={contacts} />
+      {/* ENVIO + LISTA IMPORTADA */}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1.5 text-[11px] font-black text-gray-500">
+          Enviar pelo número
+          <select value={sender.id} onChange={e => setSenderId(e.target.value)}
+            className="rounded-xl border border-gray-200 bg-white px-2 py-1.5 text-[11px] font-black text-gray-600 outline-none">
+            {(senders.length ? senders : [sender]).filter(x => x.active !== false).map(x => (
+              <option key={x.id} value={x.id}>{x.label || x.id}{x.requireOptin === false ? ' · sem trava de opt-in' : ''}</option>
+            ))}
+          </select>
+        </label>
+        {importedCount > 0 && (
+          <div className="ml-auto flex flex-wrap items-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-1.5">
+            <span className="text-[11px] font-black text-amber-700 flex items-center gap-1">
+              <AlertTriangle size={11} /> {importedCount} importado(s) sem opt-in · fora de qualquer disparo
+            </span>
+            <button onClick={() => setOnlyImported(v => !v)} className={`text-[11px] font-black px-2 py-1 rounded-lg ${onlyImported ? 'bg-amber-600 text-white' : 'bg-white text-amber-700'}`}>
+              {onlyImported ? 'Mostrando só importados' : 'Ver só importados'}
+            </button>
+            <button onClick={exportImported} className="text-[11px] font-black px-2 py-1 rounded-lg bg-white text-amber-700 flex items-center gap-1"><Download size={11} /> Exportar</button>
+            <button onClick={deleteImported} className="text-[11px] font-black px-2 py-1 rounded-lg bg-red-500 text-white flex items-center gap-1"><Trash2 size={11} /> Excluir todos</button>
+          </div>
+        )}
+      </div>
+
+      {/* MÉTRICAS */}
+      <ProspectsStats metrics={metrics} />
 
       {/* TEMPLATE ATIVO */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -2609,7 +2844,10 @@ export default function AdminProspects() {
       )}
       {showSequence && (
         <SequenceFire contacts={contacts} onSendWA={sendWA} onClose={() => setShowSequence(false)}
-          activeTemplate={activeTmpl} sequenceTemplates={activeSequenceTemplates} waConnected={waConnected} />
+          activeTemplate={activeTmpl} sequenceTemplates={activeSequenceTemplates} waConnected={waConnected} sender={sender} />
+      )}
+      {showSenders && (
+        <SendersModal senders={senders} onSave={saveSenders} onClose={() => setShowSenders(false)} />
       )}
       {detailContact && (
         <LeadDetailDrawer

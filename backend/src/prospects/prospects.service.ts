@@ -1,12 +1,23 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import axios, { AxiosError } from 'axios';
+import {
+  DEFAULT_CONSENT_BOT_TEXTS, DEFAULT_LINKS, IMPORTED_TAG, INBOUND_TAG, OptinSource, SendPurpose, WaSender,
+  detectIntent, fillLink, normalizeBrPhone, sanitizeSender, sendBlockReason, startOfDayBrt,
+} from './wa-consent';
 
 const GATEWAY_URL = (process.env.GATEWAY_URL || process.env.WA_GATEWAY_URL || 'https://gatedo-wa-gateway.onrender.com').replace(/\/+$/, '');
 const GATEWAY_SECRET  = process.env.GATEWAY_SECRET || process.env.WA_GATEWAY_SECRET || 'change-me-in-render-env';
 const GATEWAY_TIMEOUT = Number(process.env.WA_GATEWAY_TIMEOUT_MS || process.env.GATEWAY_TIMEOUT_MS || 45000);
 const GATEWAY_STATUS_TIMEOUT = Number(process.env.WA_GATEWAY_STATUS_TIMEOUT_MS || 8000);
 const WA_BOT_SETTINGS_KEY = 'wa_bot_settings';
+const WA_SENDERS_KEY = 'wa_senders';
+const PRINCIPAL_SENDER_ID = 'principal';
+// Links das opções 1 e 2 passam por /api/wa/go/:alvo (conta o clique).
+const PUBLIC_API_URL = (process.env.PUBLIC_API_URL || 'https://api.gatedo.com').replace(/\/+$/, '');
+// Opção 3 (falar com o Diego) avisa por e-mail.
+const HANDOFF_NOTIFY_EMAIL = process.env.WA_HANDOFF_NOTIFY_EMAIL || 'gatedoapp@gmail.com';
 const META_WHATSAPP_ACCESS_TOKEN = process.env.META_WHATSAPP_ACCESS_TOKEN || '';
 const META_WHATSAPP_PHONE_NUMBER_ID = process.env.META_WHATSAPP_PHONE_NUMBER_ID || '';
 const META_WHATSAPP_TEMPLATE_INVITE = process.env.META_WHATSAPP_TEMPLATE_INVITE || '';
@@ -101,6 +112,9 @@ Quer garantir antes que as vagas acabem?`,
 const DEFAULT_WA_BOT_SETTINGS = {
   enabled: false,
   mode: 'assistive',
+  // Bot de consentimento (menu 1/2/3, SAIR). Textos e links editáveis.
+  consentTexts: DEFAULT_CONSENT_BOT_TEXTS,
+  links: DEFAULT_LINKS,
   fallbackEnabled: false,
   fallbackText:
     'Oi! Recebemos sua mensagem pelo Gatedo. Em breve uma pessoa da equipe responde por aqui.',
@@ -132,7 +146,6 @@ const DEFAULT_WA_BOT_SETTINGS = {
   ],
 };
 const AUTO_SENT_STATUSES = new Set(['waiting', 'pending', 'sent']);
-const ALLOW_UNKNOWN_WA_INBOUND = process.env.ALLOW_UNKNOWN_WA_INBOUND === 'true';
 
 type InboundWaMessage = {
   phone: string;
@@ -145,7 +158,15 @@ type InboundWaMessage = {
   quotedParticipant?: string | null;
 };
 
+export class ConsentBlockedError extends HttpException {
+  constructor(reason: string) {
+    super({ error: `Envio bloqueado: ${reason}`, code: 'NO_CONSENT' }, HttpStatus.FORBIDDEN);
+  }
+}
+
 type ProspectSendData = {
+  senderId?: string;
+  purpose?: SendPurpose;
   phone: string;
   text: string;
   imageUrl?: string;
@@ -204,6 +225,8 @@ function mergeBotSettings(raw: any) {
   return {
     ...DEFAULT_WA_BOT_SETTINGS,
     ...settings,
+    consentTexts: { ...DEFAULT_CONSENT_BOT_TEXTS, ...(settings.consentTexts || {}) },
+    links: { ...DEFAULT_LINKS, ...(settings.links || {}) },
     rules: customRules.length ? customRules : DEFAULT_WA_BOT_SETTINGS.rules,
   };
 }
@@ -220,10 +243,96 @@ function toDateFromGatewayTimestamp(value: any) {
 @Injectable()
 export class ProspectsService {
   private readonly logger = new Logger(ProspectsService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly email: EmailService,
+  ) {}
 
-  private headers() {
-    return { 'x-gateway-secret': GATEWAY_SECRET };
+  private headers(sender?: WaSender) {
+    return { 'x-gateway-secret': sender ? this.senderSecret(sender) : GATEWAY_SECRET };
+  }
+
+  // ── Números remetentes ────────────────────────────────────────────────────
+  // O principal é o gateway que já existe (mesma URL e segredo de sempre —
+  // nada muda na sessão conectada). Outros números = outro serviço do
+  // wa-gateway, com URL e segredo próprios.
+  private defaultSender(): WaSender {
+    return {
+      id: PRINCIPAL_SENDER_ID,
+      label: 'Principal (com consentimento)',
+      phone: '5551993509809',
+      provider: META_WA_ENABLED ? 'meta' : 'gateway',
+      gatewayUrl: GATEWAY_URL,
+      secretEnv: process.env.GATEWAY_SECRET ? 'GATEWAY_SECRET' : 'WA_GATEWAY_SECRET',
+      requireOptin: true,
+      active: true,
+    };
+  }
+
+  private senderSecret(sender: WaSender) {
+    if (sender.id === PRINCIPAL_SENDER_ID) return GATEWAY_SECRET;
+    return (sender.secretEnv && process.env[sender.secretEnv]) || '';
+  }
+
+  async getSenders(): Promise<WaSender[]> {
+    const saved = await this.prisma.appSettings.findUnique({ where: { key: WA_SENDERS_KEY } }).catch(() => null);
+    let list: WaSender[] = [];
+    try {
+      list = saved?.value ? (JSON.parse(saved.value) as any[]).map(sanitizeSender) : [];
+    } catch {
+      list = [];
+    }
+    const principal = { ...this.defaultSender(), ...(list.find((x) => x.id === PRINCIPAL_SENDER_ID) || {}) };
+    // O principal sempre usa o gateway atual e sempre exige opt-in.
+    principal.gatewayUrl = GATEWAY_URL;
+    principal.requireOptin = true;
+    principal.active = true;
+    return [principal, ...list.filter((x) => x.id !== PRINCIPAL_SENDER_ID)];
+  }
+
+  /** Lista para o admin: sem segredo, só se a variável está definida. */
+  async listSenders() {
+    return (await this.getSenders()).map((sender) => ({ ...sender, secretConfigured: Boolean(this.senderSecret(sender)) }));
+  }
+
+  async saveSenders(raw: any[]) {
+    let list: WaSender[];
+    try {
+      list = (Array.isArray(raw) ? raw : []).map(sanitizeSender);
+    } catch (err: any) {
+      throw new HttpException({ error: err.message }, HttpStatus.BAD_REQUEST);
+    }
+    const ids = new Set<string>();
+    for (const sender of list) {
+      if (ids.has(sender.id)) throw new HttpException({ error: `Número repetido: ${sender.id}` }, HttpStatus.BAD_REQUEST);
+      ids.add(sender.id);
+      if (sender.id !== PRINCIPAL_SENDER_ID && sender.provider === 'gateway' && (!sender.gatewayUrl || !sender.secretEnv)) {
+        throw new HttpException({ error: `"${sender.label}" precisa de URL do gateway e da variável do segredo.` }, HttpStatus.BAD_REQUEST);
+      }
+    }
+    const value = JSON.stringify(list);
+    await this.prisma.appSettings.upsert({
+      where: { key: WA_SENDERS_KEY },
+      update: { value },
+      create: { key: WA_SENDERS_KEY, value },
+    });
+    return this.listSenders();
+  }
+
+  private async getSender(id?: string | null): Promise<WaSender> {
+    const senders = await this.getSenders();
+    const sender = senders.find((x) => x.id === (id || PRINCIPAL_SENDER_ID));
+    if (!sender || !sender.active) {
+      throw new HttpException({ error: `Número remetente "${id}" não existe ou está desativado.` }, HttpStatus.BAD_REQUEST);
+    }
+    return sender;
+  }
+
+  /** Webhook do gateway: o segredo diz de qual número veio. null = segredo inválido. */
+  async senderForSecret(secret: string): Promise<WaSender | null> {
+    if (!secret) return null;
+    const senders = await this.getSenders();
+    return senders.find((sender) => this.senderSecret(sender) && this.senderSecret(sender) === secret) ?? null;
   }
 
   private sanitizeProspect(data: any) {
@@ -288,9 +397,10 @@ export class ProspectsService {
     }
   }
 
-  private async gPost(path: string, data: any) {
+  private async gPost(path: string, data: any, sender?: WaSender) {
     try {
-      const r = await axios.post(`${GATEWAY_URL}${path}`, data, { headers: this.headers(), timeout: GATEWAY_TIMEOUT });
+      const baseUrl = sender?.gatewayUrl || GATEWAY_URL;
+      const r = await axios.post(`${baseUrl}${path}`, data, { headers: this.headers(sender), timeout: GATEWAY_TIMEOUT });
       return r.data;
     } catch (err) {
       const e = err as AxiosError<any>;
@@ -375,8 +485,31 @@ export class ProspectsService {
     };
   }
 
-  async sendOne(data: ProspectSendData) {
-    if (META_WA_ENABLED) {
+  /** Lead que vai receber: pelo id ou pelo telefone. */
+  private async findLeadForSend(data: { prospectId?: string; phone?: string }) {
+    if (data.prospectId) {
+      const byId = await this.prisma.prospect.findUnique({ where: { id: data.prospectId } }).catch(() => null);
+      if (byId) return byId;
+    }
+    return this.findProspectByPhoneNormalized(String(data.phone || ''));
+  }
+
+  /**
+   * Trava central: vale para disparo individual, em lote e para o bot.
+   * force = confirmação do próprio opt-out ("Pronto, não envio mais").
+   */
+  private async assertCanSend(data: ProspectSendData, sender: WaSender, force = false) {
+    if (force) return;
+    const lead = await this.findLeadForSend(data);
+    const reason = sendBlockReason(lead, data.purpose || 'campaign', sender);
+    if (reason) throw new ConsentBlockedError(reason);
+  }
+
+  async sendOne(data: ProspectSendData, options: { force?: boolean } = {}) {
+    const sender = await this.getSender(data.senderId);
+    await this.assertCanSend(data, sender, options.force);
+
+    if (sender.provider === 'meta' && META_WA_ENABLED) {
       try {
         const mode = data.mode || 'template';
         const response = mode === 'text'
@@ -411,19 +544,33 @@ export class ProspectsService {
       }
     }
 
-    return this.gPost('/send', data);
+    return this.gPost('/send', data, sender);
   }
 
-  async sendBatch(messages: ProspectSendData[]) {
-    if (META_WA_ENABLED) {
+  /** Lote: quem não pode receber fica de fora e volta em `blocked`. */
+  async sendBatch(messages: ProspectSendData[], senderId?: string) {
+    const sender = await this.getSender(senderId);
+    const allowed: ProspectSendData[] = [];
+    const blocked: Array<{ phone: string; prospectId?: string; reason: string }> = [];
+    for (const message of messages) {
+      const withSender = { ...message, senderId: sender.id, purpose: message.purpose || 'campaign' as SendPurpose };
+      const lead = await this.findLeadForSend(withSender);
+      const reason = sendBlockReason(lead, withSender.purpose, sender);
+      if (reason) blocked.push({ phone: message.phone, prospectId: message.prospectId, reason });
+      else allowed.push(withSender);
+    }
+    if (!allowed.length) return { ok: true, total: 0, blocked };
+
+    if (sender.provider === 'meta' && META_WA_ENABLED) {
       const results = [];
-      for (const message of messages) {
+      for (const message of allowed) {
         results.push(await this.sendOne({ ...message, mode: message.mode || 'template' }));
       }
-      return { ok: true, provider: 'meta', total: results.length, results };
+      return { ok: true, provider: 'meta', total: results.length, results, blocked };
     }
 
-    return this.gPost('/send-batch', { messages });
+    const result = await this.gPost('/send-batch', { messages: allowed }, sender);
+    return { ...result, blocked };
   }
 
   async getBotSettings() {
@@ -510,68 +657,210 @@ export class ProspectsService {
     return this.prisma.prospectTemplate.delete({ where: { id } }).catch(() => ({ ok: true }));
   }
 
-  async handleAutoReply(data: InboundWaMessage) {
+  /**
+   * Bot de entrada (atendimento com consentimento):
+   *  - SAIR/PARAR → opt-out (funciona mesmo com o bot desligado);
+   *  - GATO/OI/OLÁ/ACHADOS/APP → menu; 1 app, 2 grupo, 3 humano;
+   *  - atendimento humano: o bot para de responder esse contato;
+   *  - sem palavra do menu → regras antigas por palavra-chave (se ligadas).
+   */
+  async handleAutoReply(data: InboundWaMessage, senderId?: string) {
     const settings = await this.getBotSettings();
+    const prospect = await this.findOrCreateInboundProspect(data, senderId);
+    if (!prospect) return { skipped: true, reason: 'unknown_inbound' };
+
+    const intent = detectIntent(data.message, prospect.menuSentAt);
+    const texts = settings.consentTexts;
+    const reply = (text: string, scriptId: string, force = false) =>
+      this.sendBotText(prospect, text, scriptId, senderId, force);
+
+    if (intent === 'optout') {
+      if (prospect.optoutAt) return { skipped: true, reason: 'already_opted_out', prospectId: prospect.id };
+      await this.prisma.prospect.update({
+        where: { id: prospect.id },
+        data: { optoutAt: new Date(), optin: false, updatedAt: new Date() },
+      });
+      await this.recordEvent(prospect.id, 'optout', 'bot');
+      await reply(texts.optout, 'wa_bot_optout', true);
+      return { ok: true, intent, prospectId: prospect.id };
+    }
+
+    if (prospect.optoutAt) return { skipped: true, reason: 'opted_out', prospectId: prospect.id };
+    if (prospect.humanHandoffAt) return { skipped: true, reason: 'human_handoff', prospectId: prospect.id };
     if (!settings.enabled) return { skipped: true, reason: 'bot_disabled' };
 
-    const phone = String(data.phone || '').replace(/[^\d]/g, '');
+    if (intent === 'menu') {
+      await reply(texts.menu, 'wa_bot_menu');
+      await this.prisma.prospect.update({ where: { id: prospect.id }, data: { menuSentAt: new Date() } });
+      return { ok: true, intent, prospectId: prospect.id };
+    }
+    if (intent === 'option_app') {
+      await reply(fillLink(texts.app, this.trackedLink('app', prospect.id)), 'wa_bot_app');
+      return { ok: true, intent, prospectId: prospect.id };
+    }
+    if (intent === 'option_group') {
+      await reply(fillLink(texts.group, this.trackedLink('grupo', prospect.id)), 'wa_bot_group');
+      return { ok: true, intent, prospectId: prospect.id };
+    }
+    if (intent === 'option_human') {
+      await this.prisma.prospect.update({
+        where: { id: prospect.id },
+        data: { humanHandoffAt: new Date(), column: 'replied', status: 'replied', updatedAt: new Date() },
+      });
+      await this.recordEvent(prospect.id, 'handoff', 'bot');
+      await reply(texts.human, 'wa_bot_human');
+      this.email
+        .sendWaHandoffAlert(HANDOFF_NOTIFY_EMAIL, { phone: prospect.phone, name: prospect.name, message: data.message })
+        .catch((err) => this.logger.warn({ err: err?.message }, 'Aviso de atendimento humano falhou'));
+      return { ok: true, intent, prospectId: prospect.id };
+    }
+
+    return this.legacyKeywordReply(data, prospect, settings, senderId);
+  }
+
+  private trackedLink(target: 'app' | 'grupo', prospectId: string) {
+    return `${PUBLIC_API_URL}/api/wa/go/${target}?p=${encodeURIComponent(prospectId)}`;
+  }
+
+  private async sendBotText(prospect: any, text: string, scriptId: string, senderId?: string, force = false) {
+    const response = await this.sendOne(
+      { phone: prospect.phone, text, prospectId: prospect.id, scriptId, mode: 'text', senderId, purpose: 'reply' },
+      { force },
+    );
+    await this.prisma.prospectMessage.create({
+      data: {
+        prospectId: prospect.id,
+        direction: 'bot',
+        body: text,
+        waMessageId: response?.messageId || response?.id || null,
+        sentAt: new Date(),
+      },
+    });
+    await this.prisma.prospect.update({
+      where: { id: prospect.id },
+      data: { lastMessageId: response?.messageId || response?.id || null, updatedAt: new Date() },
+    });
+    return response;
+  }
+
+  // Regras antigas por palavra-chave (preço, saúde…), com intervalo de 5 min.
+  private async legacyKeywordReply(data: InboundWaMessage, prospect: any, settings: any, senderId?: string) {
     const incoming = normalizeText(data.message);
     const matchedRule = (settings.rules || []).find((rule: any) => {
       if (!rule?.enabled || !rule?.response) return false;
       return (rule.keywords || []).some((keyword: string) => incoming.includes(normalizeText(keyword)));
     });
-
     const responseText = matchedRule?.response || (settings.fallbackEnabled ? settings.fallbackText : '');
-    if (!phone || !responseText) {
-      return {
-        skipped: true,
-        reason: 'no_matching_rule',
-        enabled: settings.enabled,
-        fallbackEnabled: settings.fallbackEnabled,
-      };
-    }
+    if (!responseText) return { skipped: true, reason: 'no_matching_rule' };
 
-    const prospect = await this.findOrCreateInboundProspect(data);
-    if (!prospect) return { skipped: true, reason: 'unknown_inbound' };
     const recentBotReply = await this.prisma.prospectMessage.findFirst({
-      where: {
-        prospectId: prospect.id,
-        direction: 'bot',
-        sentAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
-      },
+      where: { prospectId: prospect.id, direction: 'bot', sentAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } },
       orderBy: { sentAt: 'desc' },
     });
     if (recentBotReply) return { skipped: true, reason: 'bot_cooldown', prospectId: prospect.id };
 
-    const response = await this.sendOne({
-      phone: prospect.phone || phone,
-      text: responseText,
-      prospectId: prospect.id,
-      scriptId: `wa_bot_${matchedRule?.id || 'fallback'}`,
-      mode: 'text',
-    });
-
-    await this.prisma.prospectMessage.create({
-      data: {
-        prospectId: prospect.id,
-        direction: 'bot',
-        body: responseText,
-        waMessageId: response?.messageId || response?.id || null,
-        sentAt: new Date(),
-      },
-    });
-
+    await this.sendBotText(prospect, responseText, `wa_bot_${matchedRule?.id || 'fallback'}`, senderId);
     await this.prisma.prospect.update({
       where: { id: prospect.id },
-      data: {
-        status: 'replied',
-        column: 'replied',
-        lastMessageId: response?.messageId || response?.id || null,
-        updatedAt: new Date(),
-      },
+      data: { status: 'replied', column: 'replied' },
     });
-
     return { ok: true, rule: matchedRule?.id || 'fallback', prospectId: prospect.id };
+  }
+
+  // ── Eventos, opt-in, métricas ─────────────────────────────────────────────
+  private recordEvent(prospectId: string | null, type: string, source?: string) {
+    return this.prisma.prospectEvent.create({ data: { prospectId, type, source: source || null } }).catch((err) => {
+      this.logger.warn({ err: err?.message, type }, 'Evento de prospect não registrado');
+    });
+  }
+
+  /** Clique no link do bot: registra e devolve o destino. */
+  async trackClick(target: string, prospectId?: string) {
+    const settings = await this.getBotSettings();
+    const destination = target === 'grupo' ? settings.links.group : settings.links.app;
+    const exists = prospectId
+      ? await this.prisma.prospect.findUnique({ where: { id: prospectId }, select: { id: true } }).catch(() => null)
+      : null;
+    await this.recordEvent(exists?.id ?? null, target === 'grupo' ? 'click_group' : 'click_app', 'bot');
+    return destination;
+  }
+
+  /**
+   * Opt-in vindo do app, do gatedo.com/bio ou do bot. Opt-in explícito
+   * desfaz um opt-out anterior e tira a etiqueta de importado.
+   */
+  async registerOptin(input: { phone: string; name?: string | null; source: OptinSource }) {
+    const phone = normalizeBrPhone(input.phone);
+    if (!phone) throw new HttpException({ error: 'Telefone inválido.' }, HttpStatus.BAD_REQUEST);
+    const now = new Date();
+    const existing = await this.findProspectByPhoneNormalized(phone);
+
+    const prospect = existing
+      ? await this.prisma.prospect.update({
+          where: { id: existing.id },
+          data: {
+            optin: true,
+            optinAt: now,
+            optinSource: input.source,
+            optoutAt: null,
+            tags: (existing.tags || []).filter((t: string) => t !== IMPORTED_TAG),
+            name: existing.name || input.name || null,
+            updatedAt: now,
+          },
+        })
+      : await this.prisma.prospect.create({
+          data: {
+            phone,
+            name: input.name || null,
+            origin: input.source,
+            optin: true,
+            optinAt: now,
+            optinSource: input.source,
+            status: 'pending',
+            column: 'pending',
+            tags: [],
+            note: `Opt-in pelo ${input.source}`,
+          },
+        });
+    await this.recordEvent(prospect.id, 'optin', input.source);
+    return { ok: true };
+  }
+
+  async metrics(now = new Date()) {
+    const today = startOfDayBrt(now);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const [inboundToday, optins, optouts, clicksApp, clicksGroup, imported] = await Promise.all([
+      this.prisma.prospectEvent.count({ where: { type: 'inbound', createdAt: { gte: today } } }),
+      this.prisma.prospect.count({ where: { optin: true, optoutAt: null } }),
+      this.prisma.prospect.count({ where: { optoutAt: { not: null } } }),
+      this.prisma.prospectEvent.count({ where: { type: 'click_app', createdAt: { gte: weekAgo } } }),
+      this.prisma.prospectEvent.count({ where: { type: 'click_group', createdAt: { gte: weekAgo } } }),
+      this.prisma.prospect.count({ where: { tags: { has: IMPORTED_TAG } } }),
+    ]);
+    return { inboundToday, optins, optouts, clicksApp, clicksGroup, clicksPeriodDays: 7, imported };
+  }
+
+  async exportImported() {
+    const rows = await this.prisma.prospect.findMany({
+      where: { tags: { has: IMPORTED_TAG } },
+      select: { phone: true, name: true, note: true, status: true, tags: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [
+      'telefone,nome,nota,status,tags,criado_em',
+      ...rows.map((r) => [r.phone, r.name, r.note, r.status, r.tags.join(' '), r.createdAt.toISOString()].map(esc).join(',')),
+    ];
+    return { count: rows.length, csv: lines.join('\n') };
+  }
+
+  async deleteImported() {
+    const result = await this.prisma.prospect.deleteMany({ where: { tags: { has: IMPORTED_TAG } } });
+    return { deleted: result.count };
+  }
+
+  async clearHandoff(id: string) {
+    return this.prisma.prospect.update({ where: { id }, data: { humanHandoffAt: null, updatedAt: new Date() } });
   }
 
   // ── Status — NUNCA retorna 500, sempre retorna JSON seguro ────────────────
@@ -715,11 +1004,17 @@ export class ProspectsService {
     if (!rest.phone) {
       throw new HttpException({ error: 'phone obrigatorio' }, HttpStatus.BAD_REQUEST);
     }
-    if (!id) return this.prisma.prospect.create({ data: rest });
+    // Criado pelo "Importar" do admin: lista sem consentimento.
+    const importedCreate = {
+      ...rest,
+      origin: 'importado',
+      tags: rest.tags.includes(IMPORTED_TAG) ? rest.tags : [...rest.tags, IMPORTED_TAG],
+    };
+    if (!id) return this.prisma.prospect.create({ data: importedCreate });
     return this.prisma.prospect.upsert({
       where:  { id },
       update: { ...rest, updatedAt: new Date() },
-      create: { id, ...rest },
+      create: { id, ...importedCreate },
     });
   }
 
@@ -782,8 +1077,8 @@ export class ProspectsService {
     });
   }
 
-  async saveIncomingMessage(data: InboundWaMessage) {
-    const p = await this.findOrCreateInboundProspect(data);
+  async saveIncomingMessage(data: InboundWaMessage, senderId?: string) {
+    const p = await this.findOrCreateInboundProspect(data, senderId);
     if (!p) return { ok: true, skipped: true, reason: 'unknown_inbound' };
     return this.prisma.prospectMessage.create({
       data: {
@@ -926,7 +1221,7 @@ export class ProspectsService {
       .map((item) => item.id);
   }
 
-  private async findOrCreateInboundProspect(data: InboundWaMessage) {
+  private async findOrCreateInboundProspect(data: InboundWaMessage, senderId?: string) {
     const phone = String(data.phone || '').replace(/[^\d]/g, '');
     const message = data.message;
     let existing: any = null;
@@ -978,12 +1273,10 @@ export class ProspectsService {
       });
     }
 
-    if (!ALLOW_UNKNOWN_WA_INBOUND) {
-      this.logger.log({ phone, remoteJid: data.remoteJid }, 'Inbound WA desconhecido ignorado');
-      return null;
-    }
-
-    return this.prisma.prospect.create({
+    // Quem escreve primeiro sempre entra no CRM, com origem "inbound". O gateway
+    // já descarta grupos, canais e mensagens do próprio número.
+    if (!phone) return null;
+    const created = await this.prisma.prospect.create({
       data: {
         phone,
         name: null,
@@ -991,11 +1284,15 @@ export class ProspectsService {
         status: 'replied',
         column: 'replied',
         score: 40,
-        tags: ['inbound'],
+        tags: [INBOUND_TAG],
+        origin: 'inbound',
+        senderId: senderId || null,
         repliedAt: new Date(),
         lastReply: message,
       },
     });
+    await this.recordEvent(created.id, 'inbound', senderId || PRINCIPAL_SENDER_ID);
+    return created;
   }
 
   async saveDeliveryReceipt(data: any) {

@@ -217,6 +217,23 @@ export class EmailService {
     await this.send(to, subject, html);
   }
 
+  // Máquina de Prospecção: contato escolheu "3 – Falar com o Diego".
+  async sendWaHandoffAlert(to: string, params: { phone: string; name?: string | null; message?: string | null }) {
+    const subject = `WhatsApp: ${params.name || params.phone} quer falar com você`;
+    const html = this.baseTemplate(`
+      <div style="text-align:center; padding-bottom:20px;">
+        <h1 style="margin:0 0 8px; font-size:24px; font-weight:900; color:#202036;">Atendimento humano pedido</h1>
+        <p style="margin:0 auto; max-width:380px; color:#72748A; font-size:14px; line-height:1.5;">
+          <strong>${this.escapeHtml(params.name || 'Sem nome')}</strong> · +${this.escapeHtml(params.phone)}<br/>
+          escolheu a opção 3 no bot. O bot parou de responder esse contato.
+        </p>
+        ${params.message ? `<p style="margin:12px auto 0; max-width:380px; color:#202036; font-size:13px;">Última mensagem: “${this.escapeHtml(params.message.slice(0, 300))}”</p>` : ''}
+        <p style="margin:16px 0 0;"><a href="https://wa.me/${this.escapeHtml(params.phone)}" style="color:#8B4AFF; font-weight:900;">Abrir conversa no WhatsApp</a></p>
+      </div>
+    `);
+    await this.send(to, subject, html);
+  }
+
   private featureRow(title: string, text: string, bg: string, color: string) {
     return `
       <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:#ffffff; border-radius:22px; margin:0 0 16px; box-shadow:0 8px 24px rgba(32,32,54,0.06);">
