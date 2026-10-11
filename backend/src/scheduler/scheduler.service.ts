@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { RemindersService } from '../reminders/reminders.service';
 import { NotificationService } from '../notifications/notification.service';
+import { StoreSyncService } from '../store/affiliate/store-sync.service';
 
 // Agendador interno — dispara as tarefas que antes dependiam de um cron
 // externo (que nunca apareceu configurado em lugar nenhum). Sem dependência
@@ -51,6 +52,7 @@ export class SchedulerService implements OnApplicationBootstrap, OnApplicationSh
   constructor(
     private readonly reminders: RemindersService,
     private readonly notifications: NotificationService,
+    private readonly storeSync: StoreSyncService,
   ) {}
 
   private get enabled() {
@@ -74,6 +76,8 @@ export class SchedulerService implements OnApplicationBootstrap, OnApplicationSh
         run: () => this.reminders.runDailyPush(),
       },
       // Sem deduplicação no serviço — exatamente 1x por semana (segunda 9h).
+      // Loja: preço/comissão dos produtos Shopee publicados; só gera alertas.
+      { name: 'store-affiliate-sync', times: [{ hour: 7, minute: 0 }], run: () => this.storeSync.runDaily() },
       { name: 'weekly-email', times: [{ hour: 9, minute: 0 }], weekday: 1, run: () => this.reminders.runWeeklyEmail() },
     ];
   }

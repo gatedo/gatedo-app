@@ -94,6 +94,24 @@ export function isValidAffiliateLink(url: string | null | undefined): boolean {
   try { return new URL(String(url).trim()).protocol === 'https:'; } catch { return false; }
 }
 
+// ── Domínio do link por loja ────────────────────────────────────────────────
+// Link de afiliado precisa ser da loja indicada (evita colar link do ML num
+// produto Shopee e vice-versa). Lojas sem regra aqui (Amazon, Gatedo) passam.
+export const LINK_DOMAINS: Record<string, string[]> = {
+  'mercado livre': ['meli.la', 'mercadolivre.com.br'],
+  shopee: ['s.shopee.com.br', 'shopee.com.br'],
+};
+
+export function linkDomainError(platform: string | null | undefined, url: string | null | undefined): string | null {
+  if (!url) return null;
+  const domains = LINK_DOMAINS[foldText(String(platform ?? '')).trim()];
+  if (!domains) return null;
+  let host: string;
+  try { host = new URL(String(url).trim()).hostname.toLowerCase(); } catch { return null; }
+  const ok = domains.some((d) => host === d || host.endsWith(`.${d}`));
+  return ok ? null : `Link de ${platform} precisa ser ${domains.join(' ou ')} (veio ${host}).`;
+}
+
 // ── Publicação ──────────────────────────────────────────────────────────────
 export function publishBlockers(p: {
   linkApp?: string | null; price?: number | string | null; images?: string[] | null; categoryName?: string | null;

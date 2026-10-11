@@ -13,19 +13,21 @@ import {
   Star, Share2, TrendingUp, Link, Tag, Gift,
   Users, Copy, Check, Zap, Package, Crown,
   Heart, Award, Flame, Box, Send,
-  Download, Upload, Home, ToggleLeft, ToggleRight, AlertTriangle, Clock, ClipboardCopy
+  Download, Upload, Home, ToggleLeft, ToggleRight, AlertTriangle, Clock, ClipboardCopy, Search, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
+import AdminStoreOfferSearch from './AdminStoreOfferSearch';
 import {
   GANCHO_MAX, HEALTH_WARNING, LEGACY_CATEGORY, MEDICINE_MESSAGE, PRODUCT_BADGES, PRODUCT_ROLES,
   appLink, buildGroupPost, findHealthClaims, formatCheckedAt, groupPostMissing, isBlockedCategory,
-  isPriceStale, normalizeImages, publishBlockers, sameName,
+  isPriceStale, linkDomainError, normalizeImages, publishBlockers, sameName,
 } from '../../utils/productRules';
 
 const PARTNERS  = ['Amazon', 'Shopee', 'Mercado Livre', 'Gatedo'];
 const ROLE_LABELS = { heroi: 'Herói', 'grupo-frente': 'Grupo (frente)', grupo: 'Grupo', 'teste-margem': 'Teste de margem', reserva: 'Reserva' };
 const isStale = (p) => Number(p.price) > 0 && isPriceStale(p.priceCheckedAt);
+const alertsOf = (p) => (Array.isArray(p.syncAlerts) ? p.syncAlerts : []);
 
 // Trecho da descrição com as promessas de saúde marcadas em amarelo.
 function HealthHighlight({ text }) {
@@ -71,7 +73,7 @@ const ICON_OPTIONS = [
 const EMPTY_PROD = {
   name: '', price: '', platform: 'Shopee', category: '', linkApp: '', linkGroup: '', images: '', videoReview: '',
   badge: '', description: '', featured: false, tags: [], status: 'draft', subid: '', role: '', commissionPct: '',
-  gancho: '', priceCheckedAt: null, priceChecked: false,
+  gancho: '', priceCheckedAt: null, priceChecked: false, externalId: '', rating: '', syncAlerts: [],
 };
 
 // Tags de perfil do gato — usadas pelo motor de recomendação da Loja
@@ -113,10 +115,13 @@ export default function AdminStore() {
 
   // Loja: categorias, filtros, import com prévia, Copiar post
   const [categoryOptions, setCategoryOptions] = useState([]);
-  const [filters,       setFilters]       = useState({ status: '', category: '', role: '', stale: false });
+  const [filters,       setFilters]       = useState({ status: '', category: '', role: '', stale: false, alerts: false });
   const [importPreview, setImportPreview] = useState(null); // { list, summary, items }
   const [importing,     setImporting]     = useState(false);
   const [copiedPostId,  setCopiedPostId]  = useState(null);
+  const [mlInput,       setMlInput]       = useState('');
+  const [mlLoading,     setMlLoading]     = useState(false);
+  const [mlMessage,     setMlMessage]     = useState('');
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -151,12 +156,54 @@ export default function AdminStore() {
         status: prod.status || 'draft', subid: prod.subid || '', role: prod.role || '',
         commissionPct: prod.commissionPct ?? '', gancho: prod.gancho || '',
         priceCheckedAt: prod.priceCheckedAt || null, priceChecked: false,
+        externalId: prod.externalId || '', rating: prod.rating ?? '', syncAlerts: alertsOf(prod),
       });
     } else {
       setEditingProdId(null);
       setProdForm({ ...EMPTY_PROD, category: categoryOptions[0] || '' });
     }
+    setMlInput('');
+    setMlMessage('');
     setShowProdModal(true);
+  };
+
+  // Mercado Livre: colar link ou código MLB → preenche o rascunho pela API
+  // oficial (o backend). Os links de afiliado continuam manuais.
+  const lookupMl = async () => {
+    if (!mlInput.trim()) return;
+    setMlLoading(true);
+    setMlMessage('');
+    try {
+      const { data } = await api.post('/store-affiliate/ml/lookup', { input: mlInput.trim() });
+      if (!data.configured) {
+        setProdForm(prev => ({ ...prev, externalId: data.externalId }));
+        setMlMessage(`API do Mercado Livre não configurada: guardei o código ${data.id}; preencha o resto à mão.`);
+        return;
+      }
+      setProdForm(prev => ({
+        ...prev,
+        externalId: data.externalId,
+        name: data.suggestedName || prev.name,
+        price: data.price ?? prev.price,
+        images: (data.images || []).join('\n') || prev.images,
+        rating: data.rating ?? prev.rating,
+      }));
+      setMlMessage(data.medicine
+        ? `Atenção, parece medicamento: ${MEDICINE_MESSAGE}.`
+        : `Preenchido com ${data.id}. Gere os links no botão Compartilhar do ML.`);
+    } catch (err) {
+      setMlMessage(err.response?.data?.message || 'Não consegui buscar no Mercado Livre.');
+    } finally {
+      setMlLoading(false);
+    }
+  };
+
+  const clearAlerts = async () => {
+    try {
+      const r = await api.patch(`/products/${editingProdId}`, { syncAlerts: null });
+      setProducts(prev => prev.map(p => p.id === editingProdId ? r.data : p));
+      setProdForm(prev => ({ ...prev, syncAlerts: [] }));
+    } catch (err) { alert(err.response?.data?.message || 'Erro ao limpar alertas.'); }
   };
 
   // Imagens: ao sair do campo, separa URLs coladas e mostra uma por linha.
@@ -168,12 +215,15 @@ export default function AdminStore() {
   const formImages = normalizeImages(prodForm.images);
   const formPrice = parseFloat(String(prodForm.price).replace(',', '.')) || 0;
   const formBlockers = publishBlockers({ linkApp: prodForm.linkApp.trim(), price: formPrice, images: formImages.valid, categoryName: prodForm.category });
+  const linkAppError = linkDomainError(prodForm.platform, prodForm.linkApp.trim());
+  const linkGroupError = linkDomainError(prodForm.platform, prodForm.linkGroup.trim());
 
   const saveProd = async (e) => {
     e.preventDefault();
     if (isBlockedCategory(prodForm.category)) { alert(MEDICINE_MESSAGE); return; }
     if (formImages.invalid.length) { alert(`Imagem inválida:\n${formImages.invalid.join('\n')}`); return; }
     if (prodForm.status === 'published' && formBlockers.length) { alert(formBlockers.join('\n')); return; }
+    if (linkAppError || linkGroupError) { alert([linkAppError, linkGroupError].filter(Boolean).join('\n')); return; }
     setSavingProd(true);
     try {
       const payload = {
@@ -184,6 +234,8 @@ export default function AdminStore() {
         status: prodForm.status, subid: prodForm.subid.trim() || null, role: prodForm.role || null,
         commissionPct: prodForm.commissionPct === '' ? null : Number(prodForm.commissionPct),
         gancho: prodForm.gancho.trim() || null, priceChecked: prodForm.priceChecked,
+        rating: prodForm.rating === '' ? null : Number(prodForm.rating),
+        ...(prodForm.externalId && { externalId: prodForm.externalId }),
       };
       if (editingProdId) {
         const r = await api.patch(`/products/${editingProdId}`, payload);
@@ -283,13 +335,15 @@ export default function AdminStore() {
     published: products.filter(p => p.status === 'published').length,
     drafts: products.filter(p => p.status !== 'published').length,
     stale: products.filter(isStale).length,
+    alerts: products.filter(p => alertsOf(p).length).length,
   };
   const productCategories = [...new Set(products.map(p => p.category?.name).filter(Boolean))].sort();
   const visibleProducts = products.filter(p =>
     (!filters.status || (p.status || 'draft') === filters.status) &&
     (!filters.category || p.category?.name === filters.category) &&
     (!filters.role || (filters.role === '_none' ? !p.role : p.role === filters.role)) &&
-    (!filters.stale || isStale(p)));
+    (!filters.stale || isStale(p)) &&
+    (!filters.alerts || alertsOf(p).length > 0));
 
   // ── Kit ──────────────────────────────────────────────────────────────────
   const openKitModal = (kit = null) => {
@@ -377,6 +431,7 @@ export default function AdminStore() {
     { id: 'produtos', label: 'Produtos', count: products.length, icon: ShoppingBag },
     { id: 'kits',     label: 'Kits',     count: kits.length,     icon: Package },
     { id: 'cupons',   label: 'Cupons',   count: coupons.length,  icon: Tag },
+    { id: 'ofertas',  label: 'Buscar ofertas', icon: Search },
   ];
 
   return (
@@ -404,9 +459,11 @@ export default function AdminStore() {
                 ${tab === t.id ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400'}`}>
               <t.icon size={13} />
               {t.label}
-              <span className={`text-[12px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-[#8B4AFF] text-white' : 'bg-gray-200 text-gray-400'}`}>
-                {t.count}
-              </span>
+              {t.count !== undefined && (
+                <span className={`text-[12px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-[#8B4AFF] text-white' : 'bg-gray-200 text-gray-400'}`}>
+                  {t.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -423,6 +480,11 @@ export default function AdminStore() {
               <span className="flex items-center gap-1 text-[10px] font-black text-orange-700 bg-orange-50 px-3 py-1.5 rounded-full">
                 <Clock size={10} /> {stats.stale} preço vencido
               </span>
+              {stats.alerts > 0 && (
+                <span className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-50 px-3 py-1.5 rounded-full">
+                  <AlertTriangle size={10} /> {stats.alerts} com alerta
+                </span>
+              )}
               <span className="flex items-center gap-1.5 text-[10px] font-black text-gray-400 bg-gray-100 px-3 py-1.5 rounded-full">
                 <Home size={10} className="text-[#8B4AFF]" />
                 {products.filter(p => p.featured).length} na home
@@ -466,8 +528,12 @@ export default function AdminStore() {
               className={`flt flex items-center gap-1 ${filters.stale ? '!bg-orange-50 !text-orange-700 !border-orange-200' : ''}`}>
               <Clock size={11} /> Preço vencido
             </button>
-            {(filters.status || filters.category || filters.role || filters.stale) && (
-              <button type="button" onClick={() => setFilters({ status: '', category: '', role: '', stale: false })} className="text-[12px] font-bold text-gray-400 underline">
+            <button type="button" onClick={() => setFilters(f => ({ ...f, alerts: !f.alerts }))}
+              className={`flt flex items-center gap-1 ${filters.alerts ? '!bg-red-50 !text-red-600 !border-red-200' : ''}`}>
+              <AlertTriangle size={11} /> Com alerta
+            </button>
+            {(filters.status || filters.category || filters.role || filters.stale || filters.alerts) && (
+              <button type="button" onClick={() => setFilters({ status: '', category: '', role: '', stale: false, alerts: false })} className="text-[12px] font-bold text-gray-400 underline">
                 limpar
               </button>
             )}
@@ -499,6 +565,12 @@ export default function AdminStore() {
                       {isStale(prod) && (
                         <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5">
                           <Clock size={9} /> preço com mais de 24h
+                        </span>
+                      )}
+                      {alertsOf(prod).length > 0 && (
+                        <span title={alertsOf(prod).map(a => a.message).join('\n')}
+                          className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                          <AlertTriangle size={9} /> {alertsOf(prod).length === 1 ? alertsOf(prod)[0].message : `${alertsOf(prod).length} alertas`}
                         </span>
                       )}
                     </div>
@@ -535,6 +607,14 @@ export default function AdminStore() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── ABA BUSCAR OFERTAS ─────────────────────────────────────────────── */}
+      {tab === 'ofertas' && (
+        <AdminStoreOfferSearch
+          categoryOptions={categoryOptions}
+          onRegistered={(prod) => setProducts(prev => [prod, ...prev])}
+        />
       )}
 
       {/* ── ABA KITS ──────────────────────────────────────────────────────── */}
@@ -728,6 +808,32 @@ export default function AdminStore() {
                     </button>
                   ))}
                 </div>
+                {prodForm.syncAlerts?.length > 0 && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-[12px] font-bold text-red-700">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="font-black flex items-center gap-1"><AlertTriangle size={12} /> Alertas da rotina diária</p>
+                      <button type="button" onClick={clearAlerts} className="text-[11px] font-black underline">Limpar alertas</button>
+                    </div>
+                    {prodForm.syncAlerts.map(a => <p key={a.type}>• {a.message} <span className="font-medium text-red-400">({formatCheckedAt(a.at)})</span></p>)}
+                    <p className="mt-1 font-medium text-red-500">Nada foi despublicado. Decida se mantém, ajusta ou tira do ar.</p>
+                  </div>
+                )}
+                {prodForm.platform === 'Mercado Livre' && (
+                  <div className="rounded-2xl bg-yellow-50 border border-yellow-200 p-3 space-y-2">
+                    <label className="lbl">Mercado Livre: colar link ou código MLB</label>
+                    <div className="flex gap-2">
+                      <input value={mlInput} onChange={e => setMlInput(e.target.value)} className="inp text-xs font-mono"
+                        placeholder="https://produto.mercadolivre.com.br/MLB-… ou MLB123456789"
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookupMl(); } }} />
+                      <button type="button" onClick={lookupMl} disabled={mlLoading || !mlInput.trim()}
+                        className="shrink-0 flex items-center gap-1 rounded-xl bg-yellow-400 px-4 text-xs font-black text-gray-900 disabled:opacity-40">
+                        {mlLoading ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />} Buscar
+                      </button>
+                    </div>
+                    {mlMessage && <p className="text-[11px] font-bold text-gray-600">{mlMessage}</p>}
+                    {prodForm.externalId && <p className="text-[10px] font-mono text-gray-400">Vinculado: {prodForm.externalId}</p>}
+                  </div>
+                )}
                 {formBlockers.length > 0 && (
                   <div className={`rounded-2xl p-3 text-[12px] font-bold ${prodForm.status === 'published' ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'}`}>
                     <p className="font-black mb-1">{prodForm.status === 'published' ? 'Não dá para publicar ainda:' : 'Para publicar falta:'}</p>
@@ -768,8 +874,16 @@ export default function AdminStore() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="lbl flex items-center gap-1"><Link size={9} /> Link do app (afiliado)</label><input value={prodForm.linkApp} onChange={pf('linkApp')} className="inp font-mono text-xs text-blue-600" placeholder="https://s.shopee.com.br/..." /></div>
-                  <div><label className="lbl flex items-center gap-1"><Link size={9} /> Link do grupo</label><input value={prodForm.linkGroup} onChange={pf('linkGroup')} className="inp font-mono text-xs text-blue-600" placeholder="vazio = usa o do app" /></div>
+                  <div>
+                    <label className="lbl flex items-center gap-1"><Link size={9} /> Link do app (afiliado)</label>
+                    <input value={prodForm.linkApp} onChange={pf('linkApp')} className={`inp font-mono text-xs text-blue-600 ${linkAppError ? '!border-red-300' : ''}`} placeholder={prodForm.platform === 'Mercado Livre' ? 'https://meli.la/...' : 'https://s.shopee.com.br/...'} />
+                    {linkAppError && <p className="text-[10px] font-bold text-red-500 mt-1">{linkAppError}</p>}
+                  </div>
+                  <div>
+                    <label className="lbl flex items-center gap-1"><Link size={9} /> Link do grupo</label>
+                    <input value={prodForm.linkGroup} onChange={pf('linkGroup')} className={`inp font-mono text-xs text-blue-600 ${linkGroupError ? '!border-red-300' : ''}`} placeholder="vazio = usa o do app" />
+                    {linkGroupError && <p className="text-[10px] font-bold text-red-500 mt-1">{linkGroupError}</p>}
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div><label className="lbl">Subid</label><input value={prodForm.subid} onChange={pf('subid')} className="inp font-mono text-xs" maxLength={60} placeholder="grp_churu" /></div>

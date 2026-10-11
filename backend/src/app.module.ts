@@ -43,6 +43,7 @@ import { DiaryController } from './controllers/diary.controller';
 import { IgentController } from './igent/igent.controller';
 import { KiwifyController } from './kiwify/kiwify.controller';
 import { ProductsController } from './controllers/products.controller';
+import { StoreAffiliateModule } from './store/affiliate/store-affiliate.module';
 
 // Services
 import { PrismaService } from './prisma/prisma.service';
@@ -94,6 +95,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     SchedulerModule,
     FeedbackModule,
     ClubeModule,
+    StoreAffiliateModule,
   ],
   controllers: [
     HealthController,

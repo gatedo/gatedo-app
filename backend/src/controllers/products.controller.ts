@@ -1,8 +1,9 @@
 import {
   Controller, Get, Post, Patch, Delete, Param, Body, Query,
   Req, NotFoundException, HttpCode, BadRequestException,
-  UnauthorizedException, UseGuards, ForbiddenException
+  UnauthorizedException, UseGuards, ForbiddenException, ConflictException
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Caminho baseado no seu print
 import { calcTutorLevelMeta } from '../gamification/gamification.constants';
@@ -10,7 +11,7 @@ import { XP_ACTIONS } from '../gamification/xp.config';
 import {
   GANCHO_MAX, LEGACY_CATEGORY, MEDICINE_MESSAGE, PRODUCT_ROLES, PRODUCT_STATUSES,
   PUBLIC_PRODUCT_WHERE, STORE_CATEGORIES, isBlockedCategory, isValidAffiliateLink,
-  normalizeBadge, normalizeImages, normalizeImportItem, publishBlockers, sameName,
+  linkDomainError, normalizeBadge, normalizeImages, normalizeImportItem, publishBlockers, sameName,
 } from '../store/product-rules';
 
 // Compartilhar oferta da Loja: 2 XPT, uma vez por produto (o share reaproveita
@@ -281,7 +282,32 @@ export class ProductsController {
       if (!(PRODUCT_STATUSES as readonly string[]).includes(dto.status)) throw new BadRequestException('Status inválido.');
       data.status = dto.status;
     }
+    // Vínculo com a oferta da loja ("ml:MLB123", "shopee:123") — o unique no
+    // banco bloqueia cadastro duplicado.
+    if (has('externalId')) {
+      const v = text(dto.externalId);
+      if (v && !/^(ml:MLB\d+|shopee:\d+)$/.test(v)) throw new BadRequestException('Código externo inválido.');
+      data.externalId = v;
+    }
+    if (has('rating')) {
+      const v = dto.rating === '' || dto.rating === null ? null : Number(dto.rating);
+      if (v !== null && (!Number.isFinite(v) || v < 0 || v > 5)) throw new BadRequestException('Nota inválida.');
+      data.rating = v;
+    }
+    // Alertas da rotina diária: o admin só pode limpar.
+    if (has('syncAlerts')) {
+      if (dto.syncAlerts !== null) throw new BadRequestException('Alertas só podem ser limpos.');
+      data.syncAlerts = Prisma.DbNull;
+    }
     return data;
+  }
+
+  // Link do app/grupo tem que ser do domínio da loja (Shopee/ML).
+  private assertLinkDomains(merged: any) {
+    const errors = [merged.linkApp, merged.linkGroup]
+      .map((url) => linkDomainError(merged.platform, url))
+      .filter(Boolean);
+    if (errors.length) throw new BadRequestException(errors.join(' '));
   }
 
   private assertPublishable(merged: any, categoryName: string) {
@@ -298,17 +324,25 @@ export class ProductsController {
     const category = await this.resolveCategory(dto);
     const data = this.productFields({ status: 'draft', ...dto });
     if (!data.name) throw new BadRequestException('Nome obrigatório.');
+    this.assertLinkDomains(data);
     this.assertPublishable(data, category.name);
-    return this.prisma.product.create({
-      data: {
-        description: '',
-        price: 0,
-        ...(data as any),
-        priceCheckedAt: Number(data.price) > 0 ? new Date() : null,
-        categoryId: category.id,
-      },
-      include: { category: true },
-    });
+    try {
+      return await this.prisma.product.create({
+        data: {
+          description: '',
+          price: 0,
+          ...(data as any),
+          priceCheckedAt: Number(data.price) > 0 ? new Date() : null,
+          categoryId: category.id,
+        },
+        include: { category: true },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Esse produto já está cadastrado.');
+      }
+      throw error;
+    }
   }
 
   // ── PATCH /products/:id ───────────────────────────────────────────────────
@@ -325,6 +359,7 @@ export class ProductsController {
     if ((data.price !== undefined && Number(data.price) !== Number(current.price)) || dto.priceChecked === true) {
       data.priceCheckedAt = new Date();
     }
+    this.assertLinkDomains({ ...current, ...data });
     this.assertPublishable({ ...current, ...data }, category.name);
 
     return this.prisma.product.update({

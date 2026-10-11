@@ -109,6 +109,18 @@ for (const [label, rules] of [['backend', backend], ['frontend', frontend]] as c
       expect(semGancho).toContain('👉 https://app.link');
     });
 
+    it('link precisa ser do domínio da loja', () => {
+      expect(rules.linkDomainError('Shopee', 'https://s.shopee.com.br/abc')).toBeNull();
+      expect(rules.linkDomainError('Shopee', 'https://shopee.com.br/produto-i.1.2')).toBeNull();
+      expect(rules.linkDomainError('Shopee', 'https://meli.la/xyz')).toMatch(/Shopee/);
+      expect(rules.linkDomainError('Mercado Livre', 'https://meli.la/xyz')).toBeNull();
+      expect(rules.linkDomainError('Mercado Livre', 'https://produto.mercadolivre.com.br/MLB-1')).toBeNull();
+      expect(rules.linkDomainError('Mercado Livre', 'https://s.shopee.com.br/abc')).toMatch(/meli\.la/);
+      expect(rules.linkDomainError('Mercado Livre', 'https://fakemercadolivre.com.br/x')).not.toBeNull();
+      expect(rules.linkDomainError('Amazon', 'https://amzn.to/x')).toBeNull();
+      expect(rules.linkDomainError('Shopee', null)).toBeNull();
+    });
+
     it('preço com mais de 24h fica vencido', () => {
       const now = new Date('2026-10-08T12:00:00Z');
       expect(rules.isPriceStale('2026-10-07T11:59:00Z', now)).toBe(true);

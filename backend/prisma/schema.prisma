@@ -965,6 +965,18 @@ model Product {
   commissionPct  Float?
   gancho         String?   @db.VarChar(120)
   featured       Boolean   @default(false)
+  // Cadastro automático pela API de afiliados (src/store/affiliate).
+  // externalId = "shopee:<itemId>" ou "ml:<MLB>" — bloqueia cadastro duplicado.
+  externalId      String?   @unique
+  commissionValue Decimal?  @db.Decimal(10, 2)
+  commissionExtra Boolean?
+  rating          Float?
+  salesCount      Int?
+  shopOfficial    Boolean?
+  // Alertas da rotina diária (preço subiu, comissão caiu, saiu do ar). Só
+  // avisa no admin; nunca despublica sozinho. [{ type, message, at, ... }]
+  syncAlerts      Json?
+  syncedAt        DateTime?
   orderItems    OrderItem[]
   category      Category       @relation(fields: [categoryId], references: [id])
   productShares ProductShare[]
