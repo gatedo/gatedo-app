@@ -11,6 +11,7 @@ import useSensory from '../hooks/useSensory';
 import api from '../services/api';
 import { getPrimaryTutorBadge } from '../utils/membershipMeta';
 import { resolveCatThemeHex } from '../config/catThemes';
+import MemoryBox from '../components/MemoryBox';
 
 const C = { purple: '#8B4AFF', accent: '#ebfc66' };
 
@@ -333,11 +334,14 @@ export default function Cats() {
   const [viewMode,   setViewMode]   = useState('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [orderDirty, setOrderDirty] = useState(false);
+  const [memorialCats, setMemorialCats] = useState([]);
 
   useEffect(() => {
     if (!user) return;
     api.get('/pets').then(res => {
-      const active = (res.data || []).filter(c => !c.isMemorial && !c.isArchived);
+      const all = res.data || [];
+      setMemorialCats(all.filter(c => c.isMemorial || c.isArchived));
+      const active = all.filter(c => !c.isMemorial && !c.isArchived);
       const sorted = active.sort((a, b) => {
         const aU = a.healthRecords?.some(r => ['MEDICINE','MEDICATION'].includes(r.type)) ? 0 : 1;
         const bU = b.healthRecords?.some(r => ['MEDICINE','MEDICATION'].includes(r.type)) ? 0 : 1;
@@ -474,6 +478,15 @@ export default function Cats() {
               {searchTerm ? 'Nenhum resultado' : 'Nenhum gatinho ativo'}
             </p>
           </div>
+        )}
+
+        {/* Gatos em memória — fechado por padrão, o tutor escolhe mostrar */}
+        {!loading && !searchTerm && (
+          <MemoryBox
+            cats={memorialCats}
+            userId={user?.id}
+            onOpen={(cat) => { touch(); navigate(`/memorial/intro/${cat.id}`); }}
+          />
         )}
 
         {/* Gatos seguidos na ComuniGato */}

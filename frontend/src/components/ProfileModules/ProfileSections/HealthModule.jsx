@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Zap,
@@ -22,10 +23,18 @@ import {
   Bug,
   CalendarClock,
   ClipboardList,
+  ChevronRight,
+  X,
+  History,
+  Palette,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
 import TreatmentTracker from './Treatmenttracker';
+import { formatRecordDate } from '../../../utils/dates';
+import { brandAssets } from '../../../brand/assets';
+import HealthRecordModal from './HealthRecordModal';
+import ViewDocModal from './ViewDocModal';
 
 const C = {
   purple: '#8B4AFF',
@@ -33,18 +42,7 @@ const C = {
   accent: '#DFFF40',
 };
 
-const fmtDate = (d) => {
-  if (!d) return '—';
-  try {
-    return new Date(d).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return d;
-  }
-};
+const fmtDate = (d) => formatRecordDate(d);
 
 const daysSince = (d) => {
   if (!d) return null;
@@ -60,23 +58,70 @@ const daysSince = (d) => {
 const TRUSTED_KEY = (petId) => `gatedo_trusted_providers_${petId}`;
 
 const readTrustedProviders = (petId) => {
-  if (!petId) return { vets: [], clinics: [] };
+  if (!petId) return { vets: [], clinics: [], colors: {} };
   try {
     const raw = localStorage.getItem(TRUSTED_KEY(petId));
     const parsed = raw ? JSON.parse(raw) : {};
     return {
       vets: Array.isArray(parsed?.vets) ? parsed.vets : [],
       clinics: Array.isArray(parsed?.clinics) ? parsed.clinics : [],
+      colors: parsed?.colors && typeof parsed.colors === 'object' ? parsed.colors : {},
     };
   } catch {
-    return { vets: [], clinics: [] };
+    return { vets: [], clinics: [], colors: {} };
   }
 };
 
 const saveTrustedProviders = (petId, payload) => {
   if (!petId) return;
-  localStorage.setItem(TRUSTED_KEY(petId), JSON.stringify(payload));
+  try {
+    localStorage.setItem(TRUSTED_KEY(petId), JSON.stringify(payload));
+  } catch { /* storage cheio/bloqueado */ }
 };
+
+// Cor por clínica/veterinário: o tutor escolhe; sem escolha, sai uma cor fixa
+// a partir do nome. Veterinário herda a cor da clínica, então quem atende no
+// mesmo lugar aparece agrupado pela mesma cor.
+const PROVIDER_COLORS = ['#8B4AFF', '#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6', '#EF4444', '#6366F1'];
+const providerKey = (kind, name) => `${kind}:${String(name || '').trim().toLowerCase()}`;
+const autoColor = (name) => {
+  const str = String(name || '').trim().toLowerCase();
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return PROVIDER_COLORS[h % PROVIDER_COLORS.length];
+};
+const clinicColor = (colors, name) => colors[providerKey('clinic', name)] || autoColor(name);
+const vetColor = (colors, vet) =>
+  colors[providerKey('vet', vet.name)] || (vet.clinicName ? clinicColor(colors, vet.clinicName) : autoColor(vet.name));
+
+function ColorDot({ color, onPick, label }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative flex-shrink-0">
+      <button
+        type="button"
+        aria-label={`Mudar cor de ${label}`}
+        onClick={() => setOpen((o) => !o)}
+        className="w-6 h-6 rounded-full border-2 border-white shadow"
+        style={{ background: color }}
+      />
+      {open ? (
+        <div className="absolute right-0 top-8 z-20 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 grid grid-cols-4 gap-1.5 w-[132px]">
+          {PROVIDER_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={c}
+              onClick={() => { onPick(c); setOpen(false); }}
+              className="w-6 h-6 rounded-full"
+              style={{ background: c, outline: c === color ? '2px solid #111827' : 'none', outlineOffset: 2 }}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 const HEALTH_RECORD_META = {
   VACCINE: {
@@ -482,50 +527,82 @@ function IgentInsightCard({ cat, igentSessions }) {
         ? `${cat.name} já teve ${totalSessions} análises. A área de "${topSymptom[0]}" apareceu ${topSymptom[1]} vezes — vale atenção especial nessa região.${urgentCount > 0 ? ` ${urgentCount} consulta(s) indicaram urgência.` : ''}`
         : `${cat.name} tem ${totalSessions} análise${totalSessions > 1 ? 's' : ''} registrada${totalSessions > 1 ? 's' : ''} pelo iGentVet. Continue registrando para ativar os padrões preditivos.`;
 
+  const navigate = useNavigate();
+
   return (
     <div
       className="rounded-[28px] p-5 text-white shadow-lg relative overflow-hidden"
-      style={{ background: `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}
+      style={{ background: `linear-gradient(140deg, ${C.purple} 0%, #6D3BEB 45%, ${C.purpleDark} 100%)`, boxShadow: '0 16px 36px rgba(75,64,198,0.35)' }}
     >
-      <div className="absolute -right-6 -bottom-6 opacity-[0.07]">
-        <Brain size={110} />
+      <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full" style={{ background: 'rgba(223,255,64,0.12)' }} />
+      <div className="absolute -left-8 -bottom-12 w-36 h-36 rounded-full bg-white/5" />
+      <div className="absolute right-4 bottom-4 opacity-[0.08]">
+        <Brain size={96} />
       </div>
 
       <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-3">
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center"
-            style={{ background: C.accent }}
-          >
-            <Zap size={12} className="text-[#2D2657]" />
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="h-8 px-2.5 rounded-xl bg-white flex items-center flex-shrink-0">
+              <img src={brandAssets.igentvetWordmark} alt="iGentVet" className="h-4 object-contain" />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/75 truncate">Insight preditivo</span>
           </div>
-          <h3 className="text-[9px] font-black uppercase tracking-widest text-white/80">
-            iGentVet · Insight Preditivo
-          </h3>
+          {urgentCount > 0 ? (
+            <span className="flex-shrink-0 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-red-500/90 text-white">
+              {urgentCount} urgente{urgentCount > 1 ? 's' : ''}
+            </span>
+          ) : totalSessions > 0 ? (
+            <span className="flex-shrink-0 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full" style={{ background: C.accent, color: '#2D2657' }}>
+              Sem urgências
+            </span>
+          ) : null}
         </div>
 
-        <p className="text-sm leading-relaxed text-white/90 italic mb-4">
-          "{insightText}"
-        </p>
+        <p className="text-[14px] leading-relaxed font-bold text-white/95">{insightText}</p>
+
+        {topSymptom ? (
+          <p className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1.5 rounded-full bg-white/12 border border-white/15">
+            <Sparkles size={11} style={{ color: C.accent }} /> Área mais recorrente: {topSymptom[0]}
+          </p>
+        ) : null}
 
         {totalSessions > 0 && (
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white/10 rounded-2xl px-3 py-2 text-center">
-              <p className="text-lg font-black" style={{ color: C.accent }}>{totalSessions}</p>
-              <p className="text-[8px] font-black uppercase tracking-wider text-white/60">Análises</p>
+          <div className="grid grid-cols-3 gap-2 mt-4">
+            <div className="bg-white/10 border border-white/10 rounded-2xl px-3 py-2.5">
+              <p className="text-xl font-black leading-none" style={{ color: C.accent }}>{totalSessions}</p>
+              <p className="text-[8px] font-black uppercase tracking-wider text-white/60 mt-1">Análises</p>
             </div>
-            <div className="bg-white/10 rounded-2xl px-3 py-2 text-center">
-              <p className="text-lg font-black text-red-300">{urgentCount}</p>
-              <p className="text-[8px] font-black uppercase tracking-wider text-white/60">Urgentes</p>
+            <div className="bg-white/10 border border-white/10 rounded-2xl px-3 py-2.5">
+              <p className={`text-xl font-black leading-none ${urgentCount ? 'text-red-300' : 'text-white'}`}>{urgentCount}</p>
+              <p className="text-[8px] font-black uppercase tracking-wider text-white/60 mt-1">Urgentes</p>
             </div>
-            <div className="bg-white/10 rounded-2xl px-3 py-2 text-center">
-              <p className="text-[10px] font-black" style={{ color: C.accent }}>
+            <div className="bg-white/10 border border-white/10 rounded-2xl px-3 py-2.5">
+              <p className="text-[12px] font-black leading-tight" style={{ color: C.accent }}>
                 {lastSession ? daysSince(lastSession.date) : '—'}
               </p>
-              <p className="text-[8px] font-black uppercase tracking-wider text-white/60">Última</p>
+              <p className="text-[8px] font-black uppercase tracking-wider text-white/60 mt-1">Última</p>
             </div>
           </div>
         )}
+
+        <div className="grid grid-cols-2 gap-2 mt-4">
+          <button
+            type="button"
+            onClick={() => navigate('/igent-vet', { state: { catId: cat?.id } })}
+            className="py-3 rounded-2xl text-[12px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+            style={{ background: C.accent, color: '#2D2657' }}
+          >
+            <Zap size={13} /> Nova análise
+          </button>
+          <button
+            type="button"
+            onClick={() => document.getElementById('health-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="py-3 rounded-2xl text-[12px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 bg-white/12 border border-white/20 text-white active:scale-[0.98] transition-transform"
+          >
+            <History size={13} /> Histórico
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -589,7 +666,7 @@ function HealthSummaryCard({ records = [], treatments = [], documents = [], igen
 
 function ProvidersSection({ petId, records = [], treatments = [] }) {
   const [trusted, setTrusted] = useState(() => readTrustedProviders(petId));
-  const [form, setForm] = useState({ vetName: '', clinicName: '', phone: '', address: '', notes: '' });
+  const [form, setForm] = useState({ vetName: '', clinicName: '', phone: '', address: '', notes: '', color: '' });
 
   useEffect(() => {
     setTrusted(readTrustedProviders(petId));
@@ -686,12 +763,25 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
       });
     }
 
+    const colors = { ...trusted.colors };
+    if (form.color) {
+      if (form.clinicName.trim()) colors[providerKey('clinic', form.clinicName)] = form.color;
+      if (form.vetName.trim()) colors[providerKey('vet', form.vetName)] = form.color;
+    }
+
     saveTrustedProviders(petId, {
       vets: next.vets.slice(0, 30),
       clinics: next.clinics.slice(0, 30),
+      colors,
     });
     setTrusted(readTrustedProviders(petId));
-    setForm({ vetName: '', clinicName: '', phone: '', address: '', notes: '' });
+    setForm({ vetName: '', clinicName: '', phone: '', address: '', notes: '', color: '' });
+  };
+
+  const setColor = (key, color) => {
+    const next = { ...trusted, colors: { ...trusted.colors, [key]: color } };
+    saveTrustedProviders(petId, next);
+    setTrusted(next);
   };
 
   return (
@@ -750,6 +840,28 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
             className="mt-3 w-full rounded-2xl bg-white border border-gray-100 px-4 py-3 text-sm font-bold text-gray-700 outline-none resize-none"
           />
 
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span className="text-[9px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
+              <Palette size={11} /> Cor
+            </span>
+            {PROVIDER_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Cor ${c}`}
+                onClick={() => setForm((prev) => ({ ...prev, color: prev.color === c ? '' : c }))}
+                className="w-7 h-7 rounded-full transition-transform"
+                style={{
+                  background: c,
+                  transform: form.color === c ? 'scale(1.12)' : 'none',
+                  outline: form.color === c ? '2px solid #111827' : 'none',
+                  outlineOffset: 2,
+                }}
+              />
+            ))}
+            {!form.color ? <span className="text-[10px] font-bold text-gray-300">automática</span> : null}
+          </div>
+
           <button
             type="button"
             onClick={handleAddTrusted}
@@ -774,9 +886,13 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
               <p className="text-[12px] font-bold text-gray-400">Nenhuma clínica vinculada ainda.</p>
             ) : (
               merged.clinics.map((clinic) => (
-                <div key={clinic.id || clinic.name} className="rounded-[18px] bg-white border border-gray-100 p-3">
+                <div
+                  key={clinic.id || clinic.name}
+                  className="rounded-[18px] bg-white border border-gray-100 p-3"
+                  style={{ borderLeft: `5px solid ${clinicColor(trusted.colors, clinic.name)}` }}
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-black text-gray-800">{clinic.name}</p>
                       {clinic.phone ? (
                         <p className="text-[10px] font-bold text-gray-500 mt-1 flex items-center gap-1">
@@ -789,9 +905,16 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
                         </p>
                       ) : null}
                     </div>
-                    <span className="text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-100">
-                      Rede do bem
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-100">
+                        Rede do bem
+                      </span>
+                      <ColorDot
+                        label={clinic.name}
+                        color={clinicColor(trusted.colors, clinic.name)}
+                        onPick={(c) => setColor(providerKey('clinic', clinic.name), c)}
+                      />
+                    </div>
                   </div>
                 </div>
               ))
@@ -810,9 +933,13 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
               <p className="text-[12px] font-bold text-gray-400">Nenhum veterinário vinculado ainda.</p>
             ) : (
               merged.vets.map((vet) => (
-                <div key={vet.id || vet.name} className="rounded-[18px] bg-white border border-gray-100 p-3">
+                <div
+                  key={vet.id || vet.name}
+                  className="rounded-[18px] bg-white border border-gray-100 p-3"
+                  style={{ borderLeft: `5px solid ${vetColor(trusted.colors, vet)}` }}
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-black text-gray-800">{vet.name}</p>
                       {vet.clinicName ? (
                         <p className="text-[10px] font-bold text-gray-500 mt-1">{vet.clinicName}</p>
@@ -823,9 +950,16 @@ function ProvidersSection({ petId, records = [], treatments = [] }) {
                         </p>
                       ) : null}
                     </div>
-                    <span className="text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-[#F4F3FF] text-[#6D28D9] border border-[#8B4AFF10]">
-                      CatFriendly
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-[#F4F3FF] text-[#6D28D9] border border-[#8B4AFF10]">
+                        CatFriendly
+                      </span>
+                      <ColorDot
+                        label={vet.name}
+                        color={vetColor(trusted.colors, vet)}
+                        onPick={(c) => setColor(providerKey('vet', vet.name), c)}
+                      />
+                    </div>
                   </div>
                 </div>
               ))
@@ -981,7 +1115,103 @@ function LinkedDocumentsSection({ catId, documents = [] }) {
   );
 }
 
+const HISTORY_PREVIEW = 4;
+const HISTORY_BATCH = 12;
+
+function HistoryItem({ record, index, cat }) {
+  return record._kind === 'igent' ? (
+    <IgentRecord key={record.id || `igent-${index}`} record={record} catName={cat?.name} catGender={cat?.gender} />
+  ) : (
+    <VetRecord key={record.id || `vet-${index}`} record={record} />
+  );
+}
+
+const HISTORY_FILTERS = [
+  { key: 'all', label: 'Todos' },
+  { key: 'igent', label: '🤖 IA' },
+  { key: 'vet', label: '🏥 Clínico' },
+];
+
+// Gaveta com o histórico completo: renderiza aos poucos conforme rola
+// (lista grande não trava o app nem monta tudo de uma vez).
+function HistoryDrawer({ open, onClose, records, activeFilter, setActiveFilter, cat }) {
+  const [visible, setVisible] = useState(HISTORY_BATCH);
+  const scrollRef = useRef(null);
+  const sentinelRef = useRef(null);
+
+  useEffect(() => { setVisible(HISTORY_BATCH); }, [activeFilter, open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !sentinelRef.current || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setVisible((v) => Math.min(v + HISTORY_BATCH, records.length));
+    }, { root: scrollRef.current, rootMargin: '240px' });
+    io.observe(sentinelRef.current);
+    return () => io.disconnect();
+  }, [open, records.length, visible]);
+
+  if (!open) return null;
+
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 flex items-end justify-center bg-black/50 backdrop-blur-sm" style={{ zIndex: 10000 }} onClick={onClose}>
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="w-full max-w-[640px] h-[90vh] bg-[#F8F7FF] rounded-t-[28px] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 pt-3 pb-3 bg-white rounded-t-[28px] border-b border-gray-100">
+          <div className="w-10 h-1.5 rounded-full bg-gray-200 mx-auto mb-3" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[15px] font-black text-gray-900">Histórico de saúde</p>
+              <p className="text-[12px] font-bold text-gray-400">{records.length} registro{records.length === 1 ? '' : 's'} · {cat?.name}</p>
+            </div>
+            <button type="button" onClick={onClose} aria-label="Fechar" className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+              <X size={16} className="text-gray-500" />
+            </button>
+          </div>
+          <div className="flex gap-1.5 mt-3">
+            {HISTORY_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setActiveFilter(f.key)}
+                className="text-[10px] font-black px-3 py-1.5 rounded-full transition-all"
+                style={activeFilter === f.key ? { background: C.purple, color: '#fff' } : { background: '#F4F3FF', color: C.purple }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {records.slice(0, visible).map((record, i) => <HistoryItem key={record.id || i} record={record} index={i} cat={cat} />)}
+          {visible < records.length ? (
+            <div ref={sentinelRef} className="py-4 text-center text-[10px] font-black uppercase tracking-widest text-gray-300">
+              Carregando mais...
+            </div>
+          ) : (
+            <p className="py-4 text-center text-[10px] font-black uppercase tracking-widest text-gray-300">Fim do histórico</p>
+          )}
+        </div>
+      </motion.div>
+    </div>,
+    document.body
+  );
+}
+
 function VisitsTimeline({ records = [], igentRecords = [], activeFilter, setActiveFilter, cat }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const mergedTimeline = useMemo(() => {
     const classic = records.map((record) => ({
       ...record,
@@ -1012,7 +1242,8 @@ function VisitsTimeline({ records = [], igentRecords = [], activeFilter, setActi
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.16 }}
-      className="bg-white rounded-[28px] p-5 shadow-sm border border-gray-50"
+      id="health-history"
+      className="bg-white rounded-[28px] p-5 shadow-sm border border-gray-50 gatedo-scroll-target"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
@@ -1020,11 +1251,7 @@ function VisitsTimeline({ records = [], igentRecords = [], activeFilter, setActi
         </h3>
 
         <div className="flex gap-1">
-          {[
-            { key: 'all', label: 'Todos' },
-            { key: 'igent', label: '🤖 IA' },
-            { key: 'vet', label: '🏥 Clínico' },
-          ].map((f) => (
+          {HISTORY_FILTERS.map((f) => (
             <button
               key={f.key}
               onClick={() => setActiveFilter(f.key)}
@@ -1068,22 +1295,33 @@ function VisitsTimeline({ records = [], igentRecords = [], activeFilter, setActi
               exit={{ opacity: 0 }}
               className="space-y-3"
             >
-              {filteredRecords.map((record, i) =>
-                record._kind === 'igent' ? (
-                  <IgentRecord
-                    key={record.id || `igent-${i}`}
-                    record={record}
-                    catName={cat?.name}
-                    catGender={cat?.gender}
-                  />
-                ) : (
-                  <VetRecord key={record.id || `vet-${i}`} record={record} />
-                )
-              )}
+              {filteredRecords.slice(0, HISTORY_PREVIEW).map((record, i) => (
+                <HistoryItem key={record.id || i} record={record} index={i} cat={cat} />
+              ))}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {filteredRecords.length > HISTORY_PREVIEW ? (
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          className="mt-4 w-full py-3 rounded-2xl text-[12px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
+          style={{ background: '#F4F3FF', color: C.purple }}
+        >
+          <History size={13} /> Ver histórico completo · {filteredRecords.length}
+        </button>
+      ) : null}
+
+      <HistoryDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        records={filteredRecords}
+        activeFilter={activeFilter}
+        setActiveFilter={setActiveFilter}
+        cat={cat}
+      />
     </motion.div>
   );
 }
@@ -1097,6 +1335,9 @@ export default function HealthModule({ cat }) {
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   const [pendingTreatmentContext, setPendingTreatmentContext] = useState(null);
   const [autoOpenTracker, setAutoOpenTracker] = useState(false);
@@ -1229,8 +1470,13 @@ export default function HealthModule({ cat }) {
               const Icon = meta.icon;
 
               return (
-                <div key={record.id} className="rounded-[18px] border border-gray-100 bg-[#FCFCFF] p-4">
-                  <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  key={record.id}
+                  onClick={() => setSelectedRecord(record)}
+                  className="w-full text-left rounded-[18px] border border-gray-100 bg-[#FCFCFF] p-4 active:scale-[0.99] transition-transform"
+                >
+                  <div className="flex items-center gap-3">
                     <div
                       className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: meta.toneBg }}
@@ -1252,8 +1498,9 @@ export default function HealthModule({ cat }) {
                         {fmtDate(record.date)} · {record.veterinarian || record.clinicName || 'Sem profissional'}
                       </p>
                     </div>
+                    <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -1325,6 +1572,15 @@ export default function HealthModule({ cat }) {
           cat={cat}
         />
       )}
+
+      <HealthRecordModal
+        record={selectedRecord}
+        meta={selectedRecord ? getHealthRecordMeta(selectedRecord.type) : null}
+        documents={documents}
+        onClose={() => setSelectedRecord(null)}
+        onOpenDoc={(doc) => setPreviewDoc(doc)}
+      />
+      <ViewDocModal isOpen={!!previewDoc} doc={previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
   );
 }

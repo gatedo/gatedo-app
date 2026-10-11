@@ -14,6 +14,7 @@ import { track } from '../utils/track';
 import OfferCard from '../components/offers/OfferCard';
 import ClubeGate from '../components/ClubeGate';
 import { brandAssets } from '../brand/assets';
+import { exportReportPdf, reportQrTarget } from '../utils/reportDocument';
 import MiniMarkdown from '../utils/MiniMarkdown';
 import BlockRenderer from '../components/content/BlockRenderer';
 import { isBlocksArray } from '../components/content/blockTypes';
@@ -289,20 +290,6 @@ const buildThemeTriageQuestions = ({ symptomId = 'other', cat }) => {
     ],
   };
   return sets[symptomId] || null;
-};
-
-const blobToDataUrl = (blob) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-
-const urlToDataUrl = async (url) => {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  return blobToDataUrl(blob);
 };
 
 // ─── CSS INLINE ───────────────────────────────────────────────────────────────
@@ -1625,144 +1612,6 @@ useEffect(() => {
     }
   };
 
-  const buildReportHtml = (report) => {
-    const isUrgentStr = report.consultation.isUrgent ? '🔴 URGENTE' : '🟢 Monitoramento';
-    const careList = (report.consultation.care || []).map(c => `<li style="margin:4px 0">${c}</li>`).join('');
-    return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8"/>
-<title>Laudo IA iGentVet — ${report.pet?.name}</title>
-<style>
-  body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; color: #222; }
-  h1 { color: #8B4AFF; font-size: 22px; margin-bottom: 4px; }
-  .badge { display:inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; background: ${report.consultation.isUrgent ? '#fee2e2' : '#dcfce7'}; color: ${report.consultation.isUrgent ? '#b91c1c' : '#15803d'}; }
-  .section { margin-top: 20px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; }
-  .label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #9ca3af; letter-spacing: .1em; margin-bottom: 6px; }
-  .footer { margin-top: 32px; font-size: 10px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 16px; }
-</style>
-</head>
-<body>
-<h1>iGentVet — Laudo da IA</h1>
-<p style="color:#6b7280;font-size:13px">${report.reportId || ''} · ${report.consultation.date} às ${report.consultation.time}</p>
-<div class="section">
-  <div class="label">Paciente</div>
-  <b>${report.pet?.name}</b> · ${report.pet?.breed || 'SRD'} · ${report.pet?.gender === 'FEMALE' ? 'Fêmea' : 'Macho'} · ${report.pet?.ageYears || '?'} anos${report.pet?.weight ? ' · ' + report.pet.weight + 'kg' : ''}${report.pet?.neutered ? ' · Castrado(a)' : ''}
-</div>
-<div class="section">
-  <div class="label">Consulta</div>
-  <b>Sintoma:</b> ${report.consultation.symptom}<br/>
-  <span class="badge">${isUrgentStr}</span>
-</div>
-<div class="section">
-  <div class="label">Análise da IA</div>
-  ${report.consultation.analysisText}
-</div>
-<div class="section">
-  <div class="label">Recomendações</div>
-  <ul style="margin:0;padding-left:20px">${careList}</ul>
-</div>
-${report.consultation.ownerResponse ? '<div class="section"><div class="label">Resposta do Tutor</div>' + report.consultation.ownerResponse + '</div>' : ''}
-<div class="footer">
-  Gerado por iGentVet IA — Gatedo · Este laudo é orientativo e não substitui consulta veterinária presencial.
-</div>
-</body></html>`;
-  };
-
-  const buildReportPdfDataUrl = async (report) => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 44;
-    let y = 48;
-    const addPageIfNeeded = (height = 40) => {
-      if (y + height > 780) {
-        doc.addPage();
-        y = 48;
-      }
-    };
-    const line = (text, size = 10, color = '#374151', bold = false, maxWidth = pageWidth - margin * 2) => {
-      doc.setFont('helvetica', bold ? 'bold' : 'normal');
-      doc.setFontSize(size);
-      doc.setTextColor(color);
-      const parts = doc.splitTextToSize(String(text || '-').replace(/\s+/g, ' ').trim(), maxWidth);
-      parts.forEach((part) => {
-        addPageIfNeeded(size + 8);
-        doc.text(part, margin, y);
-        y += size + 6;
-      });
-    };
-    const section = (title) => {
-      y += 10;
-      doc.setFillColor(244, 243, 255);
-      doc.roundedRect(margin, y - 15, pageWidth - margin * 2, 28, 8, 8, 'F');
-      line(title, 10, '#8B4AFF', true);
-      y += 4;
-    };
-
-    const qrValue = report.shareUrl || `${window.location.origin}/cat/${cat?.id || ''}#documents`;
-    const [logoDataUrl, qrDataUrl] = await Promise.all([
-      urlToDataUrl(brandAssets.igentvetWordmark).catch(() => null),
-      urlToDataUrl(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrValue)}&bgcolor=ffffff&color=2D2657&margin=8&format=png&ecc=H`).catch(() => null),
-    ]);
-
-    doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, pageWidth, 96, 'F');
-    doc.setDrawColor(229, 231, 235);
-    doc.line(margin, 96, pageWidth - margin, 96);
-    if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', margin, 26, 92, 32);
-    doc.setTextColor('#2D2657');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.text('Laudo clinico iGentVet', margin + 112, 42);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor('#6B7280');
-    doc.text('Pre-triagem educativa para consulta presencial', margin + 112, 60);
-    if (qrDataUrl) {
-      doc.addImage(qrDataUrl, 'PNG', pageWidth - margin - 56, 22, 56, 56);
-      doc.setFontSize(7);
-      doc.setTextColor('#8B4AFF');
-      doc.text('QR do prontuario', pageWidth - margin - 58, 86);
-    }
-    y = 124;
-
-    section('Paciente');
-    line(`${report.pet?.name} | ${report.pet?.breed || 'SRD'} | ${report.pet?.gender === 'FEMALE' ? 'Femea' : 'Macho'} | ${report.pet?.ageYears || '?'} anos${report.pet?.weight ? ` | ${report.pet.weight}kg` : ''}${report.pet?.neutered ? ' | Castrado(a)' : ''}`);
-
-    section('Consulta');
-    line(`Data: ${report.consultation.date} as ${report.consultation.time}`, 10);
-    line(`Sintoma: ${report.consultation.symptom}`, 10, '#111827', true);
-    line(`Status: ${report.consultation.isUrgent ? 'URGENTE' : 'Monitoramento orientativo'}`, 10, report.consultation.isUrgent ? '#B91C1C' : '#15803D', true);
-
-    section('Analise iGentVet');
-    line(report.consultation.analysisText, 10);
-
-    section('Respostas do tutor e triagem');
-    line(report.consultation.ownerResponse || 'Sem resposta adicional registrada.', 10);
-
-    section('Recomendacoes e pontos para o veterinario');
-    (report.consultation.care || []).forEach((item) => line(`- ${item}`, 10));
-
-    if (report.visualAttachments?.length) {
-      section('Imagem enviada pelo tutor');
-      report.visualAttachments.slice(0, 2).forEach((image, index) => {
-        addPageIfNeeded(190);
-        line(image.label || `Imagem ${index + 1}`, 9, '#6B7280', true);
-        try {
-          doc.addImage(image.url, 'JPEG', margin, y, 180, 135);
-          y += 148;
-        } catch {
-          line('Imagem anexada ao atendimento, mas nao foi possivel inserir a pre-visualizacao no PDF.', 9, '#9CA3AF');
-        }
-      });
-    }
-
-    line('Este documento nao substitui consulta veterinaria presencial, exame fisico ou exames complementares.', 9, '#9CA3AF');
-
-    return doc.output('datauristring');
-  };
-
   // Salva histórico no perfil do gato + grava IgentSession para IA preditiva
   const handleSaveHistory = async () => {
     if (saving || saved || !cat) return;
@@ -1850,11 +1699,8 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
             care: reportMsg?.data?.care || [],
             ownerResponse: tutorResponses.join(' | '),
           },
-          shareUrl: `${window.location.origin}/cat/${cat.id}#documents`,
           visualAttachments,
         };
-
-        const pdfBase64 = await buildReportPdfDataUrl(previewReport);
 
         const reportRes = await api.post('/igent/report', {
           petId: cat.id,
@@ -1863,9 +1709,13 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
           care: reportMsg?.data?.care || [],
           isUrgent: reportMsg?.data?.isUrgent || false,
           ownerResponse: tutorResponses.join(' | '),
-          pdfBase64,
-          pdfFilename: `prontuario-igentvet-${cat?.name?.toLowerCase().replace(/\s+/g, '-') || 'gato'}-${new Date().toISOString().split('T')[0]}.pdf`,
-          pdfMimeType: 'application/pdf',
+          // Laudo salvo como dados (HTML/PDF montados na hora); só as fotos
+          // viram arquivo, comprimidas no backend.
+          attachments: previewReport.visualAttachments.slice(0, 3).map((att) => ({
+            dataUrl: att.url,
+            label: att.label,
+            note: att.note,
+          })),
           saveToDocuments: true,
         });
         setReportData(prev => ({ ...prev, _report: reportRes.data }));
@@ -1894,22 +1744,15 @@ ${report.consultation.ownerResponse ? '<div class="section"><div class="label">R
     }
   };
 
-  // Download laudo da IA como HTML
-  const downloadProntuario = (report) => {
-    if (report?.document?.fileUrl) {
-      window.open(report.document.fileUrl, '_blank', 'noopener,noreferrer');
+  // Baixar/compartilhar o laudo em PDF (mesmo modelo dos documentos)
+  const downloadProntuario = async (report) => {
+    if (!report) return;
+    try {
+      await exportReportPdf(report, reportQrTarget(null, null));
       touch('success');
-      return;
+    } catch (e) {
+      console.error('[iGentVet] PDF do laudo falhou:', e);
     }
-    const html = buildReportHtml(report);
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `laudo-ia-igentvet-${report.pet?.name?.toLowerCase().replace(/\s/g,'-')}-${new Date().toISOString().split('T')[0]}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-    touch('success');
   };
 
   const handleFeedback = async (feedback) => {
@@ -3386,7 +3229,9 @@ export default function IGentVet() {
   useEffect(() => {
     api.get('/pets')
       .then(r => {
-        const list = Array.isArray(r.data) ? r.data : [];
+        // Gatos em memória não entram na triagem (conteúdo sensível); eles
+        // ficam na "Caixinha de memórias" em Meus Gatos, se o tutor quiser.
+        const list = (Array.isArray(r.data) ? r.data : []).filter((c) => !c.isMemorial && !c.isArchived);
         setCats(list);
 
         if (preselectCatId) {

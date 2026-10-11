@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import api from '../../../services/api';
 import { extractWeightSeries, computeWeightAlerts } from '../../../utils/weightAlerts';
+import { toDisplayDate } from '../../../utils/dates';
 import OfferCard from '../../offers/OfferCard';
 
 const C = {
@@ -59,7 +60,7 @@ export function buildMarcos(healthRecords = [], weightSeries = [], protocolEnrol
     .map((r) => ({
       id: r.id,
       type: r.type,
-      date: new Date(r.date),
+      date: toDisplayDate(r.date) || new Date(r.date),
       text: r.ongoing ? `${r.title} (em andamento)` : r.title,
     }));
 

@@ -102,7 +102,7 @@ function NotifItem({ notif, onRead, onDismiss, onAction }) {
 
             {/* Cat name */}
             {notif.catName && (
-              <p className="text-[11px] font-bold mt-1" style={{ color: type.color }}>
+              <p className="text-[12px] font-bold mt-1" style={{ color: type.color }}>
                 🐾 {notif.catName}{notif.catBreed ? ` · ${notif.catBreed}` : ''}
               </p>
             )}
@@ -212,7 +212,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: C.bg, fontFamily: "'Nunito', sans-serif" }}>
+    <div className="min-h-screen pb-28" style={{ background: C.bg, fontFamily: "'Asap', sans-serif" }}>
 
       {/* ── Header ── */}
       <div className="px-4 pt-10 pb-5 relative"
@@ -276,7 +276,7 @@ export default function NotificationsPage() {
             return (
               <button key={t.id}
                 onClick={() => { touch(); setActiveTab(t.id); }}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black transition-all"
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-black transition-all"
                 style={active
                   ? { background: C.purple, color: 'white' }
                   : { background: '#F4F3FF', color: '#6B7280' }
@@ -298,7 +298,7 @@ export default function NotificationsPage() {
           {/* Filtro não lidas */}
           <button
             onClick={() => { touch(); setShowReadFilter(f => !f); }}
-            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-black transition-all ml-auto"
+            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-black transition-all ml-auto"
             style={showReadFilter
               ? { background: '#DFFF40', color: '#5A7000' }
               : { background: '#F4F3FF', color: '#9CA3AF' }

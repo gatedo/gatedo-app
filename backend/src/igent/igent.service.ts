@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { DocumentStorageService } from '../documents/document-storage.service';
 import OpenAI from 'openai';
 import pdfParse from 'pdf-parse';
 import { buildFelineClinicalAlmanacPrompt } from './feline-clinical-almanac';
@@ -45,7 +46,10 @@ export class IgentService {
   private readonly logger = new Logger(IgentService.name);
   private openai: OpenAI;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private documentStorage: DocumentStorageService,
+  ) {
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     this.logger.warn(
       `GEMINI_API_KEY carregada: ${
@@ -1163,6 +1167,7 @@ TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' :
       pdfFilename?: string;
       pdfMimeType?: string;
       saveToDocuments?: boolean;
+      attachments?: { dataUrl?: string; label?: string; note?: string }[];
     },
   ) {
     const pet = await this.prisma.pet.findUnique({
@@ -1225,7 +1230,35 @@ TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' :
       },
     } as any;
 
-    if (persist?.saveToDocuments && persist?.pdfBase64) {
+    if (persist?.saveToDocuments && !persist?.pdfBase64) {
+      // Fluxo atual: laudo guardado como dados (sem arquivo). HTML e PDF são
+      // montados no front a partir disso, sempre com o modelo mais recente.
+      const doc = await this.persistReportDocument({
+        petId,
+        ownerId: pet.ownerId,
+        title: reportPayload.documentIntent.title,
+        report: {
+          reportId,
+          generatedAt: reportPayload.generatedAt,
+          pet: { ...reportPayload.pet, ageMonths: pet?.ageMonths, birthDate: pet?.birthDate },
+          owner: reportPayload.owner,
+          consultation: reportPayload.consultation,
+        },
+        attachments: persist.attachments || [],
+        metadata: {
+          source: 'IGENT',
+          type: 'REPORT',
+          reportId,
+          symptomLabel,
+          isUrgent,
+          confidenceLevel: isUrgent ? 'HIGH_ALERT' : 'GUIDED',
+          triageLevel: isUrgent ? 'URGENT' : 'MONITOR',
+          generatedAt: now.toISOString(),
+        },
+      });
+      reportPayload.document = { saved: true, category: 'LAUDOS_IA', id: doc.id };
+    } else if (persist?.saveToDocuments && persist?.pdfBase64) {
+      // Legado: versões antigas do app (PWA em cache) ainda mandam o PDF pronto.
       const title = reportPayload.documentIntent.title;
       const filename = reportPayload.documentIntent.suggestedFilename;
       const fileUrl = await this.persistBase64Document({
@@ -1263,6 +1296,50 @@ TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' :
     return reportPayload;
   }
 
+  private async persistReportDocument(data: {
+    petId: string;
+    ownerId: string;
+    title: string;
+    report: any;
+    attachments: { dataUrl?: string; label?: string; note?: string }[];
+    metadata: any;
+  }) {
+    const attachments: { fileUrl: string; label?: string; note?: string }[] = [];
+    for (const att of data.attachments.slice(0, 3)) {
+      const match = String(att?.dataUrl || '').match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+      if (!match) continue;
+      try {
+        const stored = await this.documentStorage.save({
+          buffer: Buffer.from(match[2], 'base64'),
+          mimeType: match[1].toLowerCase(),
+          petId: data.petId,
+        });
+        attachments.push({ fileUrl: stored.fileUrl, label: att.label?.slice(0, 120), note: att.note?.slice(0, 500) });
+      } catch (err: any) {
+        this.logger.warn(`Anexo do laudo não salvo: ${err?.message || err}`);
+      }
+    }
+
+    const report = { ...data.report, attachments };
+    return this.prisma.document.create({
+      data: {
+        title: data.title,
+        category: 'LAUDOS_IA',
+        type: 'REPORT',
+        fileUrl: `report:${data.report.reportId}`,
+        fileName: `${String(data.report.reportId).toLowerCase()}.laudo`,
+        mimeType: 'application/vnd.gatedo.report+json',
+        size: Buffer.byteLength(JSON.stringify(report)),
+        petId: data.petId,
+        ownerId: data.ownerId,
+        metadata: { ...data.metadata, report },
+        isPrivate: true,
+        isVetShared: false,
+        isFavorite: false,
+      },
+    });
+  }
+
   private async persistBase64Document(data: {
     petId: string;
     ownerId: string;
@@ -1273,27 +1350,23 @@ TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' :
     base64: string;
     metadata?: any;
   }) {
-    const { mkdir, writeFile } = await import('fs/promises');
-    const { join, extname } = await import('path');
-
     const raw = (data.base64 || '').includes(',') ? data.base64.split(',').pop() || '' : data.base64 || '';
-    const buffer = Buffer.from(raw, 'base64');
-    const ext = extname(data.filename || '') || (data.mimeType.includes('pdf') ? '.pdf' : '.bin');
-    const safeName = `${Date.now()}-${Math.round(Math.random() * 1e5)}${ext}`;
-    const targetDir = join(process.cwd(), 'uploads', 'documents');
-    await mkdir(targetDir, { recursive: true });
-    const fullPath = join(targetDir, safeName);
-    await writeFile(fullPath, buffer);
+    const stored = await this.documentStorage.save({
+      buffer: Buffer.from(raw, 'base64'),
+      mimeType: data.mimeType,
+      originalName: data.filename,
+      petId: data.petId,
+    });
 
     const document = await this.prisma.document.create({
       data: {
         title: data.title,
         category: data.category,
-        type: data.mimeType?.toLowerCase().includes('pdf') ? 'PDF' : 'OTHER',
-        fileUrl: `/uploads/documents/${safeName}`,
-        fileName: safeName,
-        mimeType: data.mimeType,
-        size: buffer.length,
+        type: stored.mimeType.toLowerCase().includes('pdf') ? 'PDF' : 'OTHER',
+        fileUrl: stored.fileUrl,
+        fileName: stored.fileName,
+        mimeType: stored.mimeType,
+        size: stored.size,
         petId: data.petId,
         ownerId: data.ownerId,
         metadata: data.metadata ?? undefined,
@@ -1303,7 +1376,7 @@ TUTOR: ${message || (hasExamPdfText ? 'Explique o exame/laudo em PDF anexado.' :
       },
     });
 
-    return document.fileUrl;
+    return (await this.documentStorage.resolve(document.fileUrl, document.title)).url;
   }
 
   // ─── MÉTODO 4: CRIAR IGENTSESSION ───────────────────────────────────────────

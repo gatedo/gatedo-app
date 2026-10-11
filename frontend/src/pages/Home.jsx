@@ -12,6 +12,7 @@ import Header from '../components/Header';
 import useSensory from '../hooks/useSensory';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
+import CatCardSkeleton from '../components/CatCardSkeleton';
 import { getCatLifeBadge, getPrimaryTutorBadge } from '../utils/membershipMeta';
 import { resolveCatThemeHex } from '../config/catThemes';
 import useOfferDecision from '../hooks/useOfferDecision';
@@ -134,15 +135,28 @@ function MiniTutorBadge({ badge, crown = false }) {
   );
 }
 
-function CatsRail({ cats, loading, onAdd, tutorBadge, selectedCatId, onSelect }) {
+function CatsRail({ cats, loading, slow, onAdd, tutorBadge, selectedCatId, onSelect }) {
   const navigate = useNavigate();
   const touch    = useSensory();
   const active   = cats.filter(c => !c.isMemorial && !c.isArchived);
   const memorial = cats.filter(c => c.isMemorial || c.isArchived);
 
   if (loading) return (
-    <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-      {[1, 2, 3].map(i => <div key={i} className="flex-shrink-0 w-28 h-36 rounded-[22px] bg-gray-100 animate-pulse" />)}
+    <div>
+      <div className="flex gap-3 overflow-x-auto -m-1 p-1 pb-2" style={{ scrollbarWidth: 'none' }} role="status" aria-label="Carregando seus gatos">
+        {[0, 1, 2].map(i => <CatCardSkeleton key={i} index={i} />)}
+      </div>
+      <AnimatePresence>
+        {slow && (
+          <motion.p
+            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="mt-2 text-[12px] font-bold text-gray-400 flex items-center gap-1.5"
+          >
+            <motion.span animate={{ rotate: [0, -12, 12, 0] }} transition={{ repeat: Infinity, duration: 1.4 }}>🐾</motion.span>
+            Acordando a casa dos gatos… no primeiro acesso do dia pode levar alguns segundos.
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 
@@ -946,6 +960,28 @@ export default function Home() {
 
   const isAdmin = user?.email === 'diegobocktavares@gmail.com' || user?.role === 'ADMIN';
 
+  // Gatos guardados no aparelho: aparecem na hora ao abrir o app e são
+  // atualizados assim que a API responde (o servidor pode estar "acordando").
+  const catsCacheKey = user?.id ? `gatedo_home_cats_${user.id}` : null;
+  const [slowLoading, setSlowLoading] = useState(false);
+
+  useEffect(() => {
+    if (!catsCacheKey) return;
+    try {
+      const cached = JSON.parse(localStorage.getItem(catsCacheKey) || 'null');
+      if (Array.isArray(cached) && cached.length) {
+        setCats(cached);
+        setLoading(false);
+      }
+    } catch { /* cache inválido: ignora */ }
+  }, [catsCacheKey]);
+
+  useEffect(() => {
+    if (!loading) { setSlowLoading(false); return undefined; }
+    const t = setTimeout(() => setSlowLoading(true), 4000);
+    return () => clearTimeout(t);
+  }, [loading]);
+
   const loadCats = () =>
     api.get('/pets').then((r) => {
       const sorted = (r.data || []).sort((a, b) => {
@@ -956,9 +992,12 @@ export default function Home() {
                (b.healthRecords?.some((r) => r.type === 'MEDICINE') ? 0 : 1);
       });
       setCats(sorted);
+      if (catsCacheKey) {
+        try { localStorage.setItem(catsCacheKey, JSON.stringify(sorted)); } catch { /* storage cheio */ }
+      }
     }).finally(() => setLoading(false));
 
-  useEffect(() => { loadCats(); }, []);
+  useEffect(() => { loadCats(); }, [catsCacheKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1031,7 +1070,7 @@ export default function Home() {
             </motion.button>
           </div>
           <CatsRail
-            cats={cats} loading={loading} onAdd={() => navigate('/cat-new')} tutorBadge={tutorBadge}
+            cats={cats} loading={loading} slow={slowLoading} onAdd={() => navigate('/cat-new')} tutorBadge={tutorBadge}
             selectedCatId={selectedCatId} onSelect={setSelectedCatId}
           />
           <AnimatePresence>
@@ -1095,23 +1134,24 @@ export default function Home() {
           <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-[100] w-24 flex justify-center">
             <motion.button onClick={() => { touch(); setIsAdminOpen(true); }}
               animate={{ opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 2 }}
-              className="text-[#8B4AFF] px-4 py-1.5 rounded-t-2xl shadow-lg border-x border-t border-white/50 flex flex-col items-center group active:scale-95"
-              style={{ background: C.accentDim }}>
-              <ChevronUp size={16} strokeWidth={4} className="group-hover:-translate-y-1 transition-transform" />
+              aria-label="Abrir painel admin"
+              className="px-3 py-0.5 rounded-t-xl shadow-md flex items-center justify-center group active:scale-95"
+              style={{ background: C.accentDim, color: C.purple }}>
+              <ChevronUp size={12} strokeWidth={4} className="group-hover:-translate-y-0.5 transition-transform" />
             </motion.button>
           </div>
           <AnimatePresence>
             {isAdminOpen && (
               <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-x-0 bottom-0 z-[200] rounded-t-[40px] shadow-[0_-15px_40px_rgba(0,0,0,0.15)] p-8 max-h-[70vh] overflow-y-auto"
-                style={{ background: C.accentDim }}>
+                className="fixed inset-x-0 bottom-0 z-[200] rounded-t-[40px] shadow-[0_-15px_40px_rgba(0,0,0,0.25)] p-8 max-h-[70vh] overflow-y-auto"
+                style={{ background: `linear-gradient(160deg, ${C.purple} 0%, #6D3BEB 55%, #4B40C6 100%)` }}>
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h2 className="text-xl font-black uppercase tracking-tighter" style={{ color: C.purple }}>Gatedo Admin</h2>
-                    <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: `${C.purple}60` }}>Painel de Controle</p>
+                    <h2 className="text-xl font-black uppercase tracking-tighter text-white">Gatedo Admin</h2>
+                    <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.accentDim }}>Painel de Controle</p>
                   </div>
-                  <button onClick={() => setIsAdminOpen(false)} className="p-2 rounded-full" style={{ background: `${C.purple}15`, color: C.purple }}>
+                  <button onClick={() => setIsAdminOpen(false)} className="p-2 rounded-full bg-white/15 text-white">
                     <X size={20} />
                   </button>
                 </div>

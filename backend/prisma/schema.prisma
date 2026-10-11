@@ -60,6 +60,7 @@ model User {
   targetCoupons          Coupon[]               @relation("CouponTarget")
   couponRedemptions      CouponRedemption[]
   documents              Document[]
+  vetShareLinks          VetShareLink[]
   memorialTributes       MemorialTribute[]
   notifications          Notification[]
   orders                 Order[]
@@ -166,6 +167,7 @@ model Pet {
   profileCompletedAt    DateTime?
   diaryEntries          DiaryEntry[]
   documents             Document[]
+  vetShareLinks         VetShareLink[]
   healthRecords         HealthRecord[]
   reminders             Reminder[]
   igentSessions         IgentSession[]
@@ -479,6 +481,8 @@ model GuideCategory {
   id        String       @id
   nome      String
   descricao String?
+  // Banner da categoria no Almanaque (enviado pelo admin).
+  coverUrl  String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   entries   GuideEntry[]
@@ -492,6 +496,8 @@ model GuideEntry {
   categoryId       String?
   category         GuideCategory? @relation(fields: [categoryId], references: [id])
   excerpt          String?
+  // Banner do topo do verbete / miniatura na lista (enviado pelo admin).
+  coverUrl         String?
   body             String
   // Conteúdo rico opcional (seções coloridas, imagem, checklist, callout,
   // slot de oferta) — array de blocos tipados. Quando ausente/vazio, o
@@ -700,6 +706,26 @@ model Document {
   @@index([ownerId])
   @@index([category])
   @@index([createdAt])
+}
+
+// Link público e temporário da "Pasta do Vet": mostra o resumo do pet e os
+// documentos marcados com isVetShared. O token é a única credencial.
+model VetShareLink {
+  id           String    @id @default(uuid())
+  token        String    @unique
+  petId        String
+  ownerId      String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  viewCount    Int       @default(0)
+  lastViewedAt DateTime?
+  createdAt    DateTime  @default(now())
+  pet          Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  owner        User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+  @@index([ownerId])
+  @@map("vet_share_links")
 }
 
 model MemorialTribute {

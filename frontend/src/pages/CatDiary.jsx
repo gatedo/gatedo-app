@@ -1066,7 +1066,7 @@ export default function CatDiary() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans" style={{ background: '#F8F9FE' }}>
+    <div className="min-h-screen flex flex-col font-sans" style={{ background: 'var(--gatedo-light-bg)' }}>
       <AnimatePresence>
         {postSaveOffer && (
           <div className="px-5 pt-3">

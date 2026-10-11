@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Copy, CheckCircle2, Star, Zap, Crown, Heart, Flag, Video, Image, Mail, Smartphone, MessageCircle } from 'lucide-react';
 import { FOUNDER_LAUNCH_PHASES } from '../../utils/founderLaunchConfig';
+import { Archive } from 'lucide-react';
+import AdminFasesControl from '../../components/admin/Adminfasescontrol';
 
 const P = '#8B4AFF';
 const A = '#ebfc66';
@@ -684,7 +686,52 @@ function CopyCard({ item }) {
   );
 }
 
+// Fases de venda (Kiwify) ficam arquivadas aqui enquanto o app é gratuito —
+// nada foi apagado, dá pra reativar numa campanha futura.
+function ArchivedPhases() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <Archive size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-black text-amber-800">Arquivado · vendas por fase pausadas</p>
+          <p className="text-xs text-amber-700 leading-relaxed mt-0.5">
+            O Gatedo está gratuito, então o controle de fases (Gênese, Raiz, Cerne) saiu da visão geral. Os dados e links continuam
+            aqui, prontos para uma campanha futura. Confira se as vendas estão fechadas enquanto não houver campanha.
+          </p>
+        </div>
+      </div>
+      <AdminFasesControl />
+    </div>
+  );
+}
+
 export default function AdminCampaignGenese() {
+  const [view, setView] = useState('copies');
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 p-1 rounded-2xl bg-white border border-gray-100 shadow-sm w-full max-w-md">
+        {[
+          { id: 'copies', label: 'Copies da campanha' },
+          { id: 'phases', label: 'Fases & vendas · arquivado' },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setView(t.id)}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-colors ${view === t.id ? 'text-white' : 'text-gray-500'}`}
+            style={view === t.id ? { background: P } : undefined}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {view === 'phases' ? <ArchivedPhases /> : <GeneseCopies />}
+    </div>
+  );
+}
+
+function GeneseCopies() {
   const [active, setActive] = useState('genese');
   const current = PHASES.find(p => p.id === active);
   const PhIcon = current.icon;

@@ -62,11 +62,19 @@ function StatusBadge({ status }) {
   );
 }
 
+// Mistura a cor com branco (amount 0–1) — mesmo tom, mais claro.
+function tint(hex, amount) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  const mix = (c) => Math.round(c + (255 - c) * amount);
+  const r = mix((n >> 16) & 255), g = mix((n >> 8) & 255), b = mix(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
 function ProgressBar({ value, max = 100, color = P, size = 'md' }) {
   const pct = Math.min(100, Math.round((value / max) * 100));
   const h = size === 'sm' ? 'h-1.5' : 'h-2.5';
   return (
-    <div className={`w-full ${h} bg-gray-100 rounded-full overflow-hidden`}>
+    <div className={`w-full ${h} bg-gray-100/70 rounded-full overflow-hidden`}>
       <div className={`${h} rounded-full transition-all duration-700`}
         style={{ width: `${pct}%`, backgroundColor: color }} />
     </div>
@@ -374,17 +382,17 @@ function OKRsPanel() {
                     {Object.keys(STATUS_CFG).map(s => <option key={s}>{s}</option>)}
                   </select>
                   <div className="text-right">
-                    <p className="text-lg font-black" style={{ color: okr.color }}>{avgProgress}%</p>
+                    <p className="text-lg font-black text-gray-800">{avgProgress}%</p>
                   </div>
                 </div>
               </div>
-              <ProgressBar value={avgProgress} color={okr.color} />
+              <ProgressBar value={avgProgress} color={tint(okr.color, 0.15)} size="sm" />
               <div className="mt-4 space-y-3">
                 {okr.krs.map(kr => {
                   const pct = Math.min(100, Math.round((kr.current / kr.target) * 100));
                   const isEditing = editing === kr.id;
                   return (
-                    <div key={kr.id} className="bg-gray-50 rounded-xl p-3">
+                    <div key={kr.id} className="bg-gray-50/60 rounded-xl px-3 py-2.5">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className="text-xs text-gray-700 font-medium flex-1 leading-relaxed">{kr.text}</p>
                         <button onClick={() => setEditing(isEditing ? null : kr.id)}
@@ -404,8 +412,8 @@ function OKRsPanel() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <ProgressBar value={kr.current} max={kr.target} color={okr.color} size="sm" />
-                          <span className="text-[10px] font-black flex-shrink-0 w-10 text-right" style={{ color: okr.color }}>{pct}%</span>
+                          <ProgressBar value={kr.current} max={kr.target} color={tint(okr.color, 0.55)} size="sm" />
+                          <span className="text-[10px] font-black flex-shrink-0 w-10 text-right text-gray-500">{pct}%</span>
                         </div>
                       )}
                       <p className="text-[12px] text-gray-400 mt-1">

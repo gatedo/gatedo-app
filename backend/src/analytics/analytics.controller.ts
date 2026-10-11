@@ -13,6 +13,12 @@ export class AnalyticsController {
     }
   }
 
+  @Get('overview')
+  overview(@Req() req: any) {
+    this.ensureAdmin(req.user);
+    return this.analytics.overview();
+  }
+
   @Get('signups')
   signups(@Req() req: any, @Query('days') days?: string) {
     this.ensureAdmin(req.user);

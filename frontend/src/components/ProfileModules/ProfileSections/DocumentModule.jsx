@@ -3,6 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../../services/api';
 import ViewDocModal from './ViewDocModal';
+import LaudoModal from '../../report/LaudoModal';
+import VetShareModal from '../../vet/VetShareModal';
+import useVetShare from '../../../hooks/useVetShare';
+import { exportReportPdf, getReport, reportQrTarget } from '../../../utils/reportDocument';
+import { toDisplayDate } from '../../../utils/dates';
 
 import {
   Award,
@@ -32,7 +37,16 @@ import {
   ScanText,
   HeartPulse,
   BrainCircuit,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
+import {
+  DOCUMENT_ACCEPT,
+  MAX_DOCUMENT_BYTES,
+  compressImageForUpload,
+  downloadDocument,
+  exportDocumentFile,
+} from '../../../utils/documentFiles';
 
 const FOLDER_META = {
   LAUDOS_MEDICOS: { slug: 'laudos_medicos', label: 'Laudos Médicos', color: 'from-emerald-500 to-green-500', icon: HeartPulse },
@@ -83,6 +97,7 @@ function getCategoryMeta(category) {
 }
 
 function getDocKind(doc) {
+  if (doc?.isReport) return 'report';
   const mime = String(doc?.mimeType || doc?.type || '').toLowerCase();
   const name = String(doc?.fileName || doc?.title || '').toLowerCase();
 
@@ -156,44 +171,8 @@ function openExternal(url) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-function downloadDocument(doc) {
-  const finalUrl = resolveFileUrl(doc?.fileUrl);
-  if (!finalUrl) return;
-
-  const a = document.createElement('a');
-  a.href = finalUrl;
-  a.download = doc?.fileName || doc?.title || 'documento';
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
 async function exportDocument(doc) {
-  const finalUrl = resolveFileUrl(doc?.fileUrl);
-  if (!finalUrl) return false;
-
-  try {
-    if (navigator.share) {
-      await navigator.share({
-        title: doc.title || doc.fileName || 'Documento',
-        text: 'Documento exportado do GATEDO',
-        url: finalUrl,
-      });
-      return true;
-    }
-  } catch {
-    return false;
-  }
-
-  const a = document.createElement('a');
-  a.href = finalUrl;
-  a.download = doc.fileName || doc.title || 'documento';
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  return true;
+  return Boolean(await exportDocumentFile(doc, resolveFileUrl));
 }
 
 function formatDate(value) {
@@ -223,7 +202,7 @@ function formatBytes(bytes) {
 
 function canPreviewDocument(doc) {
   const kind = getDocKind(doc);
-  return kind === 'image' || kind === 'pdf';
+  return kind === 'image' || kind === 'pdf' || kind === 'report';
 }
 
 function PedigreeViewer({
@@ -399,10 +378,153 @@ function FolderCard({ item, onClick, onAdd }) {
   );
 }
 
+// ─── Organizador da lista de documentos (por período e tipo) ────────────────
+const GROUP_MODES = [
+  { key: 'week', label: 'Semana' },
+  { key: 'month', label: 'Mês' },
+  { key: 'year', label: 'Ano' },
+];
+const PAGE_SIZE = 8;
+
+// Data que importa pro tutor: a da consulta/exame quando o documento traz
+// (prontuário, receita), senão a do envio.
+function docDate(doc) {
+  return toDisplayDate(doc?.metadata?.date) || toDisplayDate(doc?.createdAt) || new Date(0);
+}
+
+function startOfWeek(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (x.getDay() + 6) % 7; // segunda-feira
+  x.setDate(x.getDate() - diff);
+  return x;
+}
+
+function groupInfo(date, mode) {
+  const now = new Date();
+  if (mode === 'year') {
+    return { key: String(date.getFullYear()), label: date.getFullYear() === now.getFullYear() ? `Este ano · ${date.getFullYear()}` : String(date.getFullYear()) };
+  }
+  if (mode === 'month') {
+    const key = `${date.getFullYear()}-${date.getMonth()}`;
+    const name = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const isNow = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+    return { key, label: isNow ? `Este mês · ${name}` : name.charAt(0).toUpperCase() + name.slice(1) };
+  }
+  const start = startOfWeek(date);
+  const thisWeek = startOfWeek(now);
+  const weeks = Math.round((thisWeek - start) / (7 * 86400000));
+  const label = weeks === 0 ? 'Esta semana' : weeks === 1 ? 'Semana passada'
+    : `Semana de ${start.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}${start.getFullYear() !== now.getFullYear() ? ` ${start.getFullYear()}` : ''}`;
+  return { key: start.toISOString(), label };
+}
+
+function DocumentOrganizer({ docs, renderCard }) {
+  const [mode, setMode] = useState(() => {
+    try { return localStorage.getItem('gatedo_docs_group') || 'month'; } catch { return 'month'; }
+  });
+  const [type, setType] = useState('ALL');
+  const [visible, setVisible] = useState(PAGE_SIZE);
+
+  useEffect(() => {
+    try { localStorage.setItem('gatedo_docs_group', mode); } catch { /* sem storage */ }
+  }, [mode]);
+  useEffect(() => { setVisible(PAGE_SIZE); }, [mode, type]);
+
+  const types = useMemo(() => {
+    const counts = new Map();
+    docs.forEach((d) => {
+      const key = normalizeFolderKey(d.category);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return [...counts.entries()].map(([key, count]) => ({ key, count, label: getCategoryMeta(key).label }));
+  }, [docs]);
+
+  const filtered = useMemo(() => docs
+    .filter((d) => type === 'ALL' || normalizeFolderKey(d.category) === type)
+    .sort((a, b) => docDate(b) - docDate(a)), [docs, type]);
+
+  const groups = useMemo(() => {
+    const out = [];
+    filtered.slice(0, visible).forEach((doc) => {
+      const info = groupInfo(docDate(doc), mode);
+      const last = out[out.length - 1];
+      if (last && last.key === info.key) last.items.push(doc);
+      else out.push({ ...info, items: [doc] });
+    });
+    return out;
+  }, [filtered, visible, mode]);
+
+  const totalsByGroup = useMemo(() => {
+    const map = new Map();
+    filtered.forEach((doc) => {
+      const { key } = groupInfo(docDate(doc), mode);
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return map;
+  }, [filtered, mode]);
+
+  return (
+    <div>
+      <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-gray-100 shadow-sm mb-2">
+        {GROUP_MODES.map((m) => (
+          <button
+            key={m.key}
+            type="button"
+            onClick={() => setMode(m.key)}
+            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ${mode === m.key ? 'bg-[#8B4AFF] text-white' : 'text-gray-400'}`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {types.length > 1 ? (
+        <div className="flex gap-1.5 overflow-x-auto pb-2 mb-1" style={{ scrollbarWidth: 'none' }}>
+          {[{ key: 'ALL', label: 'Todos', count: docs.length }, ...types].map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setType(t.key)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black transition-colors ${type === t.key ? 'bg-[#2D2657] text-white' : 'bg-white text-gray-500 border border-gray-100'}`}
+            >
+              {t.label} <span className="opacity-60">{t.count}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="space-y-5">
+        {groups.map((g) => (
+          <section key={g.key}>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6D28D9]">{g.label}</p>
+              <span className="text-[9px] font-black text-gray-300">{totalsByGroup.get(g.key)}</span>
+              <div className="flex-1 h-px bg-gray-100" />
+            </div>
+            <div className="space-y-3">{g.items.map(renderCard)}</div>
+          </section>
+        ))}
+      </div>
+
+      {filtered.length > visible ? (
+        <button
+          type="button"
+          onClick={() => setVisible((v) => v + PAGE_SIZE)}
+          className="mt-4 w-full py-3 rounded-2xl bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-[#8B4AFF] shadow-sm"
+        >
+          Mostrar mais ({filtered.length - visible})
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function RecentDocCard({ doc, onToggleFavorite, onToggleVet, onDelete, onExport, onPreview, onDownload }) {
   const visual = getSmartDocVisual(doc);
   const Icon = visual.icon;
   const categoryMeta = getCategoryMeta(doc?.category);
+  const missing = Boolean(doc.fileMissing);
+  const fileBtnState = missing ? ' opacity-40 pointer-events-none' : '';
 
   return (
     <motion.div layout className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-4">
@@ -445,21 +567,21 @@ function RecentDocCard({ doc, onToggleFavorite, onToggleVet, onDelete, onExport,
           </div>
 
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            {doc.isPrivate ? (
-              <span className="text-[8px] font-black px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 flex items-center gap-1">
-                <Lock size={9} /> Privado
+            {missing ? (
+              <span className="text-[8px] font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 flex items-center gap-1">
+                <AlertTriangle size={9} /> Arquivo indisponível — envie novamente
               </span>
-            ) : (
-              <span className="text-[8px] font-black px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600">
-                Público
-              </span>
-            )}
+            ) : null}
 
             {doc.isVetShared ? (
               <span className="text-[8px] font-black px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 flex items-center gap-1">
-                <Shield size={9} /> Compartilhado com vet
+                <Shield size={9} /> Na pasta do vet
               </span>
-            ) : null}
+            ) : (
+              <span className="text-[8px] font-black px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 flex items-center gap-1">
+                <Lock size={9} /> Só você
+              </span>
+            )}
 
             {doc.cloudProvider ? (
               <span className="text-[8px] font-black px-2.5 py-1 rounded-full bg-violet-50 text-violet-600">
@@ -471,7 +593,7 @@ function RecentDocCard({ doc, onToggleFavorite, onToggleVet, onDelete, onExport,
       </div>
 
       <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2">
-        <button type="button" onClick={() => (canPreviewDocument(doc) ? onPreview(doc) : openExternal(resolveFileUrl(doc.fileUrl)))} className="px-3 py-2 rounded-2xl bg-gray-50 text-gray-600 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <button type="button" onClick={() => (canPreviewDocument(doc) ? onPreview(doc) : openExternal(resolveFileUrl(doc.fileUrl)))} disabled={missing} className={`px-3 py-2 rounded-2xl bg-gray-50 text-gray-600${fileBtnState} text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5`}>
           <ExternalLink size={12} />
           Ver
         </button>
@@ -481,12 +603,12 @@ function RecentDocCard({ doc, onToggleFavorite, onToggleVet, onDelete, onExport,
           Vet
         </button>
 
-        <button type="button" onClick={() => onExport(doc)} className="px-3 py-2 rounded-2xl bg-[#F4F3FF] text-[#8B4AFF] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <button type="button" onClick={() => onExport(doc)} disabled={missing} className={`px-3 py-2 rounded-2xl bg-[#F4F3FF] text-[#8B4AFF]${fileBtnState} text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5`}>
           <Share2 size={12} />
           Exportar
         </button>
 
-        <button type="button" onClick={() => onDownload(doc)} className="px-3 py-2 rounded-2xl bg-[#FAFAFA] text-gray-600 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <button type="button" onClick={() => onDownload(doc)} disabled={missing} className={`px-3 py-2 rounded-2xl bg-[#FAFAFA] text-gray-600${fileBtnState} text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5`}>
           <Download size={12} />
           Baixar
         </button>
@@ -512,6 +634,10 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
   const [docs, setDocs] = useState([]);
   const [folders, setFolders] = useState([]);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [reportDoc, setReportDoc] = useState(null);
+  const [vetModalOpen, setVetModalOpen] = useState(false);
+  const vetShare = useVetShare(cat?.id);
+  const [uploading, setUploading] = useState(false);
 
   const pedigreeUrl = cat?.pedigreeFrontUrl || cat?.pedigreeUrl || cat?.pedigree || null;
   const pedigreeBackUrl = cat?.pedigreeBackUrl || null;
@@ -571,9 +697,27 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
   const favoritesCount = useMemo(() => docs.filter((d) => d.isFavorite).length, [docs]);
   const vetSharedCount = useMemo(() => docs.filter((d) => d.isVetShared).length, [docs]);
 
-  const handleDownload = (doc) => {
+  // Laudo IA não tem arquivo: o PDF é montado na hora a partir dos dados.
+  const exportReport = async (doc, preferShare) => {
     try {
-      downloadDocument(doc);
+      await exportReportPdf(getReport(doc), reportQrTarget(doc, vetShare.link), { preferShare });
+      return true;
+    } catch (err) {
+      console.error('Erro ao gerar PDF do laudo:', err);
+      alert('Não foi possível gerar o PDF agora.');
+      return false;
+    }
+  };
+
+  const handlePreview = (doc) => {
+    if (doc.isReport) return setReportDoc(doc);
+    setPreviewDoc({ ...doc, fileUrl: resolveFileUrl(doc.fileUrl) });
+  };
+
+  const handleDownload = (doc) => {
+    if (doc?.isReport) return exportReport(doc, false);
+    try {
+      downloadDocument(doc, resolveFileUrl);
     } catch (err) {
       console.error('Erro ao baixar documento:', err);
       alert('Não foi possível baixar este documento agora.');
@@ -581,11 +725,17 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
   };
 
   const handleUploadDocument = async (file, forcedCategory = null) => {
-    if (!file || !cat?.id) return;
+    if (!file || !cat?.id || uploading) return;
+    if (file.size > MAX_DOCUMENT_BYTES) {
+      alert('Arquivo muito grande. O limite é 25 MB.');
+      return;
+    }
     const guessedCategory = forcedCategory || (file.type?.includes('pdf') ? 'OFICIAL' : file.type?.includes('image') ? 'OUTROS' : 'OUTROS');
     try {
+      setUploading(true);
+      const toSend = await compressImageForUpload(file);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', toSend);
       formData.append('petId', cat.id);
       formData.append('title', file.name);
       formData.append('category', guessedCategory);
@@ -600,7 +750,9 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
       await loadData();
     } catch (err) {
       console.error('Erro ao subir documento:', err);
-      alert('Não foi possível enviar o arquivo agora.');
+      alert(err?.response?.data?.message || 'Não foi possível enviar o arquivo agora.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -615,11 +767,8 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
 
   const handleVetShare = async (doc) => {
     try {
-      await api.patch(`/documents/${doc.id}`, {
-        isVetShared: !doc.isVetShared,
-        isPrivate: doc.isVetShared ? doc.isPrivate : false,
-      });
-      await loadData();
+      await api.patch(`/documents/${doc.id}`, { isVetShared: !doc.isVetShared });
+      await Promise.all([loadData(), vetShare.reload()]);
     } catch (err) {
       console.error(err);
     }
@@ -639,7 +788,7 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
 
   const handleExport = async (doc) => {
     touch?.();
-    const ok = await exportDocument(doc);
+    const ok = doc.isReport ? await exportReport(doc, true) : await exportDocument(doc);
     if (!ok) return;
     try {
       await api.patch(`/documents/${doc.id}`, {
@@ -765,29 +914,34 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
               </p>
             </div>
 
-            <button type="button" onClick={() => genericInputRef.current?.click()} className="px-4 py-3 rounded-2xl bg-white text-[#2B1F53] text-[10px] font-black uppercase tracking-widest shadow-[0_12px_24px_rgba(0,0,0,0.12)] flex items-center gap-2 active:scale-[0.98] transition-transform">
-              <Plus size={14} />
-              Adicionar
+            <button type="button" onClick={() => genericInputRef.current?.click()} disabled={uploading} className="disabled:opacity-70 px-4 py-3 rounded-2xl bg-white text-[#2B1F53] text-[10px] font-black uppercase tracking-widest shadow-[0_12px_24px_rgba(0,0,0,0.12)] flex items-center gap-2 active:scale-[0.98] transition-transform">
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {uploading ? 'Enviando...' : 'Adicionar'}
             </button>
           </div>
 
           <div className="relative z-10 mt-5 flex gap-2 flex-wrap">
             <StatPill label="Arquivos" value={totalDocs} color="#8B4AFF" />
             <StatPill label="Favoritos" value={favoritesCount} color="#F59E0B" />
-            <StatPill label="Vet Share" value={vetSharedCount} color="#16A34A" />
+            <StatPill label="Pasta do Vet" value={vetSharedCount} color="#16A34A" />
           </div>
 
-          <div className="relative z-10 mt-4 rounded-[22px] bg-white/10 border border-white/14 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
+          <button type="button" onClick={() => setVetModalOpen(true)} className="relative z-10 mt-4 w-full text-left rounded-[22px] bg-white/10 border border-white/14 backdrop-blur-sm px-4 py-3 flex items-center gap-3 active:scale-[0.99] transition-transform">
             <div className="w-10 h-10 rounded-2xl bg-white/12 border border-white/12 flex items-center justify-center text-[#DFFF40]">
-              <Share2 size={16} />
+              <Stethoscope size={16} />
             </div>
             <div className="flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/82">Exportar para Drive / iCloud</p>
-              <p className="text-[10px] text-white/58 mt-1">Compartilhamento nativo no app e download de apoio no desktop.</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/82">Enviar ao veterinário</p>
+              <p className="text-[10px] text-white/58 mt-1">
+                {vetShare.link
+                  ? 'Link da Pasta do Vet ativo · toque para ver o QR'
+                  : 'Gere um link/QR com os documentos marcados com Vet'}
+              </p>
             </div>
-          </div>
+            <ChevronRight size={16} className="text-white/60" />
+          </button>
 
-          <input ref={genericInputRef} type="file" hidden onChange={(e) => {
+          <input ref={genericInputRef} type="file" accept={DOCUMENT_ACCEPT} hidden onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) handleUploadDocument(f);
             e.target.value = '';
@@ -818,7 +972,7 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
                     categoryInputRefs.current[folder.id]?.click();
                   }}
                 />
-                <input type="file" hidden ref={(el) => { categoryInputRefs.current[folder.id] = el; }} onChange={(e) => {
+                <input type="file" accept={DOCUMENT_ACCEPT} hidden ref={(el) => { categoryInputRefs.current[folder.id] = el; }} onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) handleUploadDocument(f, folder.id);
                   e.target.value = '';
@@ -831,7 +985,7 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
 
       <div className="space-y-4 px-2">
         <div className="flex items-center justify-between px-1">
-          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Documentos Recentes</h3>
+          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Documentos</h3>
           {!!docs.length && (
             <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">
               {docs.length} item{docs.length !== 1 ? 's' : ''}
@@ -846,8 +1000,9 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
             ))}
           </div>
         ) : docs.length > 0 ? (
-          <div className="space-y-3">
-            {docs.slice(0, 8).map((doc) => (
+          <DocumentOrganizer
+            docs={docs}
+            renderCard={(doc) => (
               <RecentDocCard
                 key={doc.id}
                 doc={doc}
@@ -855,11 +1010,11 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
                 onToggleVet={handleVetShare}
                 onDelete={handleDelete}
                 onExport={handleExport}
-                onPreview={(doc) => setPreviewDoc({ ...doc, fileUrl: resolveFileUrl(doc.fileUrl) })}
+                onPreview={handlePreview}
                 onDownload={handleDownload}
               />
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <div className="bg-white rounded-[28px] border border-gray-100 p-8 text-center shadow-sm">
             <div className="w-16 h-16 rounded-[22px] bg-[#8B4AFF]/8 mx-auto flex items-center justify-center mb-4">
@@ -879,6 +1034,18 @@ export default function DocumentModule({ cat, touch, onUploadPedigree, onUploadP
         onClose={() => setPreviewDoc(null)}
         onDownload={handleDownload}
         onOpenExternal={(doc) => openExternal(doc?.fileUrl)}
+      />
+      <LaudoModal
+        isOpen={!!reportDoc}
+        doc={reportDoc}
+        qr={reportQrTarget(reportDoc, vetShare.link)}
+        onClose={() => setReportDoc(null)}
+      />
+      <VetShareModal
+        isOpen={vetModalOpen}
+        onClose={() => setVetModalOpen(false)}
+        petName={cat?.name}
+        vetShare={vetShare}
       />
     </div>
   );

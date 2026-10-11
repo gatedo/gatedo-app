@@ -20,6 +20,8 @@ import {
 } from '../components/ProfileModules/ProfileSections/TimelineModule';
 import UpcomingCareBlock from '../components/UpcomingCareBlock';
 import { track } from '../utils/track';
+import { formatRecordDate } from '../utils/dates';
+import { PLATFORM, createBrandedPdf, deliverPdf, formatPetLine, vetShareUrl } from '../utils/reportDocument';
 
 const C = { purple: '#8B4AFF', purpleDark: '#4B40C6', green: '#10B981', amber: '#F59E0B', red: '#EF4444' };
 
@@ -129,8 +131,8 @@ function CatSummaryCard({ cat, weightSeries }) {
       <div className="grid grid-cols-2 gap-2.5">
         <DetailCard icon={Scale} label="Peso atual" value={weightValue} />
         <DetailCard icon={Scale} label="Variação" value={weightDeltaLabel} />
-        <DetailCard icon={Stethoscope} label="Última consulta" value={latestConsultation ? formatDate(new Date(latestConsultation.date)) : 'Sem registro'} />
-        <DetailCard icon={CalendarClock} label="Próximo preventivo" value={nextPreventive ? formatDate(new Date(nextPreventive.nextDueDate)) : 'Sem previsão'} />
+        <DetailCard icon={Stethoscope} label="Última consulta" value={latestConsultation ? formatRecordDate(latestConsultation.date) : 'Sem registro'} />
+        <DetailCard icon={CalendarClock} label="Próximo preventivo" value={nextPreventive ? formatRecordDate(nextPreventive.nextDueDate) : 'Sem previsão'} />
       </div>
     </div>
   );
@@ -169,7 +171,7 @@ function CoverageBlock({ cat }) {
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-bold text-gray-700">{r.label}</p>
               <p className="text-[10px] font-bold text-gray-400">
-                {r.latest ? `Aplicado em ${formatDate(new Date(r.latest.date))}` : 'Sem registro'}
+                {r.latest ? `Aplicado em ${formatRecordDate(r.latest.date)}` : 'Sem registro'}
               </p>
             </div>
             <span
@@ -189,64 +191,65 @@ function CoverageBlock({ cat }) {
 // 8 — Gerar PDF para o veterinário
 // ─────────────────────────────────────────────────────────────────────────────
 async function generateVetPdf({ cat, status, weightSeries, marcos, alerts, coverageRows }) {
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const margin = 44;
-  let y = 56;
+  // Se o tutor já tem link ativo da Pasta do Vet, o QR leva direto pra ela.
+  let qr = { url: PLATFORM.siteUrl, caption: PLATFORM.site };
+  try {
+    const { data } = await api.get(`/vet-share/pet/${cat.id}`);
+    if (data?.link?.token) qr = { url: vetShareUrl(data.link.token), caption: 'Escaneie para abrir a Pasta do Vet' };
+  } catch { /* sem link: QR vai pro site */ }
 
-  const line = (text, size = 10, bold = false) => {
-    doc.setFont('helvetica', bold ? 'bold' : 'normal');
-    doc.setFontSize(size);
-    const parts = doc.splitTextToSize(String(text || ''), 500);
-    parts.forEach((p) => {
-      if (y > 780) { doc.addPage(); y = 56; }
-      doc.text(p, margin, y);
-      y += size + 6;
-    });
-  };
-
-  line(`Relatório de saúde — ${cat.name}`, 16, true);
-  line(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`, 9);
-  y += 8;
-
-  line('Score de saúde', 12, true);
-  line(`${status.score}/100 · ${status.label}`);
-  y += 6;
-
-  line('Peso', 12, true);
-  if (weightSeries.length >= 2) {
-    const d = formatWeightDelta(weightSeries);
-    line(`Peso atual: ${weightSeries[weightSeries.length - 1].weight} kg (${d.deltaLabel} em ${d.periodLabel})`);
-  } else if (cat.weight) {
-    line(`Peso atual: ${cat.weight} kg (histórico insuficiente para variação)`);
-  } else {
-    line('Sem pesagens registradas.');
-  }
-  y += 6;
-
-  line('Marcos recentes', 12, true);
-  if (marcos.length === 0) {
-    line('Nenhum marco registrado.');
-  } else {
-    marcos.slice(0, 15).forEach((m) => line(`${formatDate(m.date)} — ${m.text}`, 9));
-  }
-  y += 6;
-
-  line('Leitura de padrão', 12, true);
-  if (alerts.length === 0) {
-    line('Nenhum padrão fora do esperado nas pesagens registradas.');
-  } else {
-    alerts.forEach((a) => line(`${a.message} (${a.rule})`, 9));
-    line('Isso não é diagnóstico — vale comentar com o veterinário.', 8);
-  }
-  y += 6;
-
-  line('Cobertura preventiva', 12, true);
-  coverageRows.forEach((r) => {
-    line(`${r.label}: ${r.latest ? `aplicado em ${formatDate(new Date(r.latest.date))}` : 'sem registro'} — ${r.status.label}`, 9);
+  const pdf = await createBrandedPdf({
+    qrUrl: qr.url,
+    qrCaption: qr.caption,
+    footerNote: 'Resumo gerado a partir dos registros do tutor no Gatedo. Não substitui avaliação veterinária.',
   });
 
-  doc.save(`saude-${(cat.name || 'gato').toLowerCase().replace(/\s+/g, '-')}.pdf`);
+  const tone = status.score >= 75 ? 'green' : status.score >= 50 ? 'amber' : 'red';
+  pdf.title({
+    text: `Relatório de saúde`,
+    subtitle: `Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+    badge: { label: `Score ${status.score}/100 · ${status.label}`, tone },
+  });
+
+  pdf.section('Paciente');
+  pdf.text(cat.name, { size: 12, color: '#111827', bold: true });
+  pdf.text(formatPetLine(cat));
+
+  pdf.section('Peso');
+  if (weightSeries.length >= 2) {
+    const d = formatWeightDelta(weightSeries);
+    pdf.rows([
+      ['Peso atual', `${weightSeries[weightSeries.length - 1].weight} kg`],
+      ['Variação', `${d.deltaLabel} em ${d.periodLabel}`],
+      ['Pesagens', String(weightSeries.length)],
+    ]);
+  } else {
+    pdf.text(cat.weight ? `Peso atual: ${cat.weight} kg (histórico insuficiente para variação)` : 'Sem pesagens registradas.');
+  }
+
+  pdf.section('Cobertura preventiva');
+  pdf.rows(coverageRows.map((r) => [
+    r.label,
+    `${r.latest ? `aplicado em ${formatRecordDate(r.latest.date)}` : 'sem registro'} · ${r.status.label}`,
+  ]));
+
+  pdf.section('Leitura de padrão');
+  if (alerts.length === 0) {
+    pdf.text('Nenhum padrão fora do esperado nas pesagens registradas.');
+  } else {
+    alerts.forEach((a) => pdf.text(`- ${a.message} (${a.rule})`));
+    pdf.text('Isso não é diagnóstico — vale comentar com o veterinário.', { size: 8.5, color: '#9CA3AF' });
+  }
+
+  pdf.section('Marcos recentes');
+  if (marcos.length === 0) {
+    pdf.text('Nenhum marco registrado.');
+  } else {
+    pdf.rows(marcos.slice(0, 20).map((m) => [formatDate(m.date), m.text]), { labelWidth: 90 });
+  }
+
+  const slug = (cat.name || 'gato').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  await deliverPdf(pdf.finish(), `relatorio-saude-${slug}.pdf`, { title: `Relatório de saúde — ${cat.name}` });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

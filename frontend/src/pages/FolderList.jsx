@@ -21,10 +21,25 @@ import {
   ReceiptText,
   FolderOpen,
   HeartPulse,
+  AlertTriangle,
+  Loader2,
+  BrainCircuit,
+  ChevronRight,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import ViewDocModal from '../components/ProfileModules/ProfileSections/ViewDocModal';
+import LaudoModal from '../components/report/LaudoModal';
+import VetShareModal from '../components/vet/VetShareModal';
+import useVetShare from '../hooks/useVetShare';
+import { exportReportPdf, getReport, reportQrTarget } from '../utils/reportDocument';
+import {
+  DOCUMENT_ACCEPT,
+  MAX_DOCUMENT_BYTES,
+  compressImageForUpload,
+  downloadDocument,
+  exportDocumentFile,
+} from '../utils/documentFiles';
 
 
 const FOLDER_META = {
@@ -81,6 +96,7 @@ function formatBytes(bytes) {
 }
 
 function getDocKind(doc) {
+  if (doc?.isReport) return 'report';
   const mime = String(doc?.mimeType || doc?.type || '').toLowerCase();
   const name = String(doc?.fileName || doc?.title || '').toLowerCase();
 
@@ -104,49 +120,13 @@ function openExternal(url) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-function downloadDocument(doc) {
-  const finalUrl = resolveFileUrl(doc?.fileUrl);
-  if (!finalUrl) return;
-
-  const a = document.createElement('a');
-  a.href = finalUrl;
-  a.download = doc?.fileName || doc?.title || 'documento';
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
 async function exportDocument(doc) {
-  const finalUrl = resolveFileUrl(doc?.fileUrl);
-  if (!finalUrl) return false;
-
-  try {
-    if (navigator.share) {
-      await navigator.share({
-        title: doc.title || doc.fileName || 'Documento',
-        text: 'Documento exportado do GATEDO',
-        url: finalUrl,
-      });
-      return true;
-    }
-  } catch {
-    return false;
-  }
-
-  const a = document.createElement('a');
-  a.href = finalUrl;
-  a.download = doc.fileName || doc.title || 'documento';
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  return true;
+  return Boolean(await exportDocumentFile(doc, resolveFileUrl));
 }
 
 function canPreviewDocument(doc) {
   const kind = getDocKind(doc);
-  return kind === 'image' || kind === 'pdf';
+  return kind === 'image' || kind === 'pdf' || kind === 'report';
 }
 
 function EmptyState({ label }) {
@@ -167,12 +147,14 @@ function EmptyState({ label }) {
 
 function DocCard({ doc, onFavorite, onVet, onDelete, onExport, onPreview, onDownload }) {
   const kind = getDocKind(doc);
+  const missing = Boolean(doc.fileMissing);
+  const fileBtnState = missing ? ' opacity-40 pointer-events-none' : '';
 
   return (
     <motion.div layout className="bg-white p-4 rounded-[24px] border border-gray-50 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="w-12 h-12 rounded-[16px] bg-[#F4F3FF] flex items-center justify-center text-[#8B4AFF] flex-shrink-0">
-          {kind === 'pdf' ? <FileBadge size={20} /> : kind === 'image' ? <ImageIcon size={20} /> : <FileText size={20} />}
+          {kind === 'report' ? <BrainCircuit size={20} /> : kind === 'pdf' ? <FileBadge size={20} /> : kind === 'image' ? <ImageIcon size={20} /> : <FileText size={20} />}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -197,9 +179,15 @@ function DocCard({ doc, onFavorite, onVet, onDelete, onExport, onPreview, onDown
           </div>
 
           <div className="flex items-center gap-2 mt-3 flex-wrap">
+            {missing ? (
+              <span className="text-[8px] font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 flex items-center gap-1">
+                <AlertTriangle size={9} /> Arquivo indisponível — envie novamente
+              </span>
+            ) : null}
+
             {doc.isVetShared ? (
               <span className="text-[8px] font-black px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 flex items-center gap-1">
-                <Shield size={9} /> Compartilhado com vet
+                <Shield size={9} /> Na pasta do vet
               </span>
             ) : null}
 
@@ -213,7 +201,7 @@ function DocCard({ doc, onFavorite, onVet, onDelete, onExport, onPreview, onDown
       </div>
 
       <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2">
-        <button type="button" onClick={() => (canPreviewDocument(doc) ? onPreview(doc) : openExternal(resolveFileUrl(doc.fileUrl)))} className="px-3 py-2 rounded-2xl bg-gray-50 text-gray-600 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <button type="button" onClick={() => (canPreviewDocument(doc) ? onPreview(doc) : openExternal(resolveFileUrl(doc.fileUrl)))} disabled={missing} className={`px-3 py-2 rounded-2xl bg-gray-50 text-gray-600${fileBtnState} text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5`}>
           <ExternalLink size={12} />
           Ver
         </button>
@@ -223,12 +211,12 @@ function DocCard({ doc, onFavorite, onVet, onDelete, onExport, onPreview, onDown
           Vet
         </button>
 
-        <button type="button" onClick={() => onExport(doc)} className="px-3 py-2 rounded-2xl bg-[#F4F3FF] text-[#8B4AFF] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <button type="button" onClick={() => onExport(doc)} disabled={missing} className={`px-3 py-2 rounded-2xl bg-[#F4F3FF] text-[#8B4AFF]${fileBtnState} text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5`}>
           <Share2 size={12} />
           Exportar
         </button>
 
-        <button type="button" onClick={() => onDownload(doc)} className="px-3 py-2 rounded-2xl bg-[#FAFAFA] text-gray-600 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <button type="button" onClick={() => onDownload(doc)} disabled={missing} className={`px-3 py-2 rounded-2xl bg-[#FAFAFA] text-gray-600${fileBtnState} text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5`}>
           <Download size={12} />
           Baixar
         </button>
@@ -261,6 +249,10 @@ export default function FolderList() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [reportDoc, setReportDoc] = useState(null);
+  const [vetModalOpen, setVetModalOpen] = useState(false);
+  const vetShare = useVetShare(id);
 
   const load = async () => {
     try {
@@ -298,11 +290,8 @@ export default function FolderList() {
 
   const handleVet = async (doc) => {
     try {
-      await api.patch(`/documents/${doc.id}`, {
-        isVetShared: !doc.isVetShared,
-        isPrivate: doc.isVetShared ? doc.isPrivate : false,
-      });
-      await load();
+      await api.patch(`/documents/${doc.id}`, { isVetShared: !doc.isVetShared });
+      await Promise.all([load(), vetShare.reload()]);
     } catch (err) {
       console.error(err);
     }
@@ -320,8 +309,20 @@ export default function FolderList() {
     }
   };
 
+  // Laudo IA não tem arquivo: o PDF é montado na hora a partir dos dados.
+  const exportReport = async (doc, preferShare) => {
+    try {
+      await exportReportPdf(getReport(doc), reportQrTarget(doc, vetShare.link), { preferShare });
+      return true;
+    } catch (err) {
+      console.error(err);
+      alert('Não foi possível gerar o PDF agora.');
+      return false;
+    }
+  };
+
   const handleExport = async (doc) => {
-    const ok = await exportDocument(doc);
+    const ok = doc.isReport ? await exportReport(doc, true) : await exportDocument(doc);
     if (!ok) return;
     try {
       await api.patch(`/documents/${doc.id}`, {
@@ -335,8 +336,9 @@ export default function FolderList() {
   };
 
   const handleDownload = (doc) => {
+    if (doc?.isReport) return exportReport(doc, false);
     try {
-      downloadDocument(doc);
+      downloadDocument(doc, resolveFileUrl);
     } catch (err) {
       console.error(err);
       alert('Não foi possível baixar este documento agora.');
@@ -344,11 +346,17 @@ export default function FolderList() {
   };
 
   const handleUpload = async (file) => {
-    if (!file || !id) return;
+    if (!file || !id || uploading) return;
+    if (file.size > MAX_DOCUMENT_BYTES) {
+      alert('Arquivo muito grande. O limite é 25 MB.');
+      return;
+    }
 
     try {
+      setUploading(true);
+      const toSend = await compressImageForUpload(file);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', toSend);
       formData.append('petId', id);
       formData.append('title', file.name);
       formData.append('category', folderMeta.key);
@@ -364,7 +372,9 @@ export default function FolderList() {
       await load();
     } catch (err) {
       console.error(err);
-      alert('Não foi possível adicionar o arquivo nesta pasta.');
+      alert(err?.response?.data?.message || 'Não foi possível adicionar o arquivo nesta pasta.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -395,8 +405,8 @@ export default function FolderList() {
             </p>
           </div>
 
-          <button type="button" onClick={() => uploadRef.current?.click()} className="w-11 h-11 rounded-full bg-white text-gray-900 shadow-lg flex items-center justify-center">
-            <Plus size={18} />
+          <button type="button" onClick={() => uploadRef.current?.click()} disabled={uploading} aria-label={uploading ? 'Enviando arquivo' : 'Adicionar arquivo'} className="w-11 h-11 rounded-full bg-white text-gray-900 shadow-lg flex items-center justify-center disabled:opacity-70">
+            {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
           </button>
         </div>
 
@@ -410,7 +420,7 @@ export default function FolderList() {
           />
         </div>
 
-        <input ref={uploadRef} type="file" hidden onChange={(e) => {
+        <input ref={uploadRef} type="file" accept={DOCUMENT_ACCEPT} hidden onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) handleUpload(f);
           e.target.value = '';
@@ -429,7 +439,7 @@ export default function FolderList() {
               onVet={handleVet}
               onDelete={handleDelete}
               onExport={handleExport}
-              onPreview={(doc) => setPreviewDoc({ ...doc, fileUrl: resolveFileUrl(doc.fileUrl) })}
+              onPreview={(doc) => (doc.isReport ? setReportDoc(doc) : setPreviewDoc({ ...doc, fileUrl: resolveFileUrl(doc.fileUrl) }))}
               onDownload={handleDownload}
             />
           ))
@@ -439,20 +449,20 @@ export default function FolderList() {
       </div>
 
       {!loading && docs.length > 0 && (
-        <div className="mt-5 rounded-[20px] bg-white border border-gray-100 px-4 py-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#F4F3FF] flex items-center justify-center text-[#8B4AFF]">
-              <Sparkles size={16} />
-            </div>
-
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#6D28D9]">Exportação MVP</p>
-              <p className="text-[12px] text-gray-600 leading-relaxed mt-1">
-                Aqui o botão Exportar já usa o compartilhamento nativo do aparelho. No iPhone, o tutor pode salvar em Arquivos / iCloud. No Android, pode mandar para Drive e outros apps.
-              </p>
-            </div>
+        <button type="button" onClick={() => setVetModalOpen(true)} className="mt-5 w-full text-left rounded-[20px] bg-white border border-gray-100 px-4 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#EEF5FF] flex items-center justify-center text-[#3B82F6] flex-shrink-0">
+            <Stethoscope size={16} />
           </div>
-        </div>
+          <div className="flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#3B82F6]">Enviar ao veterinário</p>
+            <p className="text-[12px] text-gray-600 leading-relaxed mt-1">
+              {vetShare.link
+                ? `Link da Pasta do Vet ativo · ${vetShare.sharedCount} documento${vetShare.sharedCount === 1 ? '' : 's'}. Toque para ver o QR.`
+                : 'Marque com “Vet” o que o veterinário deve ver e gere um link/QR temporário — ele abre sem precisar de conta.'}
+            </p>
+          </div>
+          <ChevronRight size={16} className="text-gray-300" />
+        </button>
       )}
 
       <ViewDocModal
@@ -462,6 +472,13 @@ export default function FolderList() {
         onDownload={handleDownload}
         onOpenExternal={(doc) => openExternal(doc?.fileUrl)}
       />
+      <LaudoModal
+        isOpen={!!reportDoc}
+        doc={reportDoc}
+        qr={reportQrTarget(reportDoc, vetShare.link)}
+        onClose={() => setReportDoc(null)}
+      />
+      <VetShareModal isOpen={vetModalOpen} onClose={() => setVetModalOpen(false)} vetShare={vetShare} />
     </div>
   );
 }

@@ -14,7 +14,7 @@ function SectionBlock({ block }) {
         <h3 className="font-black text-white text-base mb-1.5 leading-tight">{block.heading}</h3>
       )}
       {block.body && (
-        <MiniMarkdown text={block.body} className="text-white/90 text-[13px] leading-relaxed [&_strong]:text-white" />
+        <MiniMarkdown text={block.body} className="text-white/90 text-[15px] leading-relaxed [&_strong]:text-white" />
       )}
     </div>
   );
@@ -26,7 +26,7 @@ function ImageBlock({ block }) {
     <figure className="rounded-[20px] overflow-hidden">
       <img src={block.url} alt={block.caption || ''} className="w-full h-auto object-cover" />
       {block.caption && (
-        <figcaption className="text-[10px] text-gray-400 font-bold px-1 pt-1.5">{block.caption}</figcaption>
+        <figcaption className="text-[12px] text-gray-400 font-bold px-1 pt-1.5">{block.caption}</figcaption>
       )}
     </figure>
   );
@@ -47,14 +47,14 @@ function ChecklistBlock({ block }) {
 
   return (
     <div className="rounded-[20px] bg-gray-50 border border-gray-100 p-4">
-      {block.title && <p className="font-black text-gray-700 text-[13px] mb-2.5">{block.title}</p>}
+      {block.title && <p className="font-black text-gray-800 text-[15px] mb-2.5">{block.title}</p>}
       <div className="space-y-2">
         {items.map((item, i) => (
           <button key={i} onClick={() => toggle(i)} className="w-full flex items-start gap-2 text-left">
             {checked.has(i)
               ? <CheckSquare size={16} className="shrink-0 mt-0.5" style={{ color: '#8B4AFF' }} />
               : <Square size={16} className="shrink-0 mt-0.5 text-gray-300" />}
-            <span className={`text-[13px] font-bold leading-snug ${checked.has(i) ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+            <span className={`text-[15px] font-bold leading-snug ${checked.has(i) ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
               {item}
             </span>
           </button>
@@ -74,7 +74,7 @@ function CalloutBlock({ block }) {
     <div className="rounded-[18px] p-3.5 flex items-start gap-2.5"
       style={{ background: `${tone.color}0F`, border: `1px solid ${tone.color}30`, borderLeft: `3px solid ${tone.color}` }}>
       <Icon size={15} className="shrink-0 mt-0.5" style={{ color: tone.color }} />
-      <p className="text-[13px] font-bold leading-snug" style={{ color: tone.color }}>{block.text}</p>
+      <p className="text-[15px] font-bold leading-snug" style={{ color: tone.color }}>{block.text}</p>
     </div>
   );
 }
@@ -97,7 +97,7 @@ export default function BlockRenderer({ blocks, petId, className = '' }) {
         const key = block.id || i;
         switch (block.type) {
           case BLOCK_TYPES.TEXT:
-            return block.markdown ? <MiniMarkdown key={key} text={block.markdown} className="text-gray-700 text-[14px] leading-relaxed" /> : null;
+            return block.markdown ? <MiniMarkdown key={key} text={block.markdown} variant="article" className="text-gray-700 text-[16px] font-medium leading-[1.75]" /> : null;
           case BLOCK_TYPES.SECTION:
             return <SectionBlock key={key} block={block} />;
           case BLOCK_TYPES.IMAGE:

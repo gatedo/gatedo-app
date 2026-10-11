@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { ArrowLeft, MessageCircleHeart, AlertTriangle, AlertOctagon, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MessageCircleHeart, AlertTriangle, AlertOctagon, ChevronRight, Clock } from 'lucide-react';
 import api from '../services/api';
 import useSensory from '../hooks/useSensory';
 import MiniMarkdown from '../utils/MiniMarkdown';
 import OfferCard from '../components/offers/OfferCard';
 import BlockRenderer from '../components/content/BlockRenderer';
 import { isBlocksArray } from '../components/content/blockTypes';
+import { entryCover, guideGradient, guideVisual, readingMinutes } from '../utils/guideVisuals';
 
-const C = { purple: '#8B4AFF', purpleDark: '#4B40C6', bg: '#F4F3FF' };
+const C = { purple: '#8B4AFF', purpleDark: '#4B40C6', bg: 'var(--gatedo-light-bg)' };
 
 const URGENCY_META = {
-  ROTINA: { label: 'Rotina', color: '#10B981', bg: '#ECFDF5' },
-  ATENCAO: { label: 'Atenção', color: '#F59E0B', bg: '#FFFBEB', icon: AlertTriangle },
-  EMERGENCIA: { label: 'Emergência', color: '#DC2626', bg: '#FEF2F2', icon: AlertOctagon },
+  ROTINA: { label: 'Rotina', color: '#047857', bg: '#ECFDF5' },
+  ATENCAO: { label: 'Atenção', color: '#B45309', bg: '#FFFBEB', icon: AlertTriangle },
+  EMERGENCIA: { label: 'Emergência', color: '#B91C1C', bg: '#FEF2F2', icon: AlertOctagon },
 };
 
 function UrgencyBadge({ urgency }) {
@@ -131,85 +132,116 @@ export default function GuiaEntry() {
     );
   }
 
+  const cover = entryCover(entry);
+  const visual = guideVisual(entry.category?.id);
+  const minutes = readingMinutes(entry);
+
   return (
     <div className="min-h-screen pb-32" style={{ background: C.bg }}>
-      <div className="px-5 pt-8 pb-4">
-        <button
-          onClick={() => { touch(); navigate(-1); }}
-          className="w-11 h-11 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm mb-5"
-          style={{ color: C.purple }}
-        >
-          <ArrowLeft size={18} />
-        </button>
-
-        <div className="flex items-center gap-2 mb-2">
-          <p className="text-[10px] font-black uppercase tracking-[3px] text-[#8B4AFF]">{entry.category?.nome || entry.theme}</p>
-          <UrgencyBadge urgency={entry.urgency} />
-        </div>
-        <h1 className="text-2xl font-black text-gray-900 leading-tight mb-1.5">{entry.title}</h1>
-        {entry.excerpt && <p className="text-[13px] font-medium text-gray-500 leading-relaxed mb-4">{entry.excerpt}</p>}
-
-        {hasBlocks ? (
-          <div className="mb-4">
-            <BlockRenderer blocks={entry.blocks} petId={catId} />
-          </div>
-        ) : (
-          <>
-            <div className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm mb-4">
-              <MiniMarkdown text={entry.body} className="text-[14px] font-medium text-gray-600 leading-relaxed" />
+      <div className="max-w-[760px] mx-auto">
+        {/* Banner do topo: imagem do admin ou degradê da categoria */}
+        <div className="relative h-[220px] sm:h-[280px] overflow-hidden sm:rounded-b-[32px]">
+          {cover ? (
+            <img src={cover} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full relative" style={{ background: guideGradient(entry.category?.id) }}>
+              <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/15" />
+              <div className="absolute -left-12 -bottom-16 w-48 h-48 rounded-full bg-black/5" />
+              <span className="absolute right-6 bottom-12 text-7xl drop-shadow" aria-hidden="true">{visual.emoji}</span>
             </div>
+          )}
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25), transparent 40%)' }} />
+          <button
+            onClick={() => { touch(); navigate(-1); }}
+            aria-label="Voltar"
+            className="absolute left-5 top-6 w-11 h-11 rounded-full bg-white/95 flex items-center justify-center shadow-md"
+            style={{ color: C.purple }}
+          >
+            <ArrowLeft size={18} />
+          </button>
+        </div>
 
-            {offer && (
-              <div className="mb-4">
-                <OfferCard offer={offer} surface="PAIN_ALMANAC" petId={catId} onDismiss={() => setOffer(null)} />
-              </div>
-            )}
-          </>
-        )}
-
-        {entry.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {entry.tags.map((tag) => (
-              <span key={tag} className="px-2.5 py-1 rounded-full text-[10px] font-black" style={{ background: '#EDE9FE', color: C.purple }}>
-                #{tag}
+        <div className="px-5 -mt-10 relative">
+          <div className="bg-white rounded-[28px] shadow-sm border border-gray-100 px-5 pt-5 pb-6 sm:px-8">
+            <div className="flex items-center gap-2 flex-wrap mb-2.5">
+              <span className="text-[12px] font-black uppercase tracking-[2.5px]" style={{ color: C.purple }}>{entry.category?.nome || entry.theme}</span>
+              <UrgencyBadge urgency={entry.urgency} />
+              <span className="inline-flex items-center gap-1 text-[12px] font-bold text-gray-400">
+                <Clock size={12} /> {minutes} min de leitura
               </span>
-            ))}
+            </div>
+            <h1 className="text-[26px] sm:text-[30px] font-black text-gray-900 leading-tight">{entry.title}</h1>
+            {entry.excerpt && <p className="text-[16px] font-medium text-gray-500 leading-relaxed mt-2">{entry.excerpt}</p>}
+
+            <div className="h-px bg-gray-100 my-5" />
+
+            {hasBlocks ? (
+              <BlockRenderer blocks={entry.blocks} petId={catId} />
+            ) : (
+              <MiniMarkdown text={entry.body} variant="article" className="text-[16px] font-medium text-gray-700 leading-[1.75]" />
+            )}
           </div>
-        )}
 
-        <button
-          onClick={askIgent}
-          disabled={asking}
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-white text-sm mb-4"
-          style={{ background: `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)` }}
-        >
-          <MessageCircleHeart size={18} /> Perguntar ao iGentVet sobre isso
-        </button>
+          {!hasBlocks && offer && (
+            <div className="mt-4">
+              <OfferCard offer={offer} surface="PAIN_ALMANAC" petId={catId} onDismiss={() => setOffer(null)} />
+            </div>
+          )}
 
-        {entry.relatedEntries?.length > 0 && (
-          <div className="mb-4">
-            <p className="text-[10px] font-black uppercase tracking-wide text-gray-400 mb-2">Veja também</p>
-            <div className="space-y-1.5">
-              {entry.relatedEntries.map((rel) => (
-                <button
-                  key={rel.slug}
-                  onClick={() => openRelated(rel.slug)}
-                  className="w-full flex items-center gap-2 bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm text-left"
-                >
-                  <span className="flex-1 text-[12px] font-black text-gray-700">{rel.title}</span>
-                  <UrgencyBadge urgency={rel.urgency} />
-                  <ChevronRight size={14} className="text-gray-300 shrink-0" />
-                </button>
+          {entry.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {entry.tags.map((tag) => (
+                <span key={tag} className="px-3 py-1.5 rounded-full text-[12px] font-black" style={{ background: '#EDE9FE', color: C.purple }}>
+                  #{tag}
+                </span>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {entry.globalNotice && (
-          <p className="text-[10px] font-medium text-gray-400 leading-relaxed text-center px-2">
-            {entry.globalNotice}
-          </p>
-        )}
+          <button
+            onClick={askIgent}
+            disabled={asking}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-white text-[15px] mt-5 shadow-lg"
+            style={{ background: `linear-gradient(135deg, ${C.purple} 0%, ${C.purpleDark} 100%)`, boxShadow: '0 10px 24px rgba(139,74,255,0.3)' }}
+          >
+            <MessageCircleHeart size={19} /> Perguntar ao iGentVet sobre isso
+          </button>
+
+          {entry.relatedEntries?.length > 0 && (
+            <div className="mt-7">
+              <p className="text-[12px] font-black uppercase tracking-[0.16em] text-gray-400 mb-3">Veja também</p>
+              <div className="space-y-2.5">
+                {entry.relatedEntries.map((rel) => {
+                  const relCover = rel.coverUrl || cover;
+                  return (
+                    <button
+                      key={rel.slug}
+                      onClick={() => openRelated(rel.slug)}
+                      className="w-full flex items-center gap-3 bg-white rounded-2xl p-2.5 pr-4 border border-gray-100 shadow-sm text-left"
+                    >
+                      <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0" style={relCover ? undefined : { background: guideGradient(entry.category?.id) }}>
+                        {relCover
+                          ? <img src={relCover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          : <div className="w-full h-full flex items-center justify-center text-xl" aria-hidden="true">{visual.emoji}</div>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-black text-gray-800 leading-snug line-clamp-2">{rel.title}</p>
+                        {rel.urgency ? <div className="mt-1"><UrgencyBadge urgency={rel.urgency} /></div> : null}
+                      </div>
+                      <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {entry.globalNotice && (
+            <p className="text-[12px] font-medium text-gray-400 leading-relaxed text-center px-2 mt-6">
+              {entry.globalNotice}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -31,6 +31,7 @@ export class ContentService {
       id: c.id,
       nome: c.nome,
       descricao: c.descricao,
+      coverUrl: c.coverUrl,
       count: c._count.entries,
     }));
   }
@@ -57,9 +58,10 @@ export class ContentService {
         title: true,
         theme: true,
         excerpt: true,
+        coverUrl: true,
         tags: true,
         urgency: true,
-        category: { select: { id: true, nome: true } },
+        category: { select: { id: true, nome: true, coverUrl: true } },
       },
     });
   }
@@ -67,7 +69,7 @@ export class ContentService {
   async getGuideEntry(slug: string) {
     const entry = await this.prisma.guideEntry.findUnique({
       where: { slug },
-      include: { category: { select: { id: true, nome: true } } },
+      include: { category: { select: { id: true, nome: true, coverUrl: true } } },
     });
     if (!entry || entry.status !== 'PUBLISHED') {
       throw new NotFoundException('Verbete não encontrado.');
@@ -76,7 +78,7 @@ export class ContentService {
     const relatedEntries = entry.vejaTambem.length
       ? await this.prisma.guideEntry.findMany({
           where: { slug: { in: entry.vejaTambem }, status: 'PUBLISHED' },
-          select: { slug: true, title: true, urgency: true },
+          select: { slug: true, title: true, urgency: true, coverUrl: true, excerpt: true },
         })
       : [];
 

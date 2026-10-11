@@ -28,6 +28,12 @@ export class AdminContentController {
     return this.service.listGuideCategories();
   }
 
+  @Patch('guide-categories/:id')
+  updateGuideCategory(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    this.ensureAdmin(req.user);
+    return this.service.updateGuideCategory(id, body);
+  }
+
   @Get('guides/:slug')
   getGuide(@Param('slug') slug: string, @Req() req: any) {
     this.ensureAdmin(req.user);

@@ -15,12 +15,26 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 import { DocumentsService } from './documents.service';
+import { DocumentStorageService } from './document-storage.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertOwnsPet } from '../common/ownership.util';
+
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+function isAllowedUpload(mime?: string) {
+  const m = String(mime || '').toLowerCase();
+  return (
+    (m.startsWith('image/') && m !== 'image/svg+xml') ||
+    m === 'application/pdf' ||
+    m === 'text/plain' ||
+    m === 'application/msword' ||
+    m.startsWith('application/vnd.openxmlformats-officedocument') ||
+    m.startsWith('application/vnd.oasis.opendocument')
+  );
+}
 
 @Controller('documents')
 @UseGuards(JwtAuthGuard)
@@ -28,6 +42,7 @@ export class DocumentsController {
   constructor(
     private readonly documentsService: DocumentsService,
     private readonly prisma: PrismaService,
+    private readonly storage: DocumentStorageService,
   ) {}
 
   private async assertOwnsDocument(id: string, user: { id: string; role?: string }) {
@@ -39,13 +54,12 @@ export class DocumentsController {
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/documents',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e5);
-          callback(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+      fileFilter: (req, file, callback) => {
+        if (isAllowedUpload(file.mimetype)) return callback(null, true);
+        callback(new BadRequestException('Tipo de arquivo não suportado. Envie imagem, PDF ou documento de texto.'), false);
+      },
     }),
   )
   async uploadDocument(
@@ -67,8 +81,13 @@ export class DocumentsController {
     }
 
     await assertOwnsPet(this.prisma, body.petId, req.user);
-    const fileUrl = `/uploads/documents/${file.filename}`;
     const ownerId = req.user.id;
+    const stored = await this.storage.save({
+      buffer: file.buffer,
+      mimeType: file.mimetype,
+      originalName: file.originalname,
+      petId: body.petId,
+    });
 
     let metadata: any = null;
     if (body?.metadata) {
@@ -82,10 +101,10 @@ export class DocumentsController {
     return this.documentsService.create({
       title: body.title,
       category: body.category,
-      filename: file.filename,
-      fileUrl,
-      mimeType: file.mimetype,
-      size: file.size,
+      filename: stored.fileName,
+      fileUrl: stored.fileUrl,
+      mimeType: stored.mimeType,
+      size: stored.size,
       petId: body.petId,
       ownerId,
       metadata,

@@ -42,7 +42,7 @@ export default function OngApply() {
   };
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#F4F3FF' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--gatedo-light-bg)' }}>
       <div className="px-5 pt-8 pb-5">
         <button
           onClick={() => { touch(); navigate(-1); }}

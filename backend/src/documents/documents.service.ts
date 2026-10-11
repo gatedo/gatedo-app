@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { mkdir, writeFile } from 'fs/promises';
-import { extname, join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+import { DocumentStorageService } from './document-storage.service';
 
 @Injectable()
 export class DocumentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: DocumentStorageService,
+  ) {}
 
   async getPetOwner(petId: string) {
     return this.prisma.pet.findUnique({
@@ -73,26 +75,20 @@ export class DocumentsService {
     }
 
     const mimeType = data.mimeType || this.inferMimeFromBase64(data.base64) || 'application/pdf';
-    const buffer = this.decodeBase64(data.base64);
-    const safeExt = this.resolveExtension(data.filename, mimeType);
-    const safeName = this.sanitizeFilename(
-      data.filename || `${Date.now()}-${Math.round(Math.random() * 1e5)}${safeExt}`,
-      safeExt,
-    );
-
-    const targetDir = join(process.cwd(), 'uploads', 'documents');
-    await mkdir(targetDir, { recursive: true });
-
-    const fullPath = join(targetDir, safeName);
-    await writeFile(fullPath, buffer);
+    const stored = await this.storage.save({
+      buffer: this.decodeBase64(data.base64),
+      mimeType,
+      originalName: data.filename,
+      petId: data.petId,
+    });
 
     return this.create({
       title: data.title,
       category: data.category,
-      filename: safeName,
-      fileUrl: `/uploads/documents/${safeName}`,
-      mimeType,
-      size: buffer.length,
+      filename: stored.fileName,
+      fileUrl: stored.fileUrl,
+      mimeType: stored.mimeType,
+      size: stored.size,
       petId: data.petId,
       ownerId,
       metadata: data.metadata ?? undefined,
@@ -112,7 +108,7 @@ export class DocumentsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return docs.map((doc) => this.normalize(doc));
+    return Promise.all(docs.map((doc) => this.normalize(doc)));
   }
 
   async findAllByPet(petId: string) {
@@ -121,7 +117,7 @@ export class DocumentsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return docs.map((doc) => this.normalize(doc));
+    return Promise.all(docs.map((doc) => this.normalize(doc)));
   }
 
   async getFolderSummary(petId: string) {
@@ -166,7 +162,11 @@ export class DocumentsService {
   }
 
   async remove(id: string) {
-    await this.prisma.document.delete({ where: { id } });
+    const doc = await this.prisma.document.delete({ where: { id } });
+    await this.storage.remove(doc.fileUrl);
+    for (const att of this.reportOf(doc)?.attachments || []) {
+      await this.storage.remove(att?.fileUrl);
+    }
     return { message: 'Documento removido com sucesso' };
   }
 
@@ -182,38 +182,46 @@ export class DocumentsService {
     return match?.[1] || null;
   }
 
-  private resolveExtension(filename?: string, mime?: string) {
-    const current = filename ? extname(filename) : '';
-    if (current) return current.toLowerCase();
-    if (!mime) return '.bin';
-    const lower = mime.toLowerCase();
-    if (lower.includes('pdf')) return '.pdf';
-    if (lower.includes('png')) return '.png';
-    if (lower.includes('jpeg') || lower.includes('jpg')) return '.jpg';
-    if (lower.includes('webp')) return '.webp';
-    if (lower.includes('json')) return '.json';
-    return '.bin';
-  }
+  // fileUrl sai já como link utilizável (pré-assinado no R2); o valor do
+  // banco ("r2:...") nunca vai pro front. Laudos IA novos não têm arquivo: o
+  // conteúdo fica em metadata.report e o front monta HTML/PDF na hora.
+  async normalize(document: any) {
+    const report = this.reportOf(document);
+    if (report) {
+      const attachments = await Promise.all(
+        (report.attachments || []).map(async (att: any) => ({
+          label: att?.label,
+          note: att?.note,
+          url: att?.fileUrl ? (await this.storage.resolve(att.fileUrl)).url : null,
+        })),
+      );
+      return {
+        ...document,
+        metadata: { ...document.metadata, report: { ...report, attachments } },
+        fileUrl: null,
+        url: null,
+        publicUrl: null,
+        downloadUrl: null,
+        isReport: true,
+        fileMissing: false,
+      };
+    }
 
-  private sanitizeFilename(filename: string, fallbackExt = '.bin') {
-    const clean = (filename || 'arquivo')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9._-]+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-
-    if (!extname(clean)) return `${clean || 'arquivo'}${fallbackExt}`;
-    return clean;
-  }
-
-  private normalize(document: any) {
+    const { url, downloadUrl, missing } = await this.storage.resolve(document.fileUrl, document.title);
     return {
       ...document,
-      url: document.fileUrl,
-      publicUrl: document.fileUrl,
-      downloadUrl: document.fileUrl,
+      fileUrl: url,
+      url,
+      publicUrl: url,
+      downloadUrl,
+      isReport: false,
+      fileMissing: missing,
     };
+  }
+
+  private reportOf(document: any) {
+    const meta = document?.metadata;
+    return meta && typeof meta === 'object' && meta.report && typeof meta.report === 'object' ? meta.report : null;
   }
 
   private resolveType(mime?: string) {

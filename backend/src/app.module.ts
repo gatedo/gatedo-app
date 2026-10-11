@@ -8,6 +8,7 @@ import { join } from 'path';
 import { CloudflareModule } from './cloudflare/cloudflare.module';
 import { MediaModule } from './media/media.module';
 import { DocumentsModule } from './documents/documents.module';
+import { VetShareModule } from './vet-share/vet-share.module';
 import { PetsModule } from './pets/pets.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -67,6 +68,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     CloudflareModule,
     MediaModule,
     DocumentsModule,
+    VetShareModule,
     PetsModule,
     UsersModule,
     AuthModule,

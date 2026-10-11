@@ -257,6 +257,7 @@ export class IgentController {
       pdfFilename?: string;
       pdfMimeType?: string;
       saveToDocuments?: boolean;
+      attachments?: { dataUrl?: string; label?: string; note?: string }[];
     },
   ) {
     await assertOwnsPet(this.prisma, body.petId, req.user);
@@ -272,6 +273,7 @@ export class IgentController {
         pdfFilename: body.pdfFilename,
         pdfMimeType: body.pdfMimeType,
         saveToDocuments: body.saveToDocuments,
+        attachments: Array.isArray(body.attachments) ? body.attachments : [],
       },
     );
   }

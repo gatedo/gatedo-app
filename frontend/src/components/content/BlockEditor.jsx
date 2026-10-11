@@ -22,7 +22,7 @@ const TYPE_META = {
 const fieldCls = 'w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-[13px] font-medium text-gray-700 outline-none focus:border-[#8B4AFF]';
 const labelCls = 'text-[9px] font-black uppercase tracking-wide text-gray-400 mb-1 block';
 
-function ImageUploadField({ url, onChange }) {
+export function ImageUploadField({ url, onChange, label = 'Imagem', hint, aspect }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
 
@@ -47,15 +47,22 @@ function ImageUploadField({ url, onChange }) {
 
   return (
     <div>
-      <label className={labelCls}>Imagem</label>
+      <label className={labelCls}>{label}</label>
+      {hint ? <p className="text-[10px] text-gray-400 -mt-0.5 mb-1.5">{hint}</p> : null}
       <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFile} />
       {url ? (
-        <div className="relative rounded-xl overflow-hidden mb-2" style={{ maxHeight: 140 }}>
-          <img src={url} alt="" className="w-full h-full object-cover" style={{ maxHeight: 140 }} />
-          <button type="button" onClick={pick}
-            className="absolute bottom-2 right-2 text-[10px] font-black px-2.5 py-1 rounded-full bg-black/60 text-white">
-            Trocar
-          </button>
+        <div className="relative rounded-xl overflow-hidden mb-2" style={aspect ? { aspectRatio: aspect } : { maxHeight: 140 }}>
+          <img src={url} alt="" className="w-full h-full object-cover" style={aspect ? undefined : { maxHeight: 140 }} />
+          <div className="absolute bottom-2 right-2 flex gap-1.5">
+            <button type="button" onClick={() => onChange('')}
+              className="text-[10px] font-black px-2.5 py-1 rounded-full bg-black/60 text-white">
+              Remover
+            </button>
+            <button type="button" onClick={pick} disabled={uploading}
+              className="text-[10px] font-black px-2.5 py-1 rounded-full bg-black/60 text-white">
+              {uploading ? 'Enviando...' : 'Trocar'}
+            </button>
+          </div>
         </div>
       ) : (
         <button type="button" onClick={pick} disabled={uploading}

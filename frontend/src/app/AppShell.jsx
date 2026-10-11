@@ -66,6 +66,7 @@ import Ongs from '../pages/Ongs';
 import OngApply from '../pages/OngApply';
 import OngDashboard from '../pages/OngDashboard';
 import AdoptInvite from '../pages/AdoptInvite';
+import VetSharePublic from '../pages/VetSharePublic';
 import AdocaoBoasVindas from '../pages/AdocaoBoasVindas';
 import Store from '../pages/Store';
 import Studio from '../pages/Studio';
@@ -246,7 +247,8 @@ const AppShell = () => {
     NO_LOADING_ROUTES.includes(path) ||
     PUBLIC_ROUTES_WITHOUT_NAV.includes(path) ||
     path.startsWith('/admin') ||
-    path.startsWith('/auth');
+    path.startsWith('/auth') ||
+    path.startsWith('/v/');
 
   useEffect(() => {
     if (isNoLoadingRoute(pathname)) {
@@ -417,6 +419,7 @@ const AppShell = () => {
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/privacidade" element={<PrivacyPolicy />} />
               <Route path="/adotar/:token" element={<AdoptInvite />} />
+              <Route path="/v/:token" element={<VetSharePublic />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/home" element={<Home />} />

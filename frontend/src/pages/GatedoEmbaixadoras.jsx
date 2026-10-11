@@ -401,7 +401,7 @@ export default function GatedoEmbaixadoras() {
   const TierIcon = tierMeta[profile.tier]?.icon || Sparkles;
   const firstName = profile.name.split(' ')[0] || profile.name;
   return (
-    <div className="min-h-screen bg-[#eeeeff] pb-10 font-sans">
+    <div className="min-h-screen bg-[var(--gatedo-light-bg)] pb-10 font-sans">
       <section className="px-5 pt-7 pb-20 text-white relative overflow-hidden" style={{ background: `linear-gradient(180deg, #241044 0%, #7a3fe5 48%, ${PAGE_BG} 100%)` }}>
         <img src={influencerHero} alt="" className="absolute inset-0 w-full h-full object-cover opacity-45" />
         <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(20,11,46,0.84) 0%, rgba(111,54,218,0.72) 48%, ${PAGE_BG} 100%)` }} />

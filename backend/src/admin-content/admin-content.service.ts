@@ -35,6 +35,7 @@ export class AdminContentService {
         theme: data.theme || data.title,
         categoryId: data.categoryId || null,
         excerpt: data.excerpt || null,
+        coverUrl: data.coverUrl || null,
         body: data.body || '',
         blocks: Array.isArray(data.blocks) ? data.blocks : undefined,
         tags: Array.isArray(data.tags) ? data.tags : [],
@@ -55,6 +56,7 @@ export class AdminContentService {
         theme: data.theme,
         categoryId: data.categoryId ?? undefined,
         excerpt: data.excerpt,
+        coverUrl: data.coverUrl === undefined ? undefined : data.coverUrl || null,
         body: data.body,
         blocks: Array.isArray(data.blocks) ? data.blocks : data.blocks === null ? null : undefined,
         tags: Array.isArray(data.tags) ? data.tags : undefined,
@@ -68,6 +70,20 @@ export class AdminContentService {
 
   listGuideCategories() {
     return this.prisma.guideCategory.findMany({ orderBy: { nome: 'asc' } });
+  }
+
+  // Banner/nome/descrição da categoria (o id é fixo — vem do almanaque).
+  async updateGuideCategory(id: string, data: any) {
+    const exists = await this.prisma.guideCategory.findUnique({ where: { id } });
+    if (!exists) throw new NotFoundException('Categoria não encontrada.');
+    return this.prisma.guideCategory.update({
+      where: { id },
+      data: {
+        nome: typeof data.nome === 'string' && data.nome.trim() ? data.nome.trim() : undefined,
+        descricao: data.descricao === undefined ? undefined : data.descricao || null,
+        coverUrl: data.coverUrl === undefined ? undefined : data.coverUrl || null,
+      },
+    });
   }
 
   // ── Protocolos ───────────────────────────────────────────────────────────

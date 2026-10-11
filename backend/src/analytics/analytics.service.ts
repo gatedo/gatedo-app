@@ -259,4 +259,147 @@ export class AnalyticsService {
       };
     });
   }
+
+  /**
+   * Visão geral do admin: tudo que a tela inicial precisa numa chamada só,
+   * calculado no banco (counts/groupBy) em vez de baixar listas inteiras.
+   */
+  async overview() {
+    const DAY = 86400000;
+    const now = new Date();
+    const d7 = new Date(now.getTime() - 7 * DAY);
+    const d14 = new Date(now.getTime() - 14 * DAY);
+    const d30 = new Date(now.getTime() - 30 * DAY);
+    const d60 = new Date(now.getTime() - 60 * DAY);
+
+    const [
+      totalUsers, usersThisWeek, usersPrevWeek,
+      totalPets, petsThisWeek, petsPrevWeek,
+      appOpens7d, logins7d,
+      newUsers30d, signups30d,
+      cohortUsers, appOpensMax,
+      healthRecords7d, diary7d, igent7d, igentUrgent7d, reports7d,
+      feedbackNew, ongPending, ongSuggestionsNew, guideDrafts, activeNotices,
+      recentUsers, recentPets, recentSessions,
+      aiBudget,
+    ] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { createdAt: { gte: d7 } } }),
+      this.prisma.user.count({ where: { createdAt: { gte: d14, lt: d7 } } }),
+      this.prisma.pet.count({ where: { isMemorial: false, isArchived: false } }),
+      this.prisma.pet.count({ where: { createdAt: { gte: d7 } } }),
+      this.prisma.pet.count({ where: { createdAt: { gte: d14, lt: d7 } } }),
+      this.prisma.event.groupBy({ by: ['userId'], where: { name: 'app_open', createdAt: { gte: d7 }, userId: { not: null } } }),
+      this.prisma.user.findMany({ where: { lastLoginAt: { gte: d7 } }, select: { id: true } }),
+      this.prisma.user.findMany({ where: { createdAt: { gte: d30 } }, select: { id: true } }),
+      this.prisma.user.findMany({ where: { createdAt: { gte: d30 } }, select: { createdAt: true } }),
+      this.prisma.user.findMany({ where: { createdAt: { gte: d60, lt: d7 } }, select: { id: true, createdAt: true, lastLoginAt: true } }),
+      this.prisma.event.groupBy({ by: ['userId'], where: { name: 'app_open', createdAt: { gte: d60 }, userId: { not: null } }, _max: { createdAt: true } }),
+      this.prisma.healthRecord.count({ where: { date: { gte: d7, lte: now } } }),
+      this.prisma.diaryEntry.count({ where: { date: { gte: d7, lte: now } } }),
+      this.prisma.igentSession.count({ where: { createdAt: { gte: d7 } } }),
+      this.prisma.igentSession.count({ where: { createdAt: { gte: d7 }, isUrgent: true } }),
+      this.prisma.document.count({ where: { category: 'LAUDOS_IA', createdAt: { gte: d7 } } }),
+      this.prisma.feedbackMessage.count({ where: { status: 'NOVO' } }),
+      this.prisma.ongProfile.count({ where: { status: 'PENDING' } }),
+      this.prisma.ongSuggestion.count({ where: { status: 'NEW' } }),
+      this.prisma.guideEntry.count({ where: { status: 'DRAFT' } }),
+      this.prisma.notice.count({ where: { isActive: true, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } }),
+      this.prisma.user.findMany({ orderBy: { createdAt: 'desc' }, take: 6, select: { id: true, name: true, createdAt: true, signupSource: true } }),
+      this.prisma.pet.findMany({ orderBy: { createdAt: 'desc' }, take: 6, select: { id: true, name: true, createdAt: true, owner: { select: { name: true } } } }),
+      this.prisma.igentSession.findMany({ orderBy: { createdAt: 'desc' }, take: 6, select: { id: true, symptomLabel: true, isUrgent: true, createdAt: true, pet: { select: { name: true } } } }),
+      this.aiBudget(),
+    ]);
+
+    // Ativos em 7 dias: abriu o app (evento) ou fez login.
+    const active = new Set<string>([
+      ...appOpens7d.map((e) => e.userId as string),
+      ...logins7d.map((u) => u.id),
+    ]);
+
+    // Ativação dos cadastros dos últimos 30 dias.
+    const newIds = newUsers30d.map((u) => u.id);
+    const [withPet, withRecord] = newIds.length
+      ? await Promise.all([
+          this.prisma.pet.groupBy({ by: ['ownerId'], where: { ownerId: { in: newIds } } }),
+          this.prisma.pet.findMany({
+            where: {
+              ownerId: { in: newIds },
+              OR: [{ healthRecords: { some: {} } }, { diaryEntries: { some: {} } }],
+            },
+            select: { ownerId: true },
+            distinct: ['ownerId'],
+          }),
+        ])
+      : [[], []];
+    const pct = (part: number, total: number) => (total ? Math.round((part / total) * 1000) / 10 : null);
+
+    // Retenção semana 1: de quem tem 7+ dias de conta (até 60), quantos
+    // voltaram a abrir o app 7 dias ou mais depois do cadastro.
+    const lastOpen = new Map(appOpensMax.map((e) => [e.userId as string, e._max.createdAt]));
+    let retained = 0;
+    for (const u of cohortUsers) {
+      const limit = u.createdAt.getTime() + 7 * DAY;
+      const open = lastOpen.get(u.id);
+      if ((open && open.getTime() >= limit) || (u.lastLoginAt && u.lastLoginAt.getTime() >= limit)) retained += 1;
+    }
+
+    // Cadastros por dia (30 dias, com zeros), no fuso de Brasília.
+    const dayKey = (d: Date) => new Date(d.getTime() - 3 * 3600000).toISOString().slice(0, 10);
+    const perDay = new Map<string, number>();
+    for (let i = 29; i >= 0; i--) perDay.set(dayKey(new Date(now.getTime() - i * DAY)), 0);
+    for (const u of signups30d) {
+      const k = dayKey(u.createdAt);
+      if (perDay.has(k)) perDay.set(k, (perDay.get(k) || 0) + 1);
+    }
+
+    const activity = [
+      ...recentUsers.map((u) => ({
+        type: 'user', at: u.createdAt,
+        text: `${u.name || 'Novo tutor'} se cadastrou${u.signupSource ? ` · via ${u.signupSource}` : ''}`,
+      })),
+      ...recentPets.map((p) => ({
+        type: 'pet', at: p.createdAt,
+        text: `${p.name} foi cadastrado${p.owner?.name ? ` por ${p.owner.name}` : ''}`,
+      })),
+      ...recentSessions.map((s) => ({
+        type: s.isUrgent ? 'igent_urgent' : 'igent', at: s.createdAt,
+        text: `iGentVet: ${s.symptomLabel}${s.pet?.name ? ` · ${s.pet.name}` : ''}${s.isUrgent ? ' · urgente' : ''}`,
+      })),
+    ]
+      .sort((a, b) => b.at.getTime() - a.at.getTime())
+      .slice(0, 10);
+
+    return {
+      generatedAt: now,
+      kpis: {
+        users: { total: totalUsers, thisWeek: usersThisWeek, prevWeek: usersPrevWeek },
+        pets: { total: totalPets, thisWeek: petsThisWeek, prevWeek: petsPrevWeek },
+        active7d: active.size,
+        activation: {
+          newUsers30d: newIds.length,
+          withPetPercent: pct(withPet.length, newIds.length),
+          withRecordPercent: pct(withRecord.length, newIds.length),
+        },
+        retentionW1: { eligible: cohortUsers.length, retained, percent: pct(retained, cohortUsers.length) },
+      },
+      signups30d: [...perDay.entries()].map(([date, count]) => ({ date, count })),
+      product: {
+        healthRecords7d,
+        diary7d,
+        igent7d,
+        igentUrgent7d,
+        reports7d,
+        aiBudget,
+      },
+      pending: {
+        feedbackNew,
+        ongPending,
+        ongSuggestionsNew,
+        guideDrafts,
+        activeNotices,
+      },
+      activity,
+    };
+  }
 }

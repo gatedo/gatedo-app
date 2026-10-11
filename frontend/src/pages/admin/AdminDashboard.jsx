@@ -35,7 +35,6 @@ import AdminFeedback from './AdminFeedback';
 import AdminSettings from './AdminSettings';
 
 import AdminLinkGenerator from '../../components/admin/AdminLinkGenerator';
-import AdminFasesControl from '../../components/admin/AdminFasesControl';
 import AdminNoticeManager from '../../components/admin/AdminNoticeManager';
 
 const ADMIN_TABS = new Set([
@@ -107,9 +106,7 @@ export default function AdminDashboard() {
       case 'dashboard':
         return (
           <div className="space-y-8">
-            <AdminOverview />
-            <AdminLinkGenerator />
-            <AdminFasesControl />
+            <AdminOverview onNavigate={setActiveTab} />
           </div>
         );
 
@@ -192,7 +189,13 @@ export default function AdminDashboard() {
         return <AdminVentureOS />;
 
       case 'entitlements':
-        return <AdminEntitlements />;
+        // Liberar acesso: manual por e-mail + convite por link/QR (VIP/Fundador).
+        return (
+          <div className="space-y-8">
+            <AdminEntitlements />
+            <AdminLinkGenerator />
+          </div>
+        );
 
       case 'analytics':
         return <AdminAnalytics />;

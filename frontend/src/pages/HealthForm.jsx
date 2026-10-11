@@ -9,8 +9,8 @@ import {
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import OfferCard from '../components/offers/OfferCard';
-import jsPDF from 'jspdf';
-import QRCode from 'qrcode';
+import { todayInputValue, dateOnlyToApi, formatRecordDate } from '../utils/dates';
+import { createBrandedPdf } from '../utils/reportDocument';
 import { awardHealthXP } from '../utils/healthGamification';
 import ProvidersSelector from '../components/ProfileModules/ProvidersSelector';
 import usePushNotifications from '../hooks/usePushNotifications';
@@ -140,36 +140,11 @@ const buildProtocolNumber = (petId) => {
   return `GATEDO-${safe}-${Date.now()}`;
 };
 
-const fmtDateFull = (d) => {
-  if (!d) return '—';
-  try {
-    return new Date(d).toLocaleDateString('pt-BR', {
-      day:'2-digit', month:'2-digit', year:'numeric',
-    });
-  } catch {
-    return '—';
-  }
-};
+const fmtDateFull = (d) => formatRecordDate(d, { day:'2-digit', month:'2-digit', year:'numeric' });
 
 const safeText = (value) => {
   if (value === null || value === undefined || value === '') return '—';
   return String(value);
-};
-
-const toDataUrlLogo = async () => {
-  try {
-    const response = await fetch(`${window.location.origin}/assets/logo-gatedo.jpg`, { cache: 'no-store' });
-    const blob = await response.blob();
-
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
 };
 
 const fileFromBlob = (blob, filename, type='application/pdf') => new File([blob], filename, { type });
@@ -581,7 +556,7 @@ export default function HealthForm() {
   const [showPushPrompt, setShowPushPrompt] = useState(false);
 
   const [formData, setFormData] = useState({
-    title:'', date: new Date().toISOString().split('T')[0], nextDate:'',
+    title:'', date: todayInputValue(), nextDate:'',
     veterinarian:'', clinicName:'', clinicPhone:'', clinicAddress:'',
     reason:'', customReason:'', appointmentMode:'clinical', specialty:'', specialtyCustom:'',
     recommendedRecheck:false, recheckDate:'',
@@ -665,84 +640,6 @@ export default function HealthForm() {
     const specialty = getSpecialtyValue();
     const catName = safeText(petName || 'Paciente');
 
-    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const lineWidth = pageWidth - 28;
-    let y = 14;
-
-    const logoDataUrl = await toDataUrlLogo().catch(() => null);
-    if (logoDataUrl) {
-      try { doc.addImage(logoDataUrl, 'JPEG', 14, y, 34, 14); } catch {}
-    }
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(139, 74, 255);
-    doc.text(`PROTOCOLO ${nextProtocolNumber}`, pageWidth - 14, y + 5, { align:'right' });
-
-    doc.setFontSize(16);
-    doc.setTextColor(35, 35, 35);
-    doc.text('Prontuário Clínico GATEDO', pageWidth - 14, y + 12, { align:'right' });
-
-    y += 22;
-    doc.setDrawColor(139, 74, 255);
-    doc.setLineWidth(0.6);
-    doc.line(14, y, pageWidth - 14, y);
-    y += 8;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(110, 110, 110);
-    doc.text('Paciente:', 14, y);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(35, 35, 35);
-    doc.text(catName, 36, y);
-    y += 9;
-
-    const rows = [
-      ['Consulta', safeText(formData.title?.trim() || 'Consulta clínica')],
-      ['Data da consulta', fmtDateFull(formData.date)],
-      ['Motivo', safeText(reason)],
-      ['Veterinário', safeText(formData.veterinarian?.trim())],
-      ['Clínica', safeText(formData.clinicName?.trim())],
-      ['Telefone', safeText(formData.clinicPhone?.trim())],
-      ['Endereço', safeText(formData.clinicAddress?.trim())],
-      ['Especialidade', safeText(specialty)],
-      ['Atendimento', formData.appointmentMode === 'specialist' ? 'Especialista' : 'Clínico'],
-      ['Reconsulta', formData.recommendedRecheck ? `Sim · ${fmtDateFull(formData.recheckDate)}` : 'Não recomendada'],
-      ['Medicação prescrita', safeText(formData.prescribedMedicationName?.trim())],
-      ['Intervalo', formData.startTreatmentNow ? `${safeText(formData.prescribedIntervalHours)}h` : '—'],
-      ['Fim do tratamento', formData.startTreatmentNow && formData.prescribedEndDate ? fmtDateFull(formData.prescribedEndDate) : '—'],
-    ];
-
-    rows.forEach(([label, value]) => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(110, 110, 110);
-      doc.text(`${label}:`, 14, y);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(35, 35, 35);
-      const lines = doc.splitTextToSize(String(value), lineWidth - 34);
-      doc.text(lines, 48, y);
-      y += Math.max(7, lines.length * 5);
-    });
-
-    y += 2;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(110, 110, 110);
-    doc.text('Observações clínicas:', 14, y);
-    y += 6;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(35, 35, 35);
-    const notesLines = doc.splitTextToSize(safeText(formData.notes?.trim()), lineWidth);
-    doc.text(notesLines, 14, y);
-    y += Math.max(12, notesLines.length * 5 + 4);
-
     const qrPayload = JSON.stringify({
       protocolNumber: nextProtocolNumber,
       petId: id,
@@ -752,37 +649,52 @@ export default function HealthForm() {
       type: 'consultation_protocol',
     });
 
-    try {
-      const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-        width:220,
-        margin:1,
-        color:{ dark:'#2D2D2D', light:'#FFFFFF' },
-      });
+    // Mesmo modelo dos outros PDFs do Gatedo (logo na proporção certa,
+    // dados da plataforma no topo, QR + aviso no rodapé).
+    const pdf = await createBrandedPdf({
+      footerId: nextProtocolNumber,
+      footerNote: 'Registro feito pelo tutor no Gatedo a partir da consulta presencial.',
+    });
 
-      if (y > 230) {
-        doc.addPage();
-        y = 20;
-      }
+    pdf.title({
+      text: 'Prontuário clínico',
+      subtitle: `Protocolo ${nextProtocolNumber}  ·  ${fmtDateFull(formData.date)}`,
+      badge: { label: formData.appointmentMode === 'specialist' ? 'Especialista' : 'Clínico', tone: 'purple' },
+    });
 
-      doc.setDrawColor(235, 235, 245);
-      doc.roundedRect(14, y, pageWidth - 28, 34, 4, 4);
-      doc.addImage(qrDataUrl, 'PNG', 18, y + 4, 22, 22);
+    pdf.section('Paciente');
+    pdf.text(catName, { size: 12, color: '#111827', bold: true });
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(35, 35, 35);
-      doc.text('QR do prontuário', 46, y + 10);
+    pdf.section('Consulta');
+    pdf.rows([
+      ['Consulta', safeText(formData.title?.trim() || 'Consulta clínica')],
+      ['Data da consulta', fmtDateFull(formData.date)],
+      ['Motivo', safeText(reason)],
+      specialty ? ['Especialidade', safeText(specialty)] : null,
+      ['Reconsulta', formData.recommendedRecheck ? `Sim · ${fmtDateFull(formData.recheckDate)}` : 'Não recomendada'],
+    ]);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text('Use este código para identificar rapidamente a ficha clínica vinculada.', 46, y + 16, {
-        maxWidth: pageWidth - 64,
-      });
-    } catch {}
+    pdf.section('Atendimento');
+    pdf.rows([
+      ['Veterinário', safeText(formData.veterinarian?.trim())],
+      ['Clínica', safeText(formData.clinicName?.trim())],
+      formData.clinicPhone?.trim() ? ['Telefone', formData.clinicPhone.trim()] : null,
+      formData.clinicAddress?.trim() ? ['Endereço', formData.clinicAddress.trim()] : null,
+    ]);
 
-    const pdfArrayBuffer = doc.output('arraybuffer');
-    const pdfBlob = new Blob([pdfArrayBuffer], { type:'application/pdf' });
+    if (formData.startTreatmentNow || formData.prescribedMedicationName?.trim()) {
+      pdf.section('Tratamento prescrito');
+      pdf.rows([
+        ['Medicação', safeText(formData.prescribedMedicationName?.trim())],
+        formData.startTreatmentNow ? ['Intervalo', `${safeText(formData.prescribedIntervalHours)}h`] : null,
+        formData.startTreatmentNow && formData.prescribedEndDate ? ['Fim do tratamento', fmtDateFull(formData.prescribedEndDate)] : null,
+      ]);
+    }
+
+    pdf.section('Observações clínicas');
+    pdf.text(safeText(formData.notes?.trim()));
+
+    const pdfBlob = pdf.finish();
     const fileName = `prontuario-${nextProtocolNumber}.pdf`;
     const pdfFile = fileFromBlob(pdfBlob, fileName, 'application/pdf');
 
@@ -836,15 +748,15 @@ export default function HealthForm() {
       // 1. Health record
       const recordRes = await api.post('/health-records', {
         petId:id, type:TYPE_MAP[type], title:formData.title.trim(),
-        date:new Date(formData.date),
-        nextDueDate: type === 'consultation' ? null : (formData.nextDate ? new Date(formData.nextDate) : null),
+        date:dateOnlyToApi(formData.date),
+        nextDueDate: type === 'consultation' ? null : (formData.nextDate ? dateOnlyToApi(formData.nextDate) : null),
         veterinarian:formData.veterinarian?.trim()||undefined, clinicName:formData.clinicName?.trim()||undefined,
         clinicPhone:formData.clinicPhone?.trim()||undefined, clinicAddress:formData.clinicAddress?.trim()||undefined,
         notes:formData.notes?.trim()||undefined, ongoing:isOngoing, active:isOngoing,
         prescription:hasPrescription, isControlled, reason:reason||undefined,
         appointmentMode:formData.appointmentMode||undefined, specialty:specialty||undefined,
         recommendedRecheck:!!formData.recommendedRecheck,
-        recheckDate: formData.recommendedRecheck&&formData.recheckDate ? new Date(formData.recheckDate) : null,
+        recheckDate: formData.recommendedRecheck&&formData.recheckDate ? dateOnlyToApi(formData.recheckDate) : null,
       });
       const createdRecord = recordRes?.data||null;
 
