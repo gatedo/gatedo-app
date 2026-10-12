@@ -9,7 +9,7 @@ import api from '../../services/api';
 const SHORT_NAME_MAX = 40;
 const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export default function AdminStoreOfferSearch({ categoryOptions, onRegistered }) {
+export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, mlResult }) {
   const [status, setStatus] = useState(null);
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState('');
@@ -21,6 +21,7 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered })
   const [names, setNames] = useState({});
   const [saving, setSaving] = useState({});
   const [syncing, setSyncing] = useState(false);
+  const [connectingMl, setConnectingMl] = useState(false);
 
   useEffect(() => {
     api.get('/store-affiliate/status').then((r) => {
@@ -81,6 +82,20 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered })
   };
 
   const mock = status ? status.shopee?.mock : result?.mock;
+  const ml = status?.mercadoLivre;
+
+  // OAuth do ML: o backend devolve a URL de autorização; o ML volta em
+  // /api/store-affiliate/ml/callback e o backend redireciona para cá.
+  const connectMl = async () => {
+    setConnectingMl(true);
+    try {
+      const { data } = await api.get('/store-affiliate/ml/connect');
+      window.location.href = data.url;
+    } catch (err) {
+      alert(err.response?.data?.message || 'Não consegui iniciar a conexão com o Mercado Livre.');
+      setConnectingMl(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -91,6 +106,30 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered })
             <p className="font-black">API Shopee não configurada</p>
             <p className="font-medium">Modo mock: as ofertas abaixo são exemplos. Defina SHOPEE_AFF_APP_ID e SHOPEE_AFF_SECRET no backend para buscar de verdade. O que for cadastrado agora entra marcado como mock.</p>
           </div>
+        </div>
+      )}
+
+      {mlResult && (
+        <div className={`rounded-2xl p-3 text-[12px] font-bold ${mlResult.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+          {mlResult.ok ? 'Mercado Livre conectado. Já dá para colar link/MLB no cadastro.' : `Mercado Livre: ${mlResult.msg || 'falha ao conectar.'}`}
+        </div>
+      )}
+
+      {ml && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-yellow-200 bg-yellow-50 p-3 text-[12px] font-bold text-gray-700">
+          <span>
+            <span className="font-black">Mercado Livre:</span>{' '}
+            {!ml.configured ? 'app não configurado (ML_CLIENT_ID / ML_CLIENT_SECRET no backend)'
+              : ml.connected ? <span className="text-green-700">conta conectada ✓</span>
+              : 'conta não conectada'}
+          </span>
+          {ml.configured && (
+            <button onClick={connectMl} disabled={connectingMl}
+              className="flex items-center gap-1.5 rounded-xl bg-yellow-400 px-3 py-2 text-[11px] font-black text-gray-900 disabled:opacity-50">
+              {connectingMl ? <Loader2 size={12} className="animate-spin" /> : null}
+              {ml.connected ? 'Reconectar Mercado Livre' : 'Conectar Mercado Livre'}
+            </button>
+          )}
         </div>
       )}
 

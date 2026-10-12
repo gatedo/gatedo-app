@@ -88,7 +88,16 @@ const EMPTY_KIT  = { title: '', subtitle: '', iconName: 'Gift', gradient: 'from-
 const EMPTY_CUP  = { code: '', description: '', discountType: 'POINTS', value: 10, maxUses: 1, expiresAt: '', targetUserId: '' };
 
 export default function AdminStore() {
-  const [tab,        setTab]       = useState('produtos');
+  // Volta do OAuth do Mercado Livre (?ml=ok | ?ml=erro&msg=…): abre a aba de ofertas.
+  const [mlResult] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ml = params.get('ml');
+    return ml ? { ok: ml === 'ok', msg: params.get('msg') || '' } : null;
+  });
+  const [tab,        setTab]       = useState(() => (mlResult ? 'ofertas' : 'produtos'));
+  useEffect(() => {
+    if (mlResult) window.history.replaceState({}, '', window.location.pathname);
+  }, [mlResult]);
   const [products,   setProducts]  = useState([]);
   const [kits,       setKits]      = useState([]);
   const [coupons,    setCoupons]   = useState([]);
@@ -612,6 +621,7 @@ export default function AdminStore() {
       {/* ── ABA BUSCAR OFERTAS ─────────────────────────────────────────────── */}
       {tab === 'ofertas' && (
         <AdminStoreOfferSearch
+          mlResult={mlResult}
           categoryOptions={categoryOptions}
           onRegistered={(prod) => setProducts(prev => [prod, ...prev])}
         />

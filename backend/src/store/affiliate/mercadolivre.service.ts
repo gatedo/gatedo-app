@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { parseMlbCode } from './affiliate-rules';
 
@@ -7,14 +8,22 @@ import { parseMlbCode } from './affiliate-rules';
 // Compartilhar do ML).
 //
 // A API pública fechou: /items e /sites/MLB/search respondem 403 sem token.
-// Precisa de um app em developers.mercadolivre.com.br e OAuth:
-//   ML_CLIENT_ID, ML_CLIENT_SECRET, ML_REFRESH_TOKEN (o primeiro).
+// Precisa de um app em developers.mercadolivre.com.br (ML_CLIENT_ID e
+// ML_CLIENT_SECRET) e de conectar a conta pelo botão "Conectar Mercado Livre"
+// no admin, que faz o OAuth com PKCE e volta em ML_REDIRECT_URI.
 // O ML troca o refresh token a cada renovação e invalida o anterior, então o
-// atual fica salvo em AppSettings (a variável só serve de semente).
+// atual fica salvo em AppSettings. ML_REFRESH_TOKEN (opcional) só serve de
+// semente se você gerar um à mão.
 
 const API = 'https://api.mercadolibre.com';
+const AUTH_URL = 'https://auth.mercadolivre.com.br/authorization';
 const REFRESH_SETTING_KEY = 'ml_oauth_refresh_token';
+const STATE_SETTING_KEY = 'ml_oauth_pending_state';
+const STATE_TTL_MS = 10 * 60 * 1000;
 const TIMEOUT_MS = 12_000;
+
+export const ML_REDIRECT_URI =
+  process.env.ML_REDIRECT_URI || 'https://api.gatedo.com/api/store-affiliate/ml/callback';
 
 export type MlLookup = {
   configured: boolean;
@@ -27,6 +36,8 @@ export type MlLookup = {
   permalink?: string | null;
 };
 
+const base64url = (buf: Buffer) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
 @Injectable()
 export class MercadoLivreService {
   private readonly logger = new Logger(MercadoLivreService.name);
@@ -35,11 +46,75 @@ export class MercadoLivreService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  get configured() {
-    return Boolean(process.env.ML_CLIENT_ID && process.env.ML_CLIENT_SECRET && process.env.ML_REFRESH_TOKEN);
+  /** App do ML cadastrado no backend (client id e secret). */
+  get credentialsConfigured() {
+    return Boolean(process.env.ML_CLIENT_ID && process.env.ML_CLIENT_SECRET);
   }
 
-  /** Lê o anúncio/produto de catálogo. Sem OAuth, só devolve o código MLB. */
+  /** Conta conectada: tem refresh token salvo (pelo botão) ou na variável. */
+  async isConnected() {
+    if (!this.credentialsConfigured) return false;
+    if (process.env.ML_REFRESH_TOKEN) return true;
+    const stored = await this.prisma.appSettings.findUnique({ where: { key: REFRESH_SETTING_KEY } }).catch(() => null);
+    return Boolean(stored?.value);
+  }
+
+  // ── Conectar a conta (OAuth authorization code + PKCE) ─────────────────────
+  /** URL para o admin abrir; o state e o verifier valem 10 min e uma vez só. */
+  async authorizationUrl() {
+    if (!this.credentialsConfigured) {
+      throw new BadRequestException('Defina ML_CLIENT_ID e ML_CLIENT_SECRET no backend antes de conectar.');
+    }
+    const state = base64url(crypto.randomBytes(24));
+    const verifier = base64url(crypto.randomBytes(48));
+    const challenge = base64url(crypto.createHash('sha256').update(verifier).digest());
+    const value = JSON.stringify({ state, verifier, expiresAt: Date.now() + STATE_TTL_MS });
+    await this.prisma.appSettings.upsert({
+      where: { key: STATE_SETTING_KEY },
+      update: { value },
+      create: { key: STATE_SETTING_KEY, value },
+    });
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: process.env.ML_CLIENT_ID as string,
+      redirect_uri: ML_REDIRECT_URI,
+      state,
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+    });
+    return `${AUTH_URL}?${params.toString()}`;
+  }
+
+  /** Callback do ML: confere o state, troca o code pelo token e salva o refresh. */
+  async handleCallback(code: string, state: string) {
+    const pending = await this.prisma.appSettings.findUnique({ where: { key: STATE_SETTING_KEY } }).catch(() => null);
+    // Uso único: apaga antes de qualquer outra coisa.
+    await this.prisma.appSettings.delete({ where: { key: STATE_SETTING_KEY } }).catch(() => null);
+    let saved: { state: string; verifier: string; expiresAt: number } | null = null;
+    try { saved = pending?.value ? JSON.parse(pending.value) : null; } catch { saved = null; }
+    if (!saved || !state || saved.state !== state || saved.expiresAt < Date.now()) {
+      throw new BadRequestException('Conexão expirada ou inválida. Clique em "Conectar Mercado Livre" de novo.');
+    }
+    if (!code) throw new BadRequestException('O Mercado Livre não devolveu o código de autorização.');
+
+    const json = await this.tokenRequest({
+      grant_type: 'authorization_code',
+      client_id: process.env.ML_CLIENT_ID as string,
+      client_secret: process.env.ML_CLIENT_SECRET as string,
+      code,
+      redirect_uri: ML_REDIRECT_URI,
+      code_verifier: saved.verifier,
+    });
+    if (!json.refresh_token) {
+      throw new BadRequestException('O ML não devolveu refresh token. Confira se o app tem o escopo offline_access.');
+    }
+    await this.saveRefreshToken(json.refresh_token);
+    this.accessToken = { value: json.access_token, expiresAt: Date.now() + Number(json.expires_in || 21_600) * 1000 };
+    return { ok: true, userId: json.user_id ?? null };
+  }
+
+  // ── Leitura do anúncio ─────────────────────────────────────────────────────
+  /** Lê o anúncio/produto de catálogo. Sem conta conectada, só devolve o código MLB. */
   async lookup(input: string): Promise<MlLookup> {
     const parsed = parseMlbCode(input);
     if (!parsed) {
@@ -50,7 +125,7 @@ export class MercadoLivreService {
       );
     }
     const base = { id: parsed.id, externalId: `ml:${parsed.id}` };
-    if (!this.configured) return { configured: false, ...base };
+    if (!(await this.isConnected())) return { configured: false, ...base };
 
     if (parsed.kind === 'product') {
       const product = await this.get<any>(`/products/${parsed.id}`);
@@ -107,42 +182,51 @@ export class MercadoLivreService {
   // variável), tenta o da variável de ambiente.
   private async refresh(): Promise<string> {
     const stored = await this.prisma.appSettings.findUnique({ where: { key: REFRESH_SETTING_KEY } });
-    const envToken = process.env.ML_REFRESH_TOKEN as string;
+    const envToken = process.env.ML_REFRESH_TOKEN || '';
     if (stored?.value && stored.value !== envToken) {
       try {
         return await this.refreshWith(stored.value);
       } catch {
+        if (!envToken) throw new BadRequestException('Conexão com o Mercado Livre expirou. Clique em "Conectar Mercado Livre" de novo.');
         this.logger.warn('Refresh token salvo do Mercado Livre falhou; tentando o de ML_REFRESH_TOKEN.');
       }
     }
+    if (!envToken) throw new BadRequestException('Mercado Livre não conectado. Clique em "Conectar Mercado Livre".');
     return this.refreshWith(envToken);
   }
 
   private async refreshWith(refreshToken: string): Promise<string> {
+    const json = await this.tokenRequest({
+      grant_type: 'refresh_token',
+      client_id: process.env.ML_CLIENT_ID as string,
+      client_secret: process.env.ML_CLIENT_SECRET as string,
+      refresh_token: refreshToken,
+    });
+    if (json.refresh_token && json.refresh_token !== refreshToken) await this.saveRefreshToken(json.refresh_token);
+    this.accessToken = { value: json.access_token, expiresAt: Date.now() + Number(json.expires_in || 21_600) * 1000 };
+    return json.access_token;
+  }
+
+  private async tokenRequest(body: Record<string, string>) {
     const response = await fetch(`${API}/oauth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: process.env.ML_CLIENT_ID as string,
-        client_secret: process.env.ML_CLIENT_SECRET as string,
-        refresh_token: refreshToken,
-      }),
+      body: new URLSearchParams(body),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const json: any = await response.json().catch(() => null);
     if (!response.ok || !json?.access_token) {
-      this.logger.error(`OAuth do Mercado Livre falhou: ${response.status} ${json?.message || ''}`);
-      throw new BadRequestException('Não consegui autenticar no Mercado Livre. Gere um novo ML_REFRESH_TOKEN.');
+      this.logger.error(`OAuth do Mercado Livre (${body.grant_type}) falhou: ${response.status} ${json?.error || ''} ${json?.message || ''}`);
+      throw new BadRequestException(`Mercado Livre recusou a autenticação${json?.message ? `: ${json.message}` : '.'}`);
     }
-    if (json.refresh_token && json.refresh_token !== refreshToken) {
-      await this.prisma.appSettings.upsert({
-        where: { key: REFRESH_SETTING_KEY },
-        update: { value: json.refresh_token },
-        create: { key: REFRESH_SETTING_KEY, value: json.refresh_token },
-      });
-    }
-    this.accessToken = { value: json.access_token, expiresAt: Date.now() + Number(json.expires_in || 21_600) * 1000 };
-    return json.access_token;
+    return json;
+  }
+
+  private saveRefreshToken(value: string) {
+    return this.prisma.appSettings.upsert({
+      where: { key: REFRESH_SETTING_KEY },
+      update: { value },
+      create: { key: REFRESH_SETTING_KEY, value },
+    });
   }
 }

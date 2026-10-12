@@ -1,6 +1,6 @@
 import {
   BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException,
-  Post, Req, UseGuards,
+  Post, Query, Req, Res, UseGuards,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -10,7 +10,7 @@ import {
   DEFAULT_OFFER_FILTERS, OfferFilters, SHORT_NAME_MAX, filterOffers, isMedicineProduct, shopeeSubIds, slugify,
   sortByCommissionValue, suggestShortName, uniqueSlug,
 } from './affiliate-rules';
-import { MercadoLivreService } from './mercadolivre.service';
+import { ML_REDIRECT_URI, MercadoLivreService } from './mercadolivre.service';
 import { ShopeeAffiliateService } from './shopee-affiliate.service';
 import { StoreSyncService } from './store-sync.service';
 
@@ -33,11 +33,15 @@ export class StoreAffiliateController {
   }
 
   @Get('status')
-  status(@Req() req: any) {
+  async status(@Req() req: any) {
     this.assertAdmin(req);
     return {
       shopee: { configured: this.shopee.configured, mock: this.shopee.mock },
-      mercadoLivre: { configured: this.ml.configured },
+      mercadoLivre: {
+        configured: this.ml.credentialsConfigured,
+        connected: await this.ml.isConnected(),
+        redirectUri: ML_REDIRECT_URI,
+      },
       defaultFilters: DEFAULT_OFFER_FILTERS,
     };
   }
@@ -145,6 +149,13 @@ export class StoreAffiliateController {
     };
   }
 
+  // Botão "Conectar Mercado Livre": devolve a URL de autorização do ML.
+  @Get('ml/connect')
+  async mlConnect(@Req() req: any) {
+    this.assertAdmin(req);
+    return { url: await this.ml.authorizationUrl() };
+  }
+
   // ── Rotina diária: disparo manual ─────────────────────────────────────────
   @Post('sync/run')
   async runSync(@Req() req: any) {
@@ -180,4 +191,26 @@ function cleanFilters(raw: Partial<OfferFilters> | undefined): Partial<OfferFilt
   if (typeof raw.hideDog === 'boolean') out.hideDog = raw.hideDog;
   if (typeof raw.hideMedicine === 'boolean') out.hideMedicine = raw.hideMedicine;
   return out;
+}
+
+// Callback do OAuth do Mercado Livre (URI de redirect cadastrada no app do ML:
+// https://api.gatedo.com/api/store-affiliate/ml/callback). Público — quem
+// protege é o state de uso único gerado pelo admin. Volta para o admin da Loja.
+const ADMIN_STORE_URL = `${(process.env.ADMIN_APP_URL || 'https://app.gatedo.com').replace(/\/+$/, '')}/admin/store`;
+
+@Controller('store-affiliate/ml')
+export class MercadoLivreCallbackController {
+  constructor(private readonly ml: MercadoLivreService) {}
+
+  @Get('callback')
+  async callback(@Query('code') code: string, @Query('state') state: string, @Query('error') error: string, @Res() res: any) {
+    if (error) return res.redirect(302, `${ADMIN_STORE_URL}?ml=erro&msg=${encodeURIComponent(`Autorização negada (${error}).`)}`);
+    try {
+      await this.ml.handleCallback(code, state);
+      return res.redirect(302, `${ADMIN_STORE_URL}?ml=ok`);
+    } catch (err: any) {
+      const msg = err?.response?.message || err?.message || 'Falha ao conectar.';
+      return res.redirect(302, `${ADMIN_STORE_URL}?ml=erro&msg=${encodeURIComponent(String(msg))}`);
+    }
+  }
 }
