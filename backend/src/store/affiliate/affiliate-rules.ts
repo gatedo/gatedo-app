@@ -26,17 +26,18 @@ export type ShopeeOfferNode = {
 };
 
 export type AffiliateOffer = {
-  source: 'shopee';
-  externalId: string; // "shopee:<itemId>"
+  source: 'shopee' | 'ml';
+  externalId: string; // "shopee:<itemId>" | "ml:<MLB>"
   itemId: string;
   shopId: string;
   name: string;
   shopName: string | null;
   officialShop: boolean;
   price: number;
-  commissionPct: number;
-  commissionValue: number;
-  commissionExtra: boolean;
+  // null = a loja não informa pela API (Mercado Livre).
+  commissionPct: number | null;
+  commissionValue: number | null;
+  commissionExtra: boolean | null;
   rating: number | null;
   sales: number | null;
   images: string[];
@@ -81,6 +82,31 @@ export function normalizeShopeeOffer(node: ShopeeOfferNode): AffiliateOffer {
   };
 }
 
+// ── Resultado da busca do Mercado Livre (/sites/MLB/search) ─────────────────
+// A comissão de afiliado do ML não vem pela API; nota também não.
+export function normalizeMlSearchResult(r: any): AffiliateOffer {
+  const thumb = String(r?.thumbnail || '').replace(/^http:/, 'https:').replace(/-I\.(jpg|webp)$/, '-O.$1');
+  const id = String(r?.id || '');
+  return {
+    source: 'ml',
+    externalId: `ml:${id}`,
+    itemId: id,
+    shopId: String(r?.seller?.id ?? ''),
+    name: String(r?.title ?? '').trim(),
+    shopName: r?.official_store_name || r?.seller?.nickname || null,
+    officialShop: Boolean(r?.official_store_id),
+    price: round2(Number(r?.price) || 0),
+    commissionPct: null,
+    commissionValue: null,
+    commissionExtra: null,
+    rating: null,
+    sales: Number.isFinite(Number(r?.sold_quantity)) ? Number(r.sold_quantity) : null,
+    images: thumb ? [thumb] : [],
+    productLink: r?.permalink ?? null,
+    offerLink: null,
+  };
+}
+
 // ── Filtros da busca ────────────────────────────────────────────────────────
 export type OfferFilters = {
   minRating: number;
@@ -113,17 +139,20 @@ function hasTerm(title: string, terms: string[]): boolean {
 export const isDogProduct = (title: string) => hasTerm(title, DOG_TERMS);
 export const isMedicineProduct = (title: string) => hasTerm(title, MEDICINE_TERMS);
 
+// Nota/vendas que a API não informa (null, caso do Mercado Livre) não
+// eliminam a oferta; cão e medicamento valem sempre.
 export function filterOffers(offers: AffiliateOffer[], filters: OfferFilters = DEFAULT_OFFER_FILTERS) {
   return offers.filter((o) =>
-    (o.rating ?? 0) >= filters.minRating &&
-    (o.sales ?? 0) >= filters.minSales &&
+    (o.rating === null || o.rating >= filters.minRating) &&
+    (o.sales === null || o.sales >= filters.minSales) &&
     !(filters.hideDog && isDogProduct(o.name)) &&
     !(filters.hideMedicine && isMedicineProduct(o.name)));
 }
 
 /** Maior comissão em R$ por venda primeiro; empate → mais vendas. */
 export function sortByCommissionValue(offers: AffiliateOffer[]) {
-  return [...offers].sort((a, b) => b.commissionValue - a.commissionValue || (b.sales ?? 0) - (a.sales ?? 0));
+  // Sem comissão informada (ML) mantém a ordem de relevância da loja.
+  return [...offers].sort((a, b) => (b.commissionValue ?? -1) - (a.commissionValue ?? -1) || (b.sales ?? 0) - (a.sales ?? 0));
 }
 
 // ── Nome curto e slug ───────────────────────────────────────────────────────

@@ -74,6 +74,13 @@ describe('ShopeeAffiliateService', () => {
     expect(await service.getOffer(offers[0].itemId)).toEqual(offers[0]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('mock respeita a palavra buscada', async () => {
+    delete process.env.SHOPEE_AFF_APP_ID;
+    const areia = await service.searchOffers('areia');
+    expect(areia.map((o) => o.name)).toEqual(['Caixa de Areia Fechada Grande']);
+    expect(await service.searchOffers('xyzabc')).toEqual([]);
+  });
 });
 
 describe('mergeAlerts', () => {

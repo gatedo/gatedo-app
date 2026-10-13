@@ -7,7 +7,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LEGACY_CATEGORY, MEDICINE_MESSAGE, canonicalCategoryName, isBlockedCategory, isHiddenCategory, normalizeImages, sameName } from '../product-rules';
 import {
-  DEFAULT_OFFER_FILTERS, OfferFilters, SHORT_NAME_MAX, filterOffers, isMedicineProduct, shopeeSubIds, slugify,
+  AffiliateOffer, DEFAULT_OFFER_FILTERS, OfferFilters, SHORT_NAME_MAX, filterOffers, isMedicineProduct, shopeeSubIds, slugify,
   sortByCommissionValue, suggestShortName, uniqueSlug,
 } from './affiliate-rules';
 import { ML_REDIRECT_URI, MercadoLivreService } from './mercadolivre.service';
@@ -55,15 +55,63 @@ export class StoreAffiliateController {
     const filters = { ...DEFAULT_OFFER_FILTERS, ...cleanFilters(body?.filters) };
 
     const offers = await this.shopee.searchOffers(keyword, Number(body?.page) || 1);
+    return this.searchResponse('shopee', offers, filters, this.shopee.mock);
+  }
+
+  // ── Mercado Livre: busca (com o token da conta conectada) ─────────────────
+  @Post('ml/search')
+  async mlSearch(@Req() req: any, @Body() body: { keyword?: string; filters?: Partial<OfferFilters> }) {
+    this.assertAdmin(req);
+    const keyword = String(body?.keyword ?? '').trim();
+    if (keyword.length < 2) throw new BadRequestException('Digite ao menos 2 letras para buscar.');
+    const filters = { ...DEFAULT_OFFER_FILTERS, ...cleanFilters(body?.filters) };
+    const offers = await this.ml.search(keyword);
+    return this.searchResponse('ml', offers, filters, false);
+  }
+
+  // ── Mercado Livre: cadastrar como rascunho (links continuam manuais) ──────
+  @Post('ml/register')
+  async mlRegister(@Req() req: any, @Body() body: { itemId?: string; name?: string; categoryName?: string }) {
+    this.assertAdmin(req);
+    const itemId = String(body?.itemId ?? '').trim().toUpperCase();
+    if (!/^MLB\d+$/.test(itemId)) throw new BadRequestException('Código MLB inválido.');
+    const externalId = `ml:${itemId}`;
+    await this.assertNotRegistered(externalId);
+
+    const item = await this.ml.lookup(itemId);
+    if (!item.configured) throw new BadRequestException('Mercado Livre não conectado.');
+    if (item.name && isMedicineProduct(item.name)) throw new BadRequestException(MEDICINE_MESSAGE);
+    const name = String(body?.name ?? '').trim() || suggestShortName(item.name || itemId);
+    if (name.length > SHORT_NAME_MAX) throw new BadRequestException(`Nome curto com mais de ${SHORT_NAME_MAX} caracteres.`);
+    const category = await this.resolveCategory(body?.categoryName);
+    const slug = await this.freeSlug(name);
+
+    return this.createDraft({
+      name,
+      description: '',
+      price: item.price ?? 0,
+      priceCheckedAt: item.price ? new Date() : null,
+      platform: 'Mercado Livre',
+      categoryId: category.id,
+      status: 'draft',
+      subid: slug,
+      rating: item.rating ?? null,
+      images: normalizeImages(item.images || []).valid.slice(0, MAX_IMAGES),
+      externalId,
+      tags: [],
+    });
+  }
+
+  private async searchResponse(source: 'shopee' | 'ml', offers: AffiliateOffer[], filters: OfferFilters, mock: boolean) {
     const visible = sortByCommissionValue(filterOffers(offers, filters));
     const registered = await this.prisma.product.findMany({
       where: { externalId: { in: visible.map((o) => o.externalId) } },
       select: { id: true, externalId: true, status: true },
     });
     const byExternalId = new Map(registered.map((p) => [p.externalId, p]));
-
     return {
-      mock: this.shopee.mock,
+      source,
+      mock,
       filters,
       total: offers.length,
       hidden: offers.length - visible.length,
@@ -73,6 +121,25 @@ export class StoreAffiliateController {
         registeredProduct: byExternalId.get(o.externalId) ?? null,
       })),
     };
+  }
+
+  private async freeSlug(name: string) {
+    const taken = new Set(
+      (await this.prisma.product.findMany({ where: { subid: { not: null } }, select: { subid: true } }))
+        .map((p) => p.subid as string),
+    );
+    return uniqueSlug(slugify(name), taken);
+  }
+
+  private async createDraft(data: any) {
+    try {
+      return await this.prisma.product.create({ data, include: { category: true } });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Esse produto já está cadastrado.');
+      }
+      throw error;
+    }
   }
 
   // ── Shopee: cadastrar como rascunho ───────────────────────────────────────
@@ -93,18 +160,12 @@ export class StoreAffiliateController {
     if (name.length > SHORT_NAME_MAX) throw new BadRequestException(`Nome curto com mais de ${SHORT_NAME_MAX} caracteres.`);
     const category = await this.resolveCategory(body?.categoryName);
 
-    const taken = new Set(
-      (await this.prisma.product.findMany({ where: { subid: { not: null } }, select: { subid: true } }))
-        .map((p) => p.subid as string),
-    );
-    const slug = uniqueSlug(slugify(name), taken);
+    const slug = await this.freeSlug(name);
     const subIds = shopeeSubIds(slug);
     const linkApp = await this.shopee.shortLink(offer.productLink, subIds.app);
     const linkGroup = await this.shopee.shortLink(offer.productLink, subIds.grp);
 
-    try {
-      return await this.prisma.product.create({
-        data: {
+    return this.createDraft({
           name,
           description: this.shopee.mock ? 'Cadastrado em modo mock (API Shopee não configurada). Pode apagar.' : '',
           price: offer.price,
@@ -125,15 +186,7 @@ export class StoreAffiliateController {
           images: normalizeImages(offer.images).valid.slice(0, MAX_IMAGES),
           externalId,
           tags: this.shopee.mock ? ['mock'] : [],
-        },
-        include: { category: true },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('Esse produto já está cadastrado.');
-      }
-      throw error;
-    }
+    });
   }
 
   // ── Mercado Livre: preencher rascunho ─────────────────────────────────────

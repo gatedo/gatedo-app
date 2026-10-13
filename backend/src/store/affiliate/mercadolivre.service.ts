@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
-import { parseMlbCode } from './affiliate-rules';
+import { AffiliateOffer, normalizeMlSearchResult, parseMlbCode } from './affiliate-rules';
 
 // Mercado Livre (semiautomático): busca título, preço, fotos e nota de um
 // anúncio pela API oficial. Os links de afiliado continuam manuais (botão
@@ -113,6 +113,17 @@ export class MercadoLivreService {
     return { ok: true, userId: json.user_id ?? null };
   }
 
+  // ── Busca ──────────────────────────────────────────────────────────────────
+  /** Busca por palavra-chave com o token da conta conectada. */
+  async search(keyword: string, limit = 50): Promise<AffiliateOffer[]> {
+    if (!(await this.isConnected())) {
+      throw new BadRequestException('Mercado Livre não conectado. Clique em "Conectar Mercado Livre".');
+    }
+    const params = new URLSearchParams({ q: keyword, limit: String(Math.min(50, limit)) });
+    const data = await this.get<any>(`/sites/MLB/search?${params.toString()}`);
+    return (data?.results ?? []).map(normalizeMlSearchResult).filter((o: AffiliateOffer) => o.itemId);
+  }
+
   // ── Leitura do anúncio ─────────────────────────────────────────────────────
   /** Lê o anúncio/produto de catálogo. Sem conta conectada, só devolve o código MLB. */
   async lookup(input: string): Promise<MlLookup> {
@@ -167,7 +178,14 @@ export class MercadoLivreService {
       return this.get<T>(path, true);
     }
     if (response.status === 404) throw new NotFoundException('Anúncio não encontrado no Mercado Livre.');
-    if (!response.ok) throw new BadRequestException(`API do Mercado Livre respondeu ${response.status}.`);
+    if (!response.ok) {
+      // Mostra o motivo que o ML devolveu (ex.: 403 "Invalid scopes") pra dar
+      // pra ajustar as permissões do app sem adivinhar.
+      const body: any = await response.json().catch(() => null);
+      const reason = [body?.error, body?.message].filter(Boolean).join(': ');
+      this.logger.warn(`ML ${path} → ${response.status} ${reason}`);
+      throw new BadRequestException(`API do Mercado Livre respondeu ${response.status}${reason ? ` (${reason})` : ''}.`);
+    }
     return response.json() as Promise<T>;
   }
 

@@ -1,6 +1,7 @@
 /**
- * Aba "Buscar ofertas" do admin da Loja: busca na API de afiliados da Shopee
- * (só pelo backend), ordena por comissão em R$ e cadastra como RASCUNHO.
+ * Aba "Buscar ofertas" do admin da Loja: busca no Mercado Livre (conta
+ * conectada) ou na API de afiliados da Shopee — sempre pelo backend — e
+ * cadastra como RASCUNHO.
  */
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, BadgeCheck, Check, Loader2, Plus, RefreshCw, Search, SlidersHorizontal, Star } from 'lucide-react';
@@ -8,6 +9,7 @@ import api from '../../services/api';
 
 const SHORT_NAME_MAX = 40;
 const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const SOURCES = { ml: 'Mercado Livre', shopee: 'Shopee' };
 
 export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, mlResult }) {
   const [status, setStatus] = useState(null);
@@ -22,13 +24,22 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
   const [saving, setSaving] = useState({});
   const [syncing, setSyncing] = useState(false);
   const [connectingMl, setConnectingMl] = useState(false);
+  const [source, setSource] = useState('shopee');
 
   useEffect(() => {
     api.get('/store-affiliate/status').then((r) => {
       setStatus(r.data);
       if (r.data?.defaultFilters) setFilters(r.data.defaultFilters);
+      // Abre no ML quando ele está conectado e a Shopee ainda é mock.
+      if (r.data?.mercadoLivre?.connected && r.data?.shopee?.mock) setSource('ml');
     }).catch(() => setStatus(null));
   }, []);
+
+  const changeSource = (next) => {
+    setSource(next);
+    setResult(null);
+    setError('');
+  };
 
   useEffect(() => {
     if (!category && categoryOptions.length) setCategory(categoryOptions[0]);
@@ -40,7 +51,7 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
     setSearching(true);
     setError('');
     try {
-      const r = await api.post('/store-affiliate/shopee/search', { keyword: keyword.trim(), filters });
+      const r = await api.post(`/store-affiliate/${source}/search`, { keyword: keyword.trim(), filters });
       setResult(r.data);
       setNames(Object.fromEntries(r.data.offers.map((o) => [o.itemId, o.suggestedName])));
     } catch (err) {
@@ -56,7 +67,7 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
     if (!category) { alert('Escolha a categoria.'); return; }
     setSaving((s) => ({ ...s, [offer.itemId]: true }));
     try {
-      const r = await api.post('/store-affiliate/shopee/register', { itemId: offer.itemId, name, categoryName: category });
+      const r = await api.post(`/store-affiliate/${offer.source || source}/register`, { itemId: offer.itemId, name, categoryName: category });
       onRegistered?.(r.data);
       setResult((prev) => ({
         ...prev,
@@ -81,7 +92,8 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
     }
   };
 
-  const mock = status ? status.shopee?.mock : result?.mock;
+  const shopeeMock = status ? status.shopee?.mock : result?.mock;
+  const mock = source === 'shopee' && shopeeMock;
   const ml = status?.mercadoLivre;
 
   // OAuth do ML: o backend devolve a URL de autorização; o ML volta em
@@ -133,9 +145,27 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
         </div>
       )}
 
+      <div className="flex gap-2 bg-gray-100 p-1 rounded-2xl w-fit">
+        {Object.entries(SOURCES).map(([key, label]) => (
+          <button key={key} type="button" onClick={() => changeSource(key)}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${source === key ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400'}`}>
+            {label}
+            {key === 'ml' && ml && !ml.connected && <span className="ml-1 text-[10px] text-red-400">(desconectado)</span>}
+            {key === 'shopee' && shopeeMock && <span className="ml-1 text-[10px] text-amber-500">(mock)</span>}
+          </button>
+        ))}
+      </div>
+
+      {source === 'ml' && (
+        <p className="text-[11px] font-bold text-gray-400">
+          Mercado Livre: a API não informa comissão de afiliado nem nota, então a lista segue a relevância do ML e os filtros de nota/vendas só valem quando o dado existe.
+          Os links de afiliado continuam manuais (botão Compartilhar do ML).
+        </p>
+      )}
+
       <form onSubmit={search} className="flex flex-wrap items-end gap-2">
         <div className="flex-1 min-w-[220px]">
-          <label className="lbl">Buscar na Shopee</label>
+          <label className="lbl">Buscar {source === 'ml' ? 'no Mercado Livre' : 'na Shopee'}</label>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
             <input value={keyword} onChange={(e) => setKeyword(e.target.value)} className="inp !pl-9" placeholder="fonte para gato, arranhador, churu…" />
@@ -151,7 +181,7 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
           className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all ${showFilters ? 'border-[#8B4AFF] text-[#8B4AFF]' : 'border-gray-200 text-gray-500'}`}>
           <SlidersHorizontal size={14} /> Filtros
         </button>
-        <button type="submit" disabled={searching || keyword.trim().length < 2}
+        <button type="submit" disabled={searching || keyword.trim().length < 2 || (source === 'ml' && !ml?.connected)}
           className="bg-[#8B4AFF] text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 hover:brightness-110 disabled:opacity-40">
           {searching ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Buscar
         </button>
@@ -183,7 +213,7 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
 
       {result && (
         <div className="flex items-center justify-between text-[12px] font-bold text-gray-400">
-          <span>{result.offers.length} oferta(s) · {result.hidden} escondida(s) pelos filtros · ordenado por comissão em R$</span>
+          <span>{result.offers.length} oferta(s) · {result.hidden} escondida(s) pelos filtros · {result.source === 'ml' ? 'ordem de relevância do Mercado Livre' : 'ordenado por comissão em R$'}</span>
         </div>
       )}
 
@@ -218,7 +248,9 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
                         : <div className="h-14 w-14 rounded-xl bg-gray-100" />}
                     </td>
                     <td className="p-3">
-                      <p className="line-clamp-2 text-gray-500" title={o.name}>{o.name}</p>
+                      {o.productLink
+                        ? <a href={o.productLink} target="_blank" rel="noreferrer" className="line-clamp-2 text-gray-500 hover:text-[#8B4AFF] hover:underline" title={o.name}>{o.name}</a>
+                        : <p className="line-clamp-2 text-gray-500" title={o.name}>{o.name}</p>}
                       <input value={name} maxLength={SHORT_NAME_MAX} disabled={!!o.registeredProduct}
                         onChange={(e) => setNames((n) => ({ ...n, [o.itemId]: e.target.value }))}
                         className="inp !py-1.5 mt-1.5 text-xs font-bold" placeholder="Nome curto" />
@@ -226,13 +258,19 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
                     </td>
                     <td className="p-3 font-black text-gray-700 whitespace-nowrap">{brl(o.price)}</td>
                     <td className="p-3 whitespace-nowrap">
-                      <p className="font-black text-green-600">{brl(o.commissionValue)}</p>
-                      <p className="text-gray-400 font-bold">{o.commissionPct}%</p>
+                      {o.commissionValue === null ? <span className="text-gray-300 font-bold" title="A API do ML não informa comissão">—</span> : (
+                        <>
+                          <p className="font-black text-green-600">{brl(o.commissionValue)}</p>
+                          <p className="text-gray-400 font-bold">{o.commissionPct}%</p>
+                        </>
+                      )}
                     </td>
                     <td className="p-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${o.commissionExtra ? 'bg-[#DFFF40] text-[#1a1a00]' : 'bg-gray-100 text-gray-500'}`}>
-                        {o.commissionExtra ? 'EXTRA' : 'base'}
-                      </span>
+                      {o.commissionExtra === null ? <span className="text-gray-300 font-bold">—</span> : (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${o.commissionExtra ? 'bg-[#DFFF40] text-[#1a1a00]' : 'bg-gray-100 text-gray-500'}`}>
+                          {o.commissionExtra ? 'EXTRA' : 'base'}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3 whitespace-nowrap font-bold text-gray-600">
                       <span className="inline-flex items-center gap-0.5"><Star size={11} className="fill-yellow-400 text-yellow-400" />{o.rating ?? '—'}</span>
@@ -265,7 +303,7 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-gray-50 p-3 text-[12px] text-gray-500">
         <p><span className="font-black">Rotina diária 7h:</span> atualiza preço e comissão dos produtos Shopee publicados e marca alerta (preço +15%, comissão caiu, saiu do ar). Nunca despublica.</p>
-        <button onClick={runSync} disabled={syncing || mock}
+        <button onClick={runSync} disabled={syncing || shopeeMock}
           className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-black text-gray-600 disabled:opacity-40"
           title={mock ? 'Indisponível no modo mock' : 'Roda a atualização agora'}>
           <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} /> Rodar agora

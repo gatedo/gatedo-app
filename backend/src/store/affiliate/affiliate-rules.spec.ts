@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_OFFER_FILTERS, evaluateSyncAlerts, filterOffers, isDogProduct, isMedicineProduct,
-  normalizeShopeeOffer, parseMlbCode, slugify, sortByCommissionValue, suggestShortName, uniqueSlug,
+  normalizeMlSearchResult, normalizeShopeeOffer, parseMlbCode, slugify, sortByCommissionValue, suggestShortName, uniqueSlug,
 } from './affiliate-rules';
 
 const node = (over: Record<string, unknown> = {}) => ({
@@ -102,5 +102,26 @@ describe('evaluateSyncAlerts', () => {
 
   it('sumiu da API = fora do ar', () => {
     expect(evaluateSyncAlerts(prev, null)).toEqual([{ type: 'offline' }]);
+  });
+});
+
+describe('Mercado Livre na busca', () => {
+  const r = {
+    id: 'MLB123', title: 'Areia Sanitária Pipicat 4kg', price: 29.9, permalink: 'https://produto.mercadolivre.com.br/MLB-123',
+    thumbnail: 'http://http2.mlstatic.com/D_NQ_123-I.jpg', official_store_id: 77, official_store_name: 'Pipicat', seller: { id: 9 },
+  };
+
+  it('converte o resultado: https, foto maior, sem comissão', () => {
+    expect(normalizeMlSearchResult(r)).toMatchObject({
+      source: 'ml', externalId: 'ml:MLB123', price: 29.9, officialShop: true, shopName: 'Pipicat',
+      commissionPct: null, commissionValue: null, rating: null,
+      images: ['https://http2.mlstatic.com/D_NQ_123-O.jpg'],
+    });
+  });
+
+  it('nota/vendas não informadas não eliminam; cão continua escondido', () => {
+    const offers = [normalizeMlSearchResult(r), normalizeMlSearchResult({ ...r, id: 'MLB9', title: 'Areia para cachorro' })];
+    expect(filterOffers(offers).map((o) => o.itemId)).toEqual(['MLB123']);
+    expect(sortByCommissionValue(offers).map((o) => o.itemId)).toEqual(['MLB123', 'MLB9']);
   });
 });

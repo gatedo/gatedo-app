@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { AffiliateOffer, ShopeeOfferNode, normalizeShopeeOffer } from './affiliate-rules';
+import { foldText } from '../product-rules';
 
 // Shopee Affiliate Open API (GraphQL), Brasil. Só o backend fala com ela:
 // SHOPEE_AFF_APP_ID / SHOPEE_AFF_SECRET nunca vão pro front.
@@ -170,7 +171,10 @@ export class ShopeeAffiliateService {
       [`Coleira Peitoral para Cão e Gato`, 34.9, 8, 0, 4.8, 400, false],
       [`Vermífugo Comprimido Gatos`, 39.9, 5, 0, 4.9, 900, true],
     ];
-    return samples.map(([name, price, pct, extra, rating, sales, official], i) => {
+    // O mock respeita a palavra buscada (só devolve exemplos que a contêm),
+    // pra não parecer que a busca ignora o termo.
+    const words = foldText(keyword).split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
+    const all = samples.map(([name, price, pct, extra, rating, sales, official], i) => {
       const itemId = String(9_000_000 + i);
       const offer: AffiliateOffer = {
         source: 'shopee',
@@ -193,6 +197,7 @@ export class ShopeeAffiliateService {
       this.mockOffers.set(itemId, offer);
       return offer;
     });
+    return words.length ? all.filter((o) => words.some((w) => foldText(o.name).includes(w))) : all;
   }
 
   assertLive(action: string) {
