@@ -2,10 +2,26 @@
 // Mudou uma regra lá? Mude aqui — backend/src/store/product-rules.spec.ts
 // roda os mesmos casos contra os dois arquivos.
 
+// Categorias no padrão de pet shop. Fora de propósito: Farmácia (medicamento
+// não entra na loja) e Raças/Marcas (são filtros, não categorias de produto).
 export const STORE_CATEGORIES = [
-  'Alimentação', 'Petisco', 'Higiene', 'Hidratação',
-  'Enriquecimento', 'Conforto', 'Pelagem', 'Transporte',
+  'Ração', 'Petiscos', 'Areias e Banheiros', 'Arranhadores e Brinquedos',
+  'Beleza e Limpeza', 'Coleiras e Peitorais', 'Acessórios de Alimentação',
+  'Acessórios de Transporte', 'Camas, Almofadas e Tocas', 'Roupas',
 ];
+
+// Nomes antigos (antes de 10/2026) → novos. Mantém o import de JSON antigo e
+// links/cadastros com o nome velho funcionando.
+export const CATEGORY_ALIASES = {
+  'Alimentação': 'Ração',
+  'Petisco': 'Petiscos',
+  'Higiene': 'Areias e Banheiros',
+  'Hidratação': 'Acessórios de Alimentação',
+  'Enriquecimento': 'Arranhadores e Brinquedos',
+  'Conforto': 'Camas, Almofadas e Tocas',
+  'Pelagem': 'Beleza e Limpeza',
+  'Transporte': 'Acessórios de Transporte',
+};
 export const LEGACY_CATEGORY = 'Saúde';
 export const BLOCKED_CATEGORY = 'Medicamento';
 export const HIDDEN_CATEGORIES = [LEGACY_CATEGORY, BLOCKED_CATEGORY];
@@ -43,6 +59,13 @@ export function foldText(text) {
 
 export function sameName(a, b) {
   return foldText(String(a ?? '').trim()) === foldText(String(b ?? '').trim());
+}
+
+/** Nome atual da categoria (traduz os nomes antigos). */
+export function canonicalCategoryName(name) {
+  const text = String(name ?? '').trim();
+  const alias = Object.keys(CATEGORY_ALIASES).find((old) => sameName(old, text));
+  return alias ? CATEGORY_ALIASES[alias] : text;
 }
 
 export function isBlockedCategory(name) {

@@ -4,10 +4,26 @@
 // O front tem um espelho em frontend/src/utils/productRules.js; o teste
 // product-rules.spec.ts roda os mesmos casos contra os dois arquivos.
 
+// Categorias no padrão de pet shop. Fora de propósito: Farmácia (medicamento
+// não entra na loja) e Raças/Marcas (são filtros, não categorias de produto).
 export const STORE_CATEGORIES = [
-  'Alimentação', 'Petisco', 'Higiene', 'Hidratação',
-  'Enriquecimento', 'Conforto', 'Pelagem', 'Transporte',
+  'Ração', 'Petiscos', 'Areias e Banheiros', 'Arranhadores e Brinquedos',
+  'Beleza e Limpeza', 'Coleiras e Peitorais', 'Acessórios de Alimentação',
+  'Acessórios de Transporte', 'Camas, Almofadas e Tocas', 'Roupas',
 ];
+
+// Nomes antigos (antes de 10/2026) → novos. Mantém o import de JSON antigo e
+// links/cadastros com o nome velho funcionando.
+export const CATEGORY_ALIASES: Record<string, string> = {
+  'Alimentação': 'Ração',
+  'Petisco': 'Petiscos',
+  'Higiene': 'Areias e Banheiros',
+  'Hidratação': 'Acessórios de Alimentação',
+  'Enriquecimento': 'Arranhadores e Brinquedos',
+  'Conforto': 'Camas, Almofadas e Tocas',
+  'Pelagem': 'Beleza e Limpeza',
+  'Transporte': 'Acessórios de Transporte',
+};
 // Saúde: legado, não aceita produto novo e não aparece no app.
 export const LEGACY_CATEGORY = 'Saúde';
 export const BLOCKED_CATEGORY = 'Medicamento';
@@ -47,6 +63,13 @@ export function foldText(text: string): string {
 
 export function sameName(a: string | null | undefined, b: string | null | undefined): boolean {
   return foldText(String(a ?? '').trim()) === foldText(String(b ?? '').trim());
+}
+
+/** Nome atual da categoria (traduz os nomes antigos). */
+export function canonicalCategoryName(name: string | null | undefined): string {
+  const text = String(name ?? '').trim();
+  const alias = Object.keys(CATEGORY_ALIASES).find((old) => sameName(old, text));
+  return alias ? CATEGORY_ALIASES[alias] : text;
 }
 
 export function isBlockedCategory(name: string | null | undefined): boolean {
@@ -227,11 +250,11 @@ export function normalizeImportItem(raw: any, index: number, categories: ImportC
   if (!name) return { ok: false, index, name: '', error: 'Sem nome.' };
 
   const byId = raw.categoryId ? categories.find((c) => c.id === raw.categoryId) : undefined;
-  const categoryName = byId?.name ?? String(raw.categoryName ?? '').trim();
+  const categoryName = canonicalCategoryName(byId?.name ?? String(raw.categoryName ?? '').trim());
   if (isBlockedCategory(categoryName)) return { ok: false, index, name, error: MEDICINE_MESSAGE };
   if (!categoryName) return { ok: false, index, name, error: 'Sem categoria (categoryId ou categoryName).' };
   if (sameName(categoryName, LEGACY_CATEGORY)) return { ok: false, index, name, error: 'Categoria "Saúde" não aceita produto novo.' };
-  const category = byId ?? categories.find((c) => sameName(c.name, categoryName));
+  const category = categories.find((c) => sameName(c.name, categoryName)) ?? byId;
   if (!category) return { ok: false, index, name, error: `Categoria "${categoryName}" não existe.` };
 
   const price = Number(String(raw.price ?? 0).replace(',', '.'));

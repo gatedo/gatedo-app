@@ -11,7 +11,7 @@ import { XP_ACTIONS } from '../gamification/xp.config';
 import {
   GANCHO_MAX, LEGACY_CATEGORY, MEDICINE_MESSAGE, PRODUCT_ROLES, PRODUCT_STATUSES,
   PUBLIC_PRODUCT_WHERE, STORE_CATEGORIES, isBlockedCategory, isValidAffiliateLink,
-  linkDomainError, normalizeBadge, normalizeImages, normalizeImportItem, publishBlockers, sameName,
+  canonicalCategoryName, linkDomainError, normalizeBadge, normalizeImages, normalizeImportItem, publishBlockers, sameName,
 } from '../store/product-rules';
 
 // Compartilhar oferta da Loja: 2 XPT, uma vez por produto (o share reaproveita
@@ -199,7 +199,7 @@ export class ProductsController {
   // ── Categoria: só as que existem (não cria mais por nome). Medicamento é
   // recusado; Saúde só fica pra quem já está nela, até recategorizar.
   private async resolveCategory(dto: any, currentCategoryId?: string) {
-    const name = String(dto.categoryName ?? '').trim();
+    const name = canonicalCategoryName(dto.categoryName);
     if (isBlockedCategory(name)) throw new BadRequestException(MEDICINE_MESSAGE);
     if (!dto.categoryId && !name) {
       const current = currentCategoryId

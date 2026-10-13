@@ -5,7 +5,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LEGACY_CATEGORY, MEDICINE_MESSAGE, isBlockedCategory, isHiddenCategory, normalizeImages, sameName } from '../product-rules';
+import { LEGACY_CATEGORY, MEDICINE_MESSAGE, canonicalCategoryName, isBlockedCategory, isHiddenCategory, normalizeImages, sameName } from '../product-rules';
 import {
   DEFAULT_OFFER_FILTERS, OfferFilters, SHORT_NAME_MAX, filterOffers, isMedicineProduct, shopeeSubIds, slugify,
   sortByCommissionValue, suggestShortName, uniqueSlug,
@@ -171,7 +171,7 @@ export class StoreAffiliateController {
   // Mesmas regras do cadastro manual: categoria existente, sem Medicamento e
   // sem Saúde (legado).
   private async resolveCategory(name?: string) {
-    const wanted = String(name ?? '').trim();
+    const wanted = canonicalCategoryName(name);
     if (!wanted) throw new BadRequestException('Escolha a categoria.');
     if (isBlockedCategory(wanted)) throw new BadRequestException(MEDICINE_MESSAGE);
     const category = (await this.prisma.category.findMany()).find((c) => sameName(c.name, wanted));

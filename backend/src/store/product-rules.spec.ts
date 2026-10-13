@@ -4,13 +4,20 @@ import * as backend from './product-rules';
 import * as frontend from '../../../frontend/src/utils/productRules.js';
 
 const CATEGORIES = [
-  { id: 'cat-conforto', name: 'Conforto' },
-  { id: 'cat-petisco', name: 'Petisco' },
+  { id: 'cat-camas', name: 'Camas, Almofadas e Tocas' },
+  { id: 'cat-petiscos', name: 'Petiscos' },
   { id: 'cat-saude', name: 'Saúde' },
 ];
 
 describe('normalizeImportItem (só backend)', () => {
   const { normalizeImportItem, MEDICINE_MESSAGE } = backend;
+
+  it('nome de categoria antigo cai na categoria nova', () => {
+    const r = normalizeImportItem({ name: 'Cama', categoryName: 'Conforto', price: '10' }, 0, CATEGORIES);
+    expect(r).toMatchObject({ ok: true, data: { categoryId: 'cat-camas' } });
+    expect(backend.canonicalCategoryName('petisco')).toBe('Petiscos');
+    expect(backend.canonicalCategoryName('Roupas')).toBe('Roupas');
+  });
 
   it('recusa Medicamento com a mensagem da loja', () => {
     const r = normalizeImportItem({ name: 'Advocate', categoryName: 'Medicamento', price: '90' }, 0, CATEGORIES);
@@ -26,7 +33,7 @@ describe('normalizeImportItem (só backend)', () => {
     if (!r.ok) return;
     expect(r.status).toBe('draft');
     expect(r.data).toMatchObject({
-      categoryId: 'cat-petisco', linkApp: null, subid: 'grp_churu', role: 'heroi',
+      categoryId: 'cat-petiscos', linkApp: null, subid: 'grp_churu', role: 'heroi',
       badge: 'Em teste nos gatos', tags: [], priceCheckedAt: null,
     });
   });
@@ -45,8 +52,8 @@ describe('normalizeImportItem (só backend)', () => {
   });
 
   it('usa categoryId quando existe e recusa Saúde', () => {
-    const byId = normalizeImportItem({ name: 'Cama', categoryId: 'cat-conforto', price: 1 }, 0, CATEGORIES);
-    expect(byId.ok && byId.data.categoryId).toBe('cat-conforto');
+    const byId = normalizeImportItem({ name: 'Cama', categoryId: 'cat-camas', price: 1 }, 0, CATEGORIES);
+    expect(byId.ok && byId.data.categoryId).toBe('cat-camas');
     const saude = normalizeImportItem({ name: 'Y', categoryName: 'Saúde', price: 1 }, 0, CATEGORIES);
     expect(saude.ok).toBe(false);
   });
