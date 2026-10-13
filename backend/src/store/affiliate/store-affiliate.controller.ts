@@ -71,14 +71,15 @@ export class StoreAffiliateController {
 
   // ── Mercado Livre: cadastrar como rascunho (links continuam manuais) ──────
   @Post('ml/register')
-  async mlRegister(@Req() req: any, @Body() body: { itemId?: string; name?: string; categoryName?: string }) {
+  async mlRegister(@Req() req: any, @Body() body: { itemId?: string; name?: string; categoryName?: string; mlKind?: string }) {
     this.assertAdmin(req);
     const itemId = String(body?.itemId ?? '').trim().toUpperCase();
     if (!/^MLB\d+$/.test(itemId)) throw new BadRequestException('Código MLB inválido.');
     const externalId = `ml:${itemId}`;
     await this.assertNotRegistered(externalId);
 
-    const item = await this.ml.lookup(itemId);
+    // Produto de catálogo é lido por /products (o lookup reconhece /p/MLB…).
+    const item = await this.ml.lookup(body?.mlKind === 'product' ? `/p/${itemId}` : itemId);
     if (!item.configured) throw new BadRequestException('Mercado Livre não conectado.');
     if (item.name && isMedicineProduct(item.name)) throw new BadRequestException(MEDICINE_MESSAGE);
     const name = String(body?.name ?? '').trim() || suggestShortName(item.name || itemId);

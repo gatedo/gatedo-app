@@ -43,6 +43,8 @@ export type AffiliateOffer = {
   images: string[];
   productLink: string | null;
   offerLink: string | null;
+  // Mercado Livre: anúncio (item) ou produto de catálogo (/p/MLB…).
+  mlKind?: 'item' | 'product';
 };
 
 // shopType: 1 = Shopee Mall (loja oficial). 2/4 = indicada / indicada plus.
@@ -104,6 +106,32 @@ export function normalizeMlSearchResult(r: any): AffiliateOffer {
     images: thumb ? [thumb] : [],
     productLink: r?.permalink ?? null,
     offerLink: null,
+    mlKind: 'item',
+  };
+}
+
+/** Produto de catálogo (/products/{id}): preço vem do buy_box_winner. */
+export function normalizeMlCatalogProduct(p: any): AffiliateOffer {
+  const id = String(p?.id || '');
+  const picture = (p?.pictures || []).map((x: any) => x?.url).find(Boolean);
+  return {
+    source: 'ml',
+    externalId: `ml:${id}`,
+    itemId: id,
+    shopId: String(p?.buy_box_winner?.seller_id ?? ''),
+    name: String(p?.name ?? '').trim(),
+    shopName: null,
+    officialShop: Boolean(p?.buy_box_winner?.official_store_id),
+    price: round2(Number(p?.buy_box_winner?.price) || 0),
+    commissionPct: null,
+    commissionValue: null,
+    commissionExtra: null,
+    rating: null,
+    sales: null,
+    images: picture ? [String(picture).replace(/^http:/, 'https:')] : [],
+    productLink: p?.permalink || (id ? `https://www.mercadolivre.com.br/p/${id}` : null),
+    offerLink: null,
+    mlKind: 'product',
   };
 }
 

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AffiliateOffer, normalizeMlSearchResult, parseMlbCode } from './affiliate-rules';
+import { AffiliateOffer, normalizeMlCatalogProduct, normalizeMlSearchResult, parseMlbCode } from './affiliate-rules';
 
 // Mercado Livre (semiautomático): busca título, preço, fotos e nota de um
 // anúncio pela API oficial. Os links de afiliado continuam manuais (botão
@@ -114,14 +114,45 @@ export class MercadoLivreService {
   }
 
   // ── Busca ──────────────────────────────────────────────────────────────────
-  /** Busca por palavra-chave com o token da conta conectada. */
+  /**
+   * Busca por palavra-chave com o token da conta conectada. A busca de
+   * anúncios (/sites/MLB/search) responde 403 para apps comuns; nesse caso
+   * cai na busca de catálogo (/products/search) e completa nome, foto e preço
+   * de cada produto. Se as duas estiverem fechadas, avisa para usar o MLB.
+   */
   async search(keyword: string, limit = 50): Promise<AffiliateOffer[]> {
     if (!(await this.isConnected())) {
       throw new BadRequestException('Mercado Livre não conectado. Clique em "Conectar Mercado Livre".');
     }
     const params = new URLSearchParams({ q: keyword, limit: String(Math.min(50, limit)) });
-    const data = await this.get<any>(`/sites/MLB/search?${params.toString()}`);
-    return (data?.results ?? []).map(normalizeMlSearchResult).filter((o: AffiliateOffer) => o.itemId);
+    try {
+      const data = await this.get<any>(`/sites/MLB/search?${params.toString()}`);
+      return (data?.results ?? []).map(normalizeMlSearchResult).filter((o: AffiliateOffer) => o.itemId);
+    } catch (error) {
+      if (!/respondeu 403/.test((error as Error).message)) throw error;
+      this.logger.warn('Busca de anúncios do ML fechada (403); tentando a busca de catálogo.');
+    }
+    try {
+      return await this.searchCatalog(keyword);
+    } catch (error) {
+      if (!/respondeu 403/.test((error as Error).message)) throw error;
+      throw new BadRequestException(
+        'O Mercado Livre não libera a busca por palavra-chave para este app (403). Use "Novo Produto" → loja Mercado Livre → colar o link ou código MLB.',
+      );
+    }
+  }
+
+  private async searchCatalog(keyword: string, limit = 20): Promise<AffiliateOffer[]> {
+    const params = new URLSearchParams({ status: 'active', site_id: 'MLB', q: keyword, limit: String(limit) });
+    const data = await this.get<any>(`/products/search?${params.toString()}`);
+    const ids: string[] = (data?.results ?? []).map((r: any) => String(r?.id || '')).filter(Boolean);
+    // Detalhe de cada produto (nome, foto, preço), 4 por vez.
+    const offers: AffiliateOffer[] = [];
+    for (let i = 0; i < ids.length; i += 4) {
+      const batch = await Promise.all(ids.slice(i, i + 4).map((id) => this.get<any>(`/products/${id}`).catch(() => null)));
+      for (const product of batch) if (product) offers.push(normalizeMlCatalogProduct(product));
+    }
+    return offers.filter((o) => o.itemId && o.name);
   }
 
   // ── Leitura do anúncio ─────────────────────────────────────────────────────

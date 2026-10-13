@@ -67,4 +67,44 @@ describe('MercadoLivreService OAuth', () => {
     const svc = new MercadoLivreService(fakePrisma());
     expect(await svc.lookup('MLB123456789')).toEqual({ configured: false, id: 'MLB123456789', externalId: 'ml:MLB123456789' });
   });
+
+  describe('busca', () => {
+    const json = (status: number, body: any) => ({ ok: status < 400, status, json: async () => body });
+    async function connected() {
+      const prisma = fakePrisma();
+      prisma.store.set('ml_oauth_refresh_token', 'rt');
+      const svc = new MercadoLivreService(prisma);
+      (svc as any).accessToken = { value: 'at', expiresAt: Date.now() + 3_600_000 };
+      return svc;
+    }
+
+    it('busca de anúncios fechada (403) cai no catálogo', async () => {
+      const svc = await connected();
+      fetchMock
+        .mockResolvedValueOnce(json(403, { error: 'forbidden', message: 'forbidden' }))
+        .mockResolvedValueOnce(json(200, { results: [{ id: 'MLB19615387' }] }))
+        .mockResolvedValueOnce(json(200, {
+          id: 'MLB19615387', name: 'Areia Pipicat 4kg', pictures: [{ url: 'http://http2.mlstatic.com/a.jpg' }],
+          buy_box_winner: { price: 29.9, official_store_id: 5 }, permalink: 'https://www.mercadolivre.com.br/p/MLB19615387',
+        }));
+      const offers = await svc.search('areia');
+      expect(fetchMock.mock.calls[1][0]).toContain('/products/search?status=active&site_id=MLB&q=areia');
+      expect(offers).toEqual([expect.objectContaining({
+        externalId: 'ml:MLB19615387', name: 'Areia Pipicat 4kg', price: 29.9, officialShop: true, mlKind: 'product',
+        images: ['https://http2.mlstatic.com/a.jpg'],
+      })]);
+    });
+
+    it('as duas fechadas: orienta a usar o MLB', async () => {
+      const svc = await connected();
+      fetchMock.mockResolvedValue(json(403, { error: 'forbidden' }));
+      await expect(svc.search('areia')).rejects.toThrow(/colar o link ou código MLB/);
+    });
+
+    it('outro erro não é mascarado', async () => {
+      const svc = await connected();
+      fetchMock.mockResolvedValueOnce(json(500, { message: 'boom' }));
+      await expect(svc.search('areia')).rejects.toThrow(/500/);
+    });
+  });
 });

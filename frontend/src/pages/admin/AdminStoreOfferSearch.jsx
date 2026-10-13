@@ -67,7 +67,7 @@ export default function AdminStoreOfferSearch({ categoryOptions, onRegistered, m
     if (!category) { alert('Escolha a categoria.'); return; }
     setSaving((s) => ({ ...s, [offer.itemId]: true }));
     try {
-      const r = await api.post(`/store-affiliate/${offer.source || source}/register`, { itemId: offer.itemId, name, categoryName: category });
+      const r = await api.post(`/store-affiliate/${offer.source || source}/register`, { itemId: offer.itemId, name, categoryName: category, mlKind: offer.mlKind });
       onRegistered?.(r.data);
       setResult((prev) => ({
         ...prev,
